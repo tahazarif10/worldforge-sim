@@ -224,13 +224,13 @@ public partial class VisualTerrain3D : Node3D
             if (kind == Terrain.Forest && h % 7 < 3)
             {
                 float scale = 0.74f + (h % 19) * 0.023f;
-                trunks.Add((Transform(p + Vector3.Up * 0.55f * scale,
+                trunks.Add((MakeTransform(p + Vector3.Up * 0.55f * scale,
                     new Vector3(0.20f * scale, scale, 0.20f * scale)),
                     new Color("#836146")));
-                canopies.Add((Transform(p + Vector3.Up * 1.34f * scale,
+                canopies.Add((MakeTransform(p + Vector3.Up * 1.34f * scale,
                     new Vector3(0.98f * scale, 1.25f * scale, 0.98f * scale)),
                     ((h >> 5) & 1) == 0 ? new Color("#328665") : new Color("#4c9a75")));
-                upperCanopies.Add((Transform(p + Vector3.Up * 2.0f * scale,
+                upperCanopies.Add((MakeTransform(p + Vector3.Up * 2.0f * scale,
                     new Vector3(0.76f * scale, 0.90f * scale, 0.76f * scale)),
                     ((h >> 6) & 1) == 0 ? new Color("#5cba81") : new Color("#2d7658")));
                 count++;
@@ -238,14 +238,14 @@ public partial class VisualTerrain3D : Node3D
             else if (kind == Terrain.Mountain && h % 5 < 3)
             {
                 float size = 0.35f + (h % 11) * 0.046f;
-                stones.Add((Transform(p + Vector3.Up * 0.17f,
+                stones.Add((MakeTransform(p + Vector3.Up * 0.17f,
                     new Vector3(size, size * 0.65f, size * 0.8f)),
                     ((h >> 6) & 1) == 0 ? new Color("#a5b1b8") : new Color("#637582")));
                 count++;
             }
             else if (kind == Terrain.Grass && h % 11 == 0)
             {
-                shrubs.Add((Transform(p + Vector3.Up * 0.13f,
+                shrubs.Add((MakeTransform(p + Vector3.Up * 0.13f,
                     new Vector3(0.27f, 0.25f, 0.27f)),
                     ((h >> 4) & 1) == 0 ? new Color("#b7c967") : new Color("#d9b66b")));
                 count++;
@@ -288,7 +288,7 @@ public partial class VisualTerrain3D : Node3D
         });
     }
 
-    private static Transform3D Transform(Vector3 at, Vector3 scale) =>
+    private static Transform3D MakeTransform(Vector3 at, Vector3 scale) =>
         new(Basis.Identity.Scaled(scale), at);
 
     private static bool IsWater(Terrain tile) =>
