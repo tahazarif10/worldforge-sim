@@ -54,5 +54,7 @@ jobs:
         run: dotnet run --project tests/TerrainRelief.Smoke/TerrainRelief.Smoke.csproj -c Release
       - name: Continuous shared-corner terrain, brush seams and exact picker tests
         run: dotnet run --project tests/SharedHeightfield.Smoke/SharedHeightfield.Smoke.csproj -c Release
+      - name: Editable regional elevation, checksummed disk save and recovery tests
+        run: dotnet run --project tests/ElevationRegion.Smoke/ElevationRegion.Smoke.csproj -c Release
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false

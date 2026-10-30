@@ -36,6 +36,7 @@ public partial class VisualLab3D : Node3D
     private double _slowestFrame;
     private int _frames;
     private bool _ecoMode;
+    private bool _heightSculptMode;
     private readonly WorldForge.Instrumentation.FrameTimeProbe _frameProbe = new();
 
     public override void _Ready()
@@ -214,7 +215,7 @@ public partial class VisualLab3D : Node3D
     }
 
     private void RefreshHud() =>
-        _hud?.UpdateState(_brush.ToString(), _radius, _speed, _world.Seed,
+        _hud?.UpdateState(_heightSculptMode ? "Sculpt Height (Shift lowers)" : _brush.ToString(), _radius, _speed, _world.Seed,
                          _world.People.Count, _world.Tick);
 
     private void SetupHud()
@@ -229,7 +230,7 @@ public partial class VisualLab3D : Node3D
         _hud.OffsetTop = 12;
         _hud.OffsetBottom = 194;
 
-        _hud.ToolSelected += tool => { _brush = (Brush)tool; RefreshHud(); };
+        _hud.ToolSelected += tool => { _brush = (Brush)tool; _heightSculptMode = false; RefreshHud(); };
         _hud.RadiusChangeRequested += amount =>
         {
             _radius = Math.Clamp(_radius + amount, 0, 12);
@@ -296,6 +297,15 @@ public partial class VisualLab3D : Node3D
                     (_ecoMode ? "ECO (no dynamic shadows, reduced water math, 2 chunks/pass)" :
                                 "BALANCED (full authored art, shadows and detailed water)"));
             }
+            if (k.Keycode == Key.F7)
+            {
+                _heightSculptMode = !_heightSculptMode;
+                GD.Print(_heightSculptMode
+                    ? "Elevation sculpt ON: left drag raises, hold Shift to lower. F11 save, F12 load."
+                    : "Elevation sculpt OFF: regular terrain and person tools enabled.");
+            }
+            if (k.Keycode == Key.F11) SaveElevationEdits();
+            if (k.Keycode == Key.F12) LoadElevationEdits();
             if (k.Keycode == Key.F8) SaveVisualSnapshot();
             if (k.Keycode == Key.F9) SaveFrameTimeSamples();
             if (k.Keycode == Key.F10)
@@ -308,6 +318,44 @@ public partial class VisualLab3D : Node3D
             if (k.Keycode == Key.Escape) GetTree().Quit();
             RefreshHud();
         }
+    }
+
+    private string? ElevationDirectory()
+    {
+        string root = ProjectSettings.GlobalizePath("res://");
+        if (!root.StartsWith("H:\\", StringComparison.OrdinalIgnoreCase))
+        {
+            GD.PushError("Elevation file operation refused: project is not on H:.");
+            return null;
+        }
+        return Path.Combine(root, "artifacts", "worlds",
+            "seed_" + _world.Seed.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "elevation");
+    }
+
+    private void SaveElevationEdits()
+    {
+        string? path = ElevationDirectory();
+        if (path is null) return;
+        try
+        {
+            int count = _terrain.SaveElevation(path);
+            GD.Print($"Saved {count} edited height regions to {path}");
+        }
+        catch (Exception ex) { GD.PushError("Elevation save failed: " + ex.Message); }
+    }
+
+    private void LoadElevationEdits()
+    {
+        string? path = ElevationDirectory();
+        if (path is null) return;
+        try
+        {
+            int count = _terrain.LoadElevation(path);
+            if (count > 0) UpdateActors();
+            GD.Print($"Loaded {count} checked height regions from {path}");
+        }
+        catch (Exception ex) { GD.PushError("Elevation load refused: " + ex.Message); }
     }
 
     private void SaveVisualSnapshot()
@@ -368,6 +416,13 @@ public partial class VisualLab3D : Node3D
     {
         if (!_cameraRig.TryPickTerrain(screen, out var hit)) return;
         int x = hit.X, y = hit.Y;
+        if (_heightSculptMode)
+        {
+            float deltaHeight = Input.IsKeyPressed(Key.Shift) ? -0.10f : 0.10f;
+            _terrain.SculptElevation(x, y, _radius, deltaHeight);
+            UpdateActors();
+            return;
+        }
 
         bool terrainEdited = true;
         switch (_brush)
