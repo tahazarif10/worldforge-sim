@@ -29,6 +29,7 @@ public partial class VisualTerrain3D : Node3D
     private readonly Dictionary<(int X, int Y), int> _propCounts = new();
     private PackedScene? _treePrefab;
     private PackedScene? _rockPrefab;
+    private NatureArtLibrary? _natureArt;
     public long FoliageCellsVisited { get; private set; }
     public long FoliageChunksRebuilt { get; private set; }
     public long TotalTerrainChunkBuilds { get; private set; }
@@ -70,6 +71,7 @@ public partial class VisualTerrain3D : Node3D
             ? GD.Load<PackedScene>("res://Assets/Nature/Tree.glb") : null;
         _rockPrefab = ResourceLoader.Exists("res://Assets/Nature/Rock.glb")
             ? GD.Load<PackedScene>("res://Assets/Nature/Rock.glb") : null;
+        _natureArt ??= new NatureArtLibrary();
 
         if (_water is null)
         {
@@ -297,6 +299,7 @@ public partial class VisualTerrain3D : Node3D
         var upperCanopies = new List<(Transform3D Transform, Color Color)>();
         var stones = new List<(Transform3D Transform, Color Color)>();
         var shrubs = new List<(Transform3D Transform, Color Color)>();
+        var authoredPlacements = new List<NatureArtLibrary.Placement>();
 
         int count = 0;
         int maxY = Math.Min(_world.Height, (cy + 1) * ChunkSize);
@@ -312,7 +315,8 @@ public partial class VisualTerrain3D : Node3D
             float ground = HeightAt(x, y);
             Vector3 p = new(x + offsetX, ground, y + offsetZ);
 
-            if (kind == Terrain.Forest && h % 7 < 3)
+            int species = NatureScatter.Pick(kind, h);
+            if (kind == Terrain.Forest && species >= 0)
             {
                 if (_treePrefab is not null && importedTreeCount < MaxImportedTreesPerChunk)
                 {
@@ -321,6 +325,16 @@ public partial class VisualTerrain3D : Node3D
                     count++;
                     continue;
                 }
+                if (_natureArt is not null && _natureArt.Has((NatureArtLibrary.Species)species))
+                {
+                    authoredPlacements.Add(new NatureArtLibrary.Placement(
+                        (NatureArtLibrary.Species)species, p,
+                        2.4f * NatureScatter.HeightFactor(h), NatureScatter.RotationRadians(h)));
+                    count++;
+                    continue;
+                }
+                // Missing import: retain lightweight procedural geometry
+                // rather than leaving the map empty or hiding import errors.
                 float scale = 0.74f + (h % 19) * 0.023f;
                 trunks.Add((MakeTransform(p + Vector3.Up * 0.55f * scale,
                     new Vector3(0.20f * scale, scale, 0.20f * scale)),
@@ -333,12 +347,21 @@ public partial class VisualTerrain3D : Node3D
                     ((h >> 6) & 1) == 0 ? new Color("#5cba81") : new Color("#2d7658")));
                 count++;
             }
-            else if (kind == Terrain.Mountain && h % 5 < 3)
+            else if (kind is Terrain.Mountain or Terrain.Sand && species is 6 or 7)
             {
                 if (_rockPrefab is not null && importedRockCount < MaxImportedRocksPerChunk)
                 {
                     AddImportedModel(chunk, _rockPrefab, p, 0.8f, h);
                     importedRockCount++;
+                    count++;
+                    continue;
+                }
+                if (_natureArt is not null && _natureArt.Has((NatureArtLibrary.Species)species))
+                {
+                    authoredPlacements.Add(new NatureArtLibrary.Placement(
+                        (NatureArtLibrary.Species)species, p,
+                        (kind == Terrain.Mountain ? 0.9f : 0.55f) *
+                        NatureScatter.HeightFactor(h), NatureScatter.RotationRadians(h)));
                     count++;
                     continue;
                 }
@@ -348,8 +371,17 @@ public partial class VisualTerrain3D : Node3D
                     ((h >> 6) & 1) == 0 ? new Color("#a5b1b8") : new Color("#637582")));
                 count++;
             }
-            else if (kind == Terrain.Grass && h % 11 == 0)
+            else if (kind == Terrain.Grass && species is 8 or 9)
             {
+                if (_natureArt is not null && _natureArt.Has((NatureArtLibrary.Species)species))
+                {
+                    authoredPlacements.Add(new NatureArtLibrary.Placement(
+                        (NatureArtLibrary.Species)species, p,
+                        (species == 9 ? 0.42f : 0.52f) * NatureScatter.HeightFactor(h),
+                        NatureScatter.RotationRadians(h)));
+                    count++;
+                    continue;
+                }
                 shrubs.Add((MakeTransform(p + Vector3.Up * 0.13f,
                     new Vector3(0.27f, 0.25f, 0.27f)),
                     ((h >> 4) & 1) == 0 ? new Color("#b7c967") : new Color("#d9b66b")));
@@ -365,6 +397,7 @@ public partial class VisualTerrain3D : Node3D
         AddBatched(chunk, "TreeCrownsUpper", foliageMesh, upperCanopies);
         AddBatched(chunk, "Rocks", boulderMesh, stones);
         AddBatched(chunk, "FlowersShrubs", foliageMesh, shrubs);
+        _natureArt?.Populate(chunk, authoredPlacements);
         _propCounts[key] = count;
         LastPropCount += count;
     }
