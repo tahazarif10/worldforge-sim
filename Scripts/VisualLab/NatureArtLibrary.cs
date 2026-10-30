@@ -28,7 +28,7 @@ public sealed class NatureArtLibrary
 
     private sealed class Model
     {
-        public readonly List<(Mesh Mesh, Transform3D Local)> Parts = new();
+        public readonly List<(Mesh Mesh, Transform3D Local, Material? Override)> Parts = new();
         public float LowestY = float.PositiveInfinity;
         public float Height;
     }
@@ -118,6 +118,7 @@ public sealed class NatureArtLibrary
                 {
                     Name = $"CC0_{group.Key}_{partIndex}",
                     Multimesh = batch,
+                    MaterialOverride = part.Override,
                     CastShadow = group.Key is Species.Grass or Species.Flower
                         ? GeometryInstance3D.ShadowCastingSetting.Off
                         : GeometryInstance3D.ShadowCastingSetting.On
@@ -135,7 +136,7 @@ public sealed class NatureArtLibrary
         if (node is MeshInstance3D { Mesh: not null } instance)
         {
             Mesh mesh = instance.Mesh;
-            model.Parts.Add((mesh, relative));
+            model.Parts.Add((mesh, relative, instance.MaterialOverride));
             Aabb bounds = mesh.GetAabb();
             // Include all eight transformed corners when normalizing GLB
             // model scale/pivot; a rotated or offset child remains grounded.
