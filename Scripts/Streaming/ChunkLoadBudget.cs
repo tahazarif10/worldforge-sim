@@ -13,7 +13,7 @@ public static class ChunkLoadBudget
 {
     public static List<(int X, int Y)> Choose(
         IReadOnlyCollection<(int X, int Y)> desired,
-        IReadOnlyDictionary<(int X, int Y), bool> resident,
+        IReadOnlySet<(int X, int Y)> resident,
         float focusX, float focusY, int chunkSize, int maxBuilds)
     {
         if (chunkSize < 1 || maxBuilds < 0)
