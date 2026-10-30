@@ -46,5 +46,7 @@ jobs:
               assert data[16:20] == b"JSON", str(path)
           print("PASS: 10 structurally valid CC0 glTF2 binary models")
           PY
+      - name: Environment biome blending and live shoreline mask tests
+        run: dotnet run --project tests/EnvironmentArt.Smoke/EnvironmentArt.Smoke.csproj -c Release
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false

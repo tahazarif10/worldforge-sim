@@ -24,6 +24,8 @@ public partial class VisualTerrain3D : Node3D
     private WorldState _world = null!;
     private Node3D _vegetation = null!;
     private MeshInstance3D _water = null!;
+    private ImageTexture? _coastMaskTexture;
+    private bool _coastDirty;
     private readonly HashSet<(int X, int Y)> _changedChunks = new();
     private readonly Dictionary<(int X, int Y), Node3D> _foliageChunks = new();
     private readonly Dictionary<(int X, int Y), int> _propCounts = new();
@@ -34,6 +36,19 @@ public partial class VisualTerrain3D : Node3D
     public long FoliageChunksRebuilt { get; private set; }
     public long TotalTerrainChunkBuilds { get; private set; }
     public int ActiveTerrainChunks => _chunks.Count;
+    public bool RichTerrainDetails { get; private set; } = true;
+
+    public void ToggleRichTerrainDetails()
+    {
+        RichTerrainDetails = !RichTerrainDetails;
+        // Compare visual style and frame intervals with exactly the same
+        // WorldSim state and camera pose. Rebuild resident meshes only on
+        // deliberate F3 interaction, never on every simulation frame.
+        foreach (var key in _chunks.Keys)
+            BuildChunk(key.X, key.Y);
+        GD.Print("V2 rich terrain surface/cliff shading: " +
+            (RichTerrainDetails ? "ON" : "OFF"));
+    }
     public int ActiveFoliageChunks => _foliageChunks.Count;
 
     private readonly StandardMaterial3D _earthMaterial = new()
@@ -86,6 +101,9 @@ public partial class VisualTerrain3D : Node3D
         }
         _water.Mesh = new PlaneMesh { Size = new Vector2(world.Width, world.Height) };
         _water.Position = new Vector3(world.Width * 0.5f, 0.12f, world.Height * 0.5f);
+        _coastMaskTexture = null;
+        _coastDirty = true;
+        RefreshCoastMask();
 
         // No eager global mesh construction here. Camera projection determines
         // which chunks should exist after the camera rig is initialized.
@@ -161,11 +179,12 @@ public partial class VisualTerrain3D : Node3D
         for (int cy = top / ChunkSize; cy <= bottom / ChunkSize; cy++)
         for (int cx = left / ChunkSize; cx <= right / ChunkSize; cx++)
             _changedChunks.Add((cx, cy));
+        _coastDirty = true;
     }
 
     public void FlushChanges()
     {
-        if (_changedChunks.Count == 0) return;
+        if (_changedChunks.Count == 0 && !_coastDirty) return;
         foreach (var (x, y) in _changedChunks)
         {
             // A hidden region retains edits in the authoritative WorldState;
@@ -175,6 +194,25 @@ public partial class VisualTerrain3D : Node3D
             RebuildVegetationChunk(x, y);
         }
         _changedChunks.Clear();
+        if (_coastDirty) RefreshCoastMask();
+    }
+
+    private void RefreshCoastMask()
+    {
+        // Shoreline texture is only rebuilt when terrain edits or world
+        // replacement change the land/water boundary, never on every frame.
+        if (_water.MaterialOverride is not ShaderMaterial material) return;
+        byte[] rgba = EnvironmentArtMath.BuildShoreMask(
+            _world.Width, _world.Height, _world.Tile, _world.Seed);
+        Image image = Image.CreateFromData(_world.Width, _world.Height,
+            false, Image.Format.Rgba8, rgba);
+        if (_coastMaskTexture is null)
+            _coastMaskTexture = ImageTexture.CreateFromImage(image);
+        else _coastMaskTexture.Update(image);
+        material.SetShaderParameter("shore_mask", _coastMaskTexture);
+        material.SetShaderParameter("map_size",
+            new Vector2(_world.Width, _world.Height));
+        _coastDirty = false;
     }
 
     public float HeightAt(int x, int y)
@@ -219,12 +257,14 @@ public partial class VisualTerrain3D : Node3D
             if (tile is Terrain.DeepWater or Terrain.ShallowWater) continue;
             any = true;
             float h = HeightAt(x, y);
-            float variation = ((int)(Hash(x, y, _world.Seed + 57) % 17) - 8) / 95f;
-            Color baseColor = TerrainColors[(int)tile];
-            Color col = variation >= 0 ? baseColor.Lightened(variation) : baseColor.Darkened(-variation);
+            Color col = TerrainColors[(int)tile];
             Vector3 a = new(x, h, y), b = new(x, h, y + 1);
             Vector3 c = new(x + 1, h, y), d = new(x + 1, h, y + 1);
-            AddQuad(surface, a, b, c, d, col, Vector3.Up);
+            // Four shaded top triangles share the actual simulation height.
+            // Color blends biomes across boundaries, with deterministic
+            // small-scale color variation. Picking remains exact.
+            if (RichTerrainDetails) AddTopFace(surface, x, y, h, col, a, b, c, d);
+            else AddQuad(surface, a, b, c, d, col, Vector3.Up);
 
             // Real vertical cliff faces, darker beneath the upper terrain.
             Color rock = tile == Terrain.Mountain ? new Color("#5a5d62") :
@@ -233,18 +273,19 @@ public partial class VisualTerrain3D : Node3D
             float east = x < _world.Width - 1 ? HeightAt(x + 1, y) : 0.12f;
             float north = y > 0 ? HeightAt(x, y - 1) : 0.12f;
             float south = y < _world.Height - 1 ? HeightAt(x, y + 1) : 0.12f;
+            uint strataVariation = Hash(x, y, _world.Seed + 309);
             if (h > west + 0.02f)
-                AddQuad(surface, new(x, west, y), new(x, west, y + 1),
-                    new(x, h, y), new(x, h, y + 1), rock, Vector3.Left);
+                DrawCliff(surface, new(x, west, y), new(x, west, y + 1),
+                    new(x, h, y), new(x, h, y + 1), rock, Vector3.Left, strataVariation);
             if (h > east + 0.02f)
-                AddQuad(surface, new(x + 1, east, y + 1), new(x + 1, east, y),
-                    new(x + 1, h, y + 1), new(x + 1, h, y), rock, Vector3.Right);
+                DrawCliff(surface, new(x + 1, east, y + 1), new(x + 1, east, y),
+                    new(x + 1, h, y + 1), new(x + 1, h, y), rock, Vector3.Right, strataVariation);
             if (h > north + 0.02f)
-                AddQuad(surface, new(x + 1, north, y), new(x, north, y),
-                    new(x + 1, h, y), new(x, h, y), rock, Vector3.Back);
+                DrawCliff(surface, new(x + 1, north, y), new(x, north, y),
+                    new(x + 1, h, y), new(x, h, y), rock, Vector3.Back, strataVariation);
             if (h > south + 0.02f)
-                AddQuad(surface, new(x, south, y + 1), new(x + 1, south, y + 1),
-                    new(x, h, y + 1), new(x + 1, h, y + 1), rock, Vector3.Forward);
+                DrawCliff(surface, new(x, south, y + 1), new(x + 1, south, y + 1),
+                    new(x, h, y + 1), new(x + 1, h, y + 1), rock, Vector3.Forward, strataVariation);
 
             // Narrow pale tide line on the land side of the coast.
             if (x > 0 && IsWater(_world.Tile(x - 1, y)))
@@ -276,6 +317,67 @@ public partial class VisualTerrain3D : Node3D
         instance.Visible = any;
         if (any) instance.Mesh = surface.Commit();
         else instance.Mesh = null;
+    }
+
+    private void AddTopFace(SurfaceTool surface, int x, int y, float height,
+        Color centerColor, Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+    {
+        Color ca = ToColor(EnvironmentArtMath.CornerColor(x,y,0,0,
+            _world.Width,_world.Height,_world.Tile,_world.Seed));
+        Color cb = ToColor(EnvironmentArtMath.CornerColor(x,y,0,1,
+            _world.Width,_world.Height,_world.Tile,_world.Seed));
+        Color cc = ToColor(EnvironmentArtMath.CornerColor(x,y,1,0,
+            _world.Width,_world.Height,_world.Tile,_world.Seed));
+        Color cd = ToColor(EnvironmentArtMath.CornerColor(x,y,1,1,
+            _world.Width,_world.Height,_world.Tile,_world.Seed));
+        Vector3 mid = new(x + .5f, height, y + .5f);
+        AddColoredTriangle(surface, a,b,mid,ca,cb,centerColor);
+        AddColoredTriangle(surface, b,d,mid,cb,cd,centerColor);
+        AddColoredTriangle(surface, d,c,mid,cd,cc,centerColor);
+        AddColoredTriangle(surface, c,a,mid,cc,ca,centerColor);
+    }
+
+    private static Color ToColor(EnvironmentArtMath.Rgb rgb) =>
+        new(rgb.R / 255f, rgb.G / 255f, rgb.B / 255f);
+
+    private static void AddColoredTriangle(SurfaceTool surface,
+        Vector3 a, Vector3 b, Vector3 c, Color ca, Color cb, Color cc)
+    {
+        surface.SetNormal(Vector3.Up);
+        surface.SetColor(ca); surface.AddVertex(a);
+        surface.SetColor(cb); surface.AddVertex(b);
+        surface.SetColor(cc); surface.AddVertex(c);
+    }
+
+    private void DrawCliff(SurfaceTool surface,
+        Vector3 lowA, Vector3 lowB, Vector3 highA, Vector3 highB,
+        Color rock, Vector3 normal, uint seed)
+    {
+        if (RichTerrainDetails)
+            AddStratifiedFace(surface, lowA, lowB, highA, highB,
+                rock, normal, seed);
+        else
+            AddQuad(surface, lowA, lowB, highA, highB, rock, normal);
+    }
+
+    private static void AddStratifiedFace(SurfaceTool surface,
+        Vector3 lowA, Vector3 lowB, Vector3 highA, Vector3 highB,
+        Color rock, Vector3 normal, uint variation)
+    {
+        // Pale rim, ochre/dark banding and irregular seeded tones suggest
+        // a geological cut without changing collision or surface height.
+        float[] marks = [0f, .33f, .72f, 1f];
+        for (int layer = 0; layer < 3; layer++)
+        {
+            float blend = layer switch { 0 => .18f, 1 => .06f, _ => .11f };
+            Color tone = layer == 1 ? rock.Lightened(blend) : rock.Darkened(blend);
+            if (((variation >> (layer * 3)) & 1u) == 1u)
+                tone = tone.Lightened(.055f);
+            AddQuad(surface,
+                lowA.Lerp(highA, marks[layer]), lowB.Lerp(highB, marks[layer]),
+                lowA.Lerp(highA, marks[layer+1]), lowB.Lerp(highB, marks[layer+1]),
+                tone, normal);
+        }
     }
 
     private static void AddQuad(SurfaceTool surface,
