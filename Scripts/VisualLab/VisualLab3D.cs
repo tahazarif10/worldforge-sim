@@ -262,6 +262,11 @@ public partial class VisualLab3D : Node3D
             if (k.Keycode == Key.Key3) _speed = 4;
             if (k.Keycode == Key.F2) _sun.ShadowEnabled = !_sun.ShadowEnabled;
             if (k.Keycode == Key.F9) SaveFrameTimeSamples();
+            if (k.Keycode == Key.F10)
+                GD.Print($"Visible terrain chunks: {_terrain.ActiveTerrainChunks}, " +
+                    $"foliage chunks: {_terrain.ActiveFoliageChunks}, " +
+                    $"foliage instances: {_terrain.LastPropCount}, " +
+                    $"terrain builds since launch: {_terrain.TotalTerrainChunkBuilds}");
             if (k.Keycode == Key.Escape) GetTree().Quit();
             RefreshHud();
         }
