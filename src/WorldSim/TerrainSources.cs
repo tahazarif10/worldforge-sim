@@ -32,11 +32,11 @@ public sealed class DirectWorldTerrainSource(WorldState world) : ITerrainTileSou
 }
 
 /// <summary>
-/// Temporary parity bridge: copies the *actual V2 tiles* into 64x64 RegionStore
-/// snapshots rather than substituting RegionGenerator (different visual art).
+/// Temporary parity bridge: lazily caches the *actual V2 tiles* in 64x64
+/// RegionStore areas rather than using RegionGenerator (different visual art).
 /// Both backends preserve V2 terrain, coast, actors and mouse picking.
-/// Not a large-world authority: WorldState still owns simulation and this
-/// mirror uses sparse overrides to retain the existing generator's appearance.
+/// Not a large-world authority: WorldState still owns simulation and the source resamples WorldState on region cache misses, so no duplicated
+/// WorldState-size initialization or persistent override dictionary is needed.
 /// </summary>
 public sealed class RegionMirrorTerrainSource : ITerrainTileSource
 {
@@ -52,27 +52,15 @@ public sealed class RegionMirrorTerrainSource : ITerrainTileSource
     public RegionMirrorTerrainSource(WorldState world, int maxResidentRegions = 8)
     {
         _world = world ?? throw new ArgumentNullException(nameof(world));
-        _regions = new RegionStore(world.Seed, maxResidentRegions);
-        int regionsX = (world.Width - 1) / RegionCoordinates.Size + 1;
-        int regionsY = (world.Height - 1) / RegionCoordinates.Size + 1;
-        for (int ry = 0; ry < regionsY; ry++)
-        for (int rx = 0; rx < regionsX; rx++)
-        {
-            var key = new RegionKey(rx, ry);
-            var bytes = new byte[RegionCoordinates.CellCount];
-            for (int ly = 0; ly < RegionCoordinates.Size; ly++)
-            for (int lx = 0; lx < RegionCoordinates.Size; lx++)
-            {
-                int x = rx * RegionCoordinates.Size + lx;
-                int y = ry * RegionCoordinates.Size + ly;
-                // No phantom land outside the V2 world; the renderer never
-                // reads these cells, but snapshots remain valid 64x64 data.
-                bytes[ly * RegionCoordinates.Size + lx] = (byte)
-                    (x < world.Width && y < world.Height
-                        ? world.Tile(x,y) : Terrain.DeepWater);
-            }
-            _regions.RestoreRegion(new RegionSnapshot(key, world.Seed, 0, bytes));
-        }
+        // Read the actual WorldState as the baseline *on every region
+        // regeneration*. An evicted region never falls back to the different
+        // experimental RegionGenerator, even after V2 painting or meteor.
+        _regions = new RegionStore(world.Seed, maxResidentRegions, cell =>
+            cell.X >= 0 && cell.Y >= 0 &&
+            cell.X < world.Width && cell.Y < world.Height
+                ? world.Tile((int)cell.X, (int)cell.Y)
+                : Terrain.DeepWater);
+
     }
 
     public Terrain Tile(int x, int y)
