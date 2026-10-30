@@ -56,5 +56,7 @@ jobs:
         run: dotnet run --project tests/SharedHeightfield.Smoke/SharedHeightfield.Smoke.csproj -c Release
       - name: Editable regional elevation, checksummed disk save and recovery tests
         run: dotnet run --project tests/ElevationRegion.Smoke/ElevationRegion.Smoke.csproj -c Release
+      - name: 8192 logical region-world LRU and persistent biome tests
+        run: dotnet run --project tests/RegionalWorld.Smoke/RegionalWorld.Smoke.csproj -c Release
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false
