@@ -15,7 +15,7 @@ Research supports Godot **SurfaceTool vertex colors / normals** for lightweight 
 2. **Geological cliff layering.** Existing continuous *vertical* cliff quad surfaces are subdivided into three horizontal rock bands with subtle deterministic tones and upper highlights. The wall geometry still exactly matches `HeightAt`, preserving 3D brush/picking math. The 3D terrain remains intentionally terraced rather than truly sculpted; continuous elevation/slope collision requires a larger follow-up architecture change.
 3. **Responsive coastal water.** `EnvironmentArtMath.BuildShoreMask` creates one RGBA8 mask from actual WorldSim tile types: water adjacency/foam strength, shallow/deep intensity and seeded low-frequency detail. The shader samples this mask with wave patterns tied to logical world-space, so changes of world dimensions no longer change wave scale. The mask is updated after brush edits and on new-world creation **only**, not on every frame. This supports OpenGL Compatibility without screen-depth / SSR.
 4. **Citizen allocation stabilization.** One Mesh/MultiMesh instance buffer is reused across ticks and brush actions; resizing only when population count changes. This avoids one managed/native mesh allocation per simulation advance. Still updates visible people transforms O(population), and no claims of 10k entity simulation yet.
-5. **On-demand visual proof.** **F8** saves a real engine screenshot to `H:\WorldForge-Sim\artifacts\visual-review\v2-art-*.png`. F9 retains 7200-frame interval ring CSV on H:, and F10 active chunk debug counters. Screenshot GPU readback only on F8 (not every frame).
+5. **Same-scene A/B quality switch.** **F3** switches rich vertex gradients and stratified cliff bands ON/OFF without changing the world seed or camera pose. Use it to compare frame timing and appearance directly instead of relying on memory.\n6. **On-demand visual proof.** **F8** saves a real engine screenshot to `H:\WorldForge-Sim\artifacts\visual-review\v2-art-*.png`. F9 retains 7200-frame interval ring CSV on H:, and F10 active chunk debug counters. Screenshot GPU readback only on F8 (not every frame).
 
 ## Automated tests
 
@@ -44,7 +44,7 @@ This script calls the existing portable H:-based Godot to import the bundled CC0
 - [ ] Paint Ocean on a beach, then Land/Sand on the same area: water should acquire/lose coast foam after the normal terrain refresh cadence (~0.16s), without stale mask.
 - [ ] Move camera across chunk borders, especially near coastline: no missing triangles, cracks, wrong terrain click or flipped materials.
 - [ ] Check all WorldSim tools, person movement, pause, meteor and New World. 3D screen-ray brush must still target the **unchanged** top height.
-- [ ] Press **F8** to capture a real screenshot on H:, **F9** after 30–60 seconds to export p95/p99 frame intervals to H:, and **F10** for chunk counts.
+- [ ] Press **F3** to compare plain tile/cliffs against the new blended terrain without changing the seed.\n- [ ] Press **F8** to capture a real screenshot on H:, **F9** after 30–60 seconds to export p95/p99 frame intervals to H:, and **F10** for chunk counts.
 - [ ] Compare against previous accepted PR #31 with identical camera pose; preserve actual rendering method and AMD R9 M395X driver details.
 - [ ] Test both F2 shadows ON/OFF and zoom near/mid/far; no unmeasured claim of FPS improvement.
 
