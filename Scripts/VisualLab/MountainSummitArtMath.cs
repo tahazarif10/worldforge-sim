@@ -15,7 +15,7 @@ public static class MountainSummitArtMath
     /// <summary>Cheap conservative reject before any neighbor biome reads:
     /// never return false for a rock that Choose could make visible.</summary>
     public static bool MayHaveAccent(uint hash, int heightStep) =>
-        heightStep is >= 0 and < 8 && (hash >> 7) % 100 < 22;
+        heightStep is >= 0 and < 8 && (hash >> 7) % 100 < 32;
 
     /// <param name="hash">Existing seeded prop hash for this absolute cell.</param>
     /// <param name="heightStep">Exactly Hash(x,y,worldSeed) % 11 as used
@@ -36,9 +36,9 @@ public static class MountainSummitArtMath
         // Lower exposed flank: a few larger, still modest upright shards.
         // Interior middle: much fewer, smaller detail accents.
         // Near ridge: exceptionally rare and tiny, never a large plate.
-        int frequency = heightStep >= 6 ? 4 :
-            nonMountainNeighbors >= 2 ? 22 :
-            nonMountainNeighbors == 1 ? 17 : 8;
+        int frequency = heightStep >= 6 ? 5 :
+            nonMountainNeighbors >= 2 ? 32 :
+            nonMountainNeighbors == 1 ? 26 : 18;
         if ((hash >> 7) % 100 >= frequency) return Accent.None;
 
         float height = heightStep >= 6
