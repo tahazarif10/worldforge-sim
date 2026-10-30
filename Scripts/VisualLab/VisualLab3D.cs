@@ -20,6 +20,7 @@ public partial class VisualLab3D : Node3D
     private WorldState _world = null!;
     private VisualTerrain3D _terrain = null!;
     private MultiMeshInstance3D _citizens = null!;
+    private MultiMesh _citizenBatch = null!;
     private Godot.Camera3D _camera = null!;
     private DirectionalLight3D _sun = null!;
     private GameHud _hud = null!;
@@ -54,6 +55,17 @@ public partial class VisualLab3D : Node3D
             }
         };
         AddChild(_citizens);
+        _citizenBatch = new MultiMesh
+        {
+            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+            UseColors = true,
+            Mesh = new SphereMesh
+            {
+                Radius = .22f, Height = .58f, RadialSegments = 7, Rings = 3
+            },
+            InstanceCount = 0
+        };
+        _citizens.Multimesh = _citizenBatch;
 
         _camera = new Godot.Camera3D
         {
@@ -118,26 +130,21 @@ public partial class VisualLab3D : Node3D
 
     private void UpdateActors()
     {
-        var sphere = new SphereMesh { Radius = 0.22f, Height = 0.58f, RadialSegments = 7, Rings = 3 };
-        var batch = new MultiMesh
-        {
-            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
-            UseColors = true,
-            Mesh = sphere,
-            InstanceCount = _world.People.Count
-        };
+        // A persistent mesh and instance buffer avoid reallocating Godot
+        // native resources on every simulation tick (or pointer edit).
+        if (_citizenBatch.InstanceCount != _world.People.Count)
+            _citizenBatch.InstanceCount = _world.People.Count;
         int i = 0;
         foreach (Citizen citizen in _world.People)
         {
-            float terrainHeight = _terrain.HeightAt(citizen.X, citizen.Y);
-            batch.SetInstanceTransform(i, new Transform3D(
-                Basis.Identity,
-                new Vector3(citizen.X + 0.5f, terrainHeight + 0.38f, citizen.Y + 0.5f)));
-            batch.SetInstanceColor(i, (citizen.Id & 1) == 0
+            float elevation = _terrain.HeightAt(citizen.X, citizen.Y);
+            _citizenBatch.SetInstanceTransform(i, new Transform3D(
+                Basis.Identity, new Vector3(citizen.X + .5f,
+                    elevation + .38f, citizen.Y + .5f)));
+            _citizenBatch.SetInstanceColor(i, (citizen.Id & 1) == 0
                 ? new Color("#f3c78e") : new Color("#f4e0ba"));
             i++;
         }
-        _citizens.Multimesh = batch;
     }
 
     public override void _Process(double delta)
