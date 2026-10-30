@@ -13,7 +13,8 @@ if (-not (Test-Path -LiteralPath $sdk)) { throw "Missing H:-based .NET SDK at $s
 $tests = @(
     'tests\Camera3D.Smoke\Camera3D.Smoke.csproj',
     'tests\WorldRegion.Smoke\WorldRegion.Smoke.csproj',
-    'tests\FrameTime.Smoke\FrameTime.Smoke.csproj'
+    'tests\FrameTime.Smoke\FrameTime.Smoke.csproj',
+    'tests\VisibleChunks.Smoke\VisibleChunks.Smoke.csproj'
 )
 foreach ($test in $tests) {
     Write-Host "Verifying $test"
