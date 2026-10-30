@@ -4,12 +4,12 @@
 
 ## Why the current architecture fails before huge maps
 
-- \`WorldState.cs:23–34\` explicitly rejects dimensions greater than 1024 and allocates \`Terrain[]\` for **all** cells.
-- \`WorldState.cs:107–126\` generates all terrain eagerly; \`:69–90\` walks the full citizen list every tick.
-- \`VisualLab3D.cs:101–113\` instantiates one small 120×88 world; no region data abstraction.
-- \`VisualTerrain3D.cs:71–75\` builds every 16×16 visual chunk during world creation, then \`:203–286\` recreates vegetation over the full grid whenever a cell region changes.
+- `WorldState.cs:23–34` explicitly rejects dimensions greater than 1024 and allocates `Terrain[]` for **all** cells.
+- `WorldState.cs:107–126` generates all terrain eagerly; `:69–90` walks the full citizen list every tick.
+- `VisualLab3D.cs:101–113` instantiates one small 120×88 world; no region data abstraction.
+- `VisualTerrain3D.cs:71–75` builds every 16×16 visual chunk during world creation, then `:203–286` recreates vegetation over the full grid whenever a cell region changes.
 - No persistence for player-modified terrain, no disk format, no level-of-detail, no view-driven chunk manager, no background scheduling.
-- \`MultiMeshInstance3D\` reduces draw calls but Godot does not cull instances within the same MultiMesh individually. Segment by **spatial region and LOD**. [Godot official](https://docs.godotengine.org/en/latest/tutorials/performance/using_multimesh.html).
+- `MultiMeshInstance3D` reduces draw calls but Godot does not cull instances within the same MultiMesh individually. Segment by **spatial region and LOD**. [Godot official](https://docs.godotengine.org/en/latest/tutorials/performance/using_multimesh.html).
 
 ## World-size cost: raw data only, not actual application footprint
 
@@ -29,7 +29,7 @@ Current 16×16 mesh chunks would produce 262,144 chunk objects at 8192², before
 
 ## Recommended separation: authoritative model, view, and cache
 
-\`\`\`mermaid
+```mermaid
 flowchart TB
   USER[Brush and camera input] --> CMD[WorldCommand / tick engine]
   CMD --> SIM[Simulation service + deterministic region scheduler]
@@ -47,13 +47,13 @@ flowchart TB
   EVENTS --> ENT[EntityPresentation: regional pooled instances]
   CAM --> RENDER
   RENDER --> STATS[Frame metrics: resident chunks, uploads, draw calls]
-\`\`\`
+```
 
 No worker touches the active Godot SceneTree or unsafely mutates GPU resources. Godot explicitly warns against scene-tree mutation from worker threads and resource/GPU interactions that can stall render synchronization. [Official thread safety](https://docs.godotengine.org/en/stable/tutorials/performance/thread_safe_apis.html).
 
 ## Fundamental coordinate and data contracts
 
-\`\`\`csharp
+```csharp
 public readonly record struct CellCoord(long X, long Y);
 public readonly record struct RegionKey(long X, long Y);
 public readonly record struct LocalCell(int X, int Y); // [0,63]
@@ -70,11 +70,11 @@ public sealed record RegionSnapshot(
     ReadOnlyMemory<byte> TerrainKinds,
     ReadOnlyMemory<ushort> Heights,
     ReadOnlyMemory<byte> Moisture);
-\`\`\`
+```
 
-Canonical world cell-to-region transformation must handle **negative** coordinates with floor division (not C# integer truncation toward zero). For 64-cell regions, coordinate -1 belongs to region -1 with local X=63. Add unit tests. Quantize height to \`ushort\` only when range/precision requirements justify; use physical units and a common origin across region boundaries. Terrain height is **not** equal to biome ID. Maintain a seeded region generator with deterministic seam sampling and versioned noise parameters.
+Canonical world cell-to-region transformation must handle **negative** coordinates with floor division (not C# integer truncation toward zero). For 64-cell regions, coordinate -1 belongs to region -1 with local X=63. Add unit tests. Quantize height to `ushort` only when range/precision requirements justify; use physical units and a common origin across region boundaries. Terrain height is **not** equal to biome ID. Maintain a seeded region generator with deterministic seam sampling and versioned noise parameters.
 
-Represent edits as commands \`BrushPaint(center, radius, kind, logicalTick)\`, \`SpawnPerson\`, \`Meteor\`; commit at tick boundaries or in serialized order with region revisions. A brush spanning region boundaries must atomically update all affected regions or journal one transaction with explicit replay order.
+Represent edits as commands `BrushPaint(center, radius, kind, logicalTick)`, `SpawnPerson`, `Meteor`; commit at tick boundaries or in serialized order with region revisions. A brush spanning region boundaries must atomically update all affected regions or journal one transaction with explicit replay order.
 
 ## Hierarchy and region sizes
 
@@ -107,13 +107,13 @@ Selected baseline: CPU-generated heightfield chunk meshes using arrays/ArrayMesh
 - **Far / LOD2**: region-level height/color mesh with tree impostor clusters, no tiny units, no individual clutter.
 - **Global map**: 2D strategic overlay/overview texture generated from *same* WorldStore data; camera transitions between 3D and strategic representation without loading the whole world geometry.
 
-Select using projected pixel error at current camera \`Size\`, viewport resolution, tilt and object bounds; add hysteresis to avoid LOD flipping while moving. Avoid seam cracks via shared boundary height samples, edge stitching or skirts, and explicit border tests.
+Select using projected pixel error at current camera `Size`, viewport resolution, tilt and object bounds; add hysteresis to avoid LOD flipping while moving. Avoid seam cracks via shared boundary height samples, edge stitching or skirts, and explicit border tests.
 
 Godot supports imported mesh LOD and visibility ranges, but when applying LOD to a single MultiMesh all instances may use the same LOD at once. [Godot mesh LOD](https://docs.godotengine.org/en/latest/tutorials/3d/mesh_lod.html).
 
 ## Chunk streaming state machine
 
-\`\`\`
+```
 UNLOADED
   -> REQUESTED(priority, generation, cameraEpoch)
   -> CPU_GENERATING (immutable region snapshot)
@@ -122,9 +122,9 @@ UNLOADED
   -> RESIDENT(LOD0/1/2, lastUsed)
   -> RETIRING (delay to avoid camera oscillation)
   -> UNLOADED
-\`\`\`
+```
 
-Rebase/retarget job priorities on camera movement; after camera teleports, discard stale requests using \`cameraEpoch\` and cancel tokens, not by submitting unlimited background work. Version each region edit; if stale CPU mesh returns after a brush mutation, discard and rebuild latest. User brush changes should get higher priority than distant world generation.
+Rebase/retarget job priorities on camera movement; after camera teleports, discard stale requests using `cameraEpoch` and cancel tokens, not by submitting unlimited background work. Version each region edit; if stale CPU mesh returns after a brush mutation, discard and rebuild latest. User brush changes should get higher priority than distant world generation.
 
 Use **bounded worker count** (initially 1–2; measure) for pure CPU procedural generation and mesh arrays. Main thread commits meshes, resource changes and scene mutations under strict per-frame limits. Never call GPU texture updates from worker tasks. Profiler must measure wait times and queue backlogs.
 
@@ -136,9 +136,9 @@ Caching:
 
 ## Vegetation and citizens
 
-**Plants:** deterministic seeded scatter keyed \`(seed,region,biome,variant)\`, independent of simulation RNG. Each region/LOD owns material/mesh-keyed \`MultiMesh\` batches. Build only the **changed region** after paint, reuse unchanged buffers. Near imported models can be attached/instanced only for selected hero sites; far/mid vegetation must be batched. Per-chunk frustum culling is available; no per-instance culling inside a MultiMesh. Limit shadow casting to close-range canopy/trunks and prefer baked/cheap AO at distance.
+**Plants:** deterministic seeded scatter keyed `(seed,region,biome,variant)`, independent of simulation RNG. Each region/LOD owns material/mesh-keyed `MultiMesh` batches. Build only the **changed region** after paint, reuse unchanged buffers. Near imported models can be attached/instanced only for selected hero sites; far/mid vegetation must be batched. Per-chunk frustum culling is available; no per-instance culling inside a MultiMesh. Limit shadow casting to close-range canopy/trunks and prefer baked/cheap AO at distance.
 
-**People:** keep canonical citizens keyed by 64-bit ID and region. Use spatial grid/entity buckets to update visible region presentation; small cell movement generates a region-local transform delta, not new meshes or full people list reallocation. Near-view animation may interpolate positions between logical ticks, but the authoritative \`WorldSim\` tick remains deterministic. Distant populations use aggregated counts/icons, not 100k node graphs. Coarse out-of-view simulation must have explicitly designed determinism and reconciliation rules (one RNG stream per region/event, stable event order).
+**People:** keep canonical citizens keyed by 64-bit ID and region. Use spatial grid/entity buckets to update visible region presentation; small cell movement generates a region-local transform delta, not new meshes or full people list reallocation. Near-view animation may interpolate positions between logical ticks, but the authoritative `WorldSim` tick remains deterministic. Distant populations use aggregated counts/icons, not 100k node graphs. Coarse out-of-view simulation must have explicitly designed determinism and reconciliation rules (one RNG stream per region/event, stable event order).
 
 ## Persistence, determinism and threading
 
