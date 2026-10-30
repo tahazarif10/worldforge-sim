@@ -21,5 +21,7 @@ jobs:
         run: dotnet run --project tests/DirtyTileRegion.Smoke/DirtyTileRegion.Smoke.csproj -c Release
       - name: Original terrain pixel art and coastline smoke tests
         run: dotnet run --project tests/TerrainPixelArt.Smoke/TerrainPixelArt.Smoke.csproj -c Release
+      - name: Deterministic 64x64 world region and snapshot tests
+        run: dotnet run --project tests/WorldRegion.Smoke/WorldRegion.Smoke.csproj -c Release
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false
