@@ -13,23 +13,19 @@ namespace WorldForge.VisualLab;
 public partial class VisualLab3D : Node3D
 {
     private const double TickSeconds = 0.18;
-    private const float MinCameraSize = 19f;
-    private const float MaxCameraSize = 160f;
 
     private enum Brush { Land, Ocean, Sand, Forest, Mountain, Person, Meteor }
 
     private WorldState _world = null!;
     private VisualTerrain3D _terrain = null!;
     private MultiMeshInstance3D _citizens = null!;
-    private Camera3D _camera = null!;
+    private Godot.Camera3D _camera = null!;
     private DirectionalLight3D _sun = null!;
     private GameHud _hud = null!;
     private Brush _brush = Brush.Person;
     private int _radius = 2;
     private int _speed = 1;
-    private bool _dragging;
-    private Vector3 _focus;
-    private float _cameraSize = 79f;
+    private WorldForge.Camera3D.StrategyCameraRig _cameraRig = null!;
     private double _tickAccumulator;
     private double _terrainRefresh;
     private double _hudRefresh;
@@ -56,11 +52,11 @@ public partial class VisualLab3D : Node3D
         };
         AddChild(_citizens);
 
-        _camera = new Camera3D
+        _camera = new Godot.Camera3D
         {
             Name = "IsometricCamera",
-            Projection = Camera3D.ProjectionType.Orthogonal,
-            Size = _cameraSize,
+            Projection = Godot.Camera3D.ProjectionType.Orthogonal,
+            Size = 79f,
             Near = 0.05f,
             Far = 550f,
             Current = true
@@ -68,8 +64,9 @@ public partial class VisualLab3D : Node3D
         AddChild(_camera);
 
         CreateWorld(20261030);
+        _cameraRig = new WorldForge.Camera3D.StrategyCameraRig(_camera,
+            (x, y) => _terrain.HeightAt(x, y), _world.Width, _world.Height);
         SetupHud();
-        RefreshCamera();
     }
 
     private void SetupLighting()
@@ -105,11 +102,10 @@ public partial class VisualLab3D : Node3D
         _world = new WorldState(120, 88, seed);
         _world.PopulationLimit = 450;
         _terrain.BindWorld(_world);
-        _focus = new Vector3(_world.Width * 0.5f, 0, _world.Height * 0.5f);
+        _cameraRig?.ResetWorld(_world.Width, _world.Height);
         _tickAccumulator = 0;
         _terrainRefresh = 0;
         UpdateActors();
-        if (_camera is not null) RefreshCamera();
     }
 
     private void UpdateActors()
@@ -145,7 +141,7 @@ public partial class VisualLab3D : Node3D
         if (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down)) keys.Y -= 1f;
         if (keys.LengthSquared() > 0.01f)
         {
-            MoveFocus(keys.Normalized() * (float)(delta * _cameraSize * 0.50f));
+            _cameraRig.PanByKeyboard(keys, delta);
         }
 
         if (_speed > 0)
@@ -220,26 +216,21 @@ public partial class VisualLab3D : Node3D
         if (input is InputEventMouseButton mb)
         {
             if (mb.ButtonIndex == MouseButton.WheelUp && mb.Pressed)
-                ZoomAround(mb.Position, 1f / 1.14f);
+                _cameraRig.ZoomAt(mb.Position, 1f / 1.14f);
             else if (mb.ButtonIndex == MouseButton.WheelDown && mb.Pressed)
-                ZoomAround(mb.Position, 1.14f);
+                _cameraRig.ZoomAt(mb.Position, 1.14f);
             else if (mb.ButtonIndex == MouseButton.Right)
-                _dragging = mb.Pressed;
+            {
+                if (mb.Pressed) _cameraRig.BeginDrag(mb.Position);
+                else _cameraRig.EndDrag();
+            }
             else if (mb.ButtonIndex == MouseButton.Left && mb.Pressed)
                 ApplyAtScreen(mb.Position);
         }
         else if (input is InputEventMouseMotion mm)
         {
-            if (_dragging && Input.IsMouseButtonPressed(MouseButton.Right))
-            {
-                Vector3 right = _camera.GlobalTransform.Basis.X;
-                Vector3 up = _camera.GlobalTransform.Basis.Y;
-                right.Y = 0; up.Y = 0;
-                float factor = _cameraSize / Math.Max(1f, GetViewport().GetVisibleRect().Size.Y);
-                _focus -= (right * mm.Relative.X + up * mm.Relative.Y) * factor;
-                ClampFocus();
-                RefreshCamera();
-            }
+            if (Input.IsMouseButtonPressed(MouseButton.Right))
+                _cameraRig.DragTo(mm.Position);
             else if (Input.IsMouseButtonPressed(MouseButton.Left))
             {
                 ApplyAtScreen(mm.Position);
@@ -257,78 +248,10 @@ public partial class VisualLab3D : Node3D
         }
     }
 
-    private void ZoomAround(Vector2 mouse, float scale)
-    {
-        Vector3 before = ProjectToSeaPlane(mouse);
-        _cameraSize = Mathf.Clamp(_cameraSize * scale, MinCameraSize, MaxCameraSize);
-        RefreshCamera();
-        Vector3 after = ProjectToSeaPlane(mouse);
-        if (before.IsFinite() && after.IsFinite())
-        {
-            _focus += before - after;
-            ClampFocus();
-            RefreshCamera();
-        }
-    }
-
-    private void MoveFocus(Vector2 keyboard)
-    {
-        Vector3 right = _camera.GlobalTransform.Basis.X;
-        Vector3 up = _camera.GlobalTransform.Basis.Y;
-        right.Y = 0f; up.Y = 0f;
-        _focus += right * keyboard.X + up * keyboard.Y;
-        ClampFocus();
-        RefreshCamera();
-    }
-
-    private void ClampFocus()
-    {
-        _focus.X = Mathf.Clamp(_focus.X, 0, _world.Width);
-        _focus.Z = Mathf.Clamp(_focus.Z, 0, _world.Height);
-        _focus.Y = 0;
-    }
-
-    private void RefreshCamera()
-    {
-        // 45-degree azimuth, elevated real-3D orthographic camera.
-        Vector3 offset = new Vector3(1f, 1.20f, 1f).Normalized() * 155f;
-        _camera.Size = _cameraSize;
-        _camera.Position = _focus + offset;
-        _camera.LookAt(_focus, Vector3.Up);
-    }
-
-    private Vector3 ProjectToSeaPlane(Vector2 screen)
-    {
-        Vector3 origin = _camera.ProjectRayOrigin(screen);
-        Vector3 direction = _camera.ProjectRayNormal(screen);
-        if (Mathf.Abs(direction.Y) < 0.00001f)
-            return new Vector3(float.NaN, float.NaN, float.NaN);
-        float t = (0.12f - origin.Y) / direction.Y;
-        return origin + direction * t;
-    }
-
     private void ApplyAtScreen(Vector2 screen)
     {
-        // Height-aware CPU raymarch for the prototype. Production will use
-        // indexed chunk collisions / physics ray picking; no cell is assumed
-        // to live on the flat sea plane.
-        Vector3 origin = _camera.ProjectRayOrigin(screen);
-        Vector3 direction = _camera.ProjectRayNormal(screen);
-        bool found = false;
-        int x = 0, y = 0;
-        for (float t = 0f; t < 420f; t += 0.22f)
-        {
-            Vector3 at = origin + direction * t;
-            x = Mathf.FloorToInt(at.X);
-            y = Mathf.FloorToInt(at.Z);
-            if (!_world.Contains(x, y)) continue;
-            if (at.Y <= _terrain.HeightAt(x, y) + 0.02f)
-            {
-                found = true;
-                break;
-            }
-        }
-        if (!found) return;
+        if (!_cameraRig.TryPickTerrain(screen, out var hit)) return;
+        int x = hit.X, y = hit.Y;
 
         bool terrainEdited = true;
         switch (_brush)
