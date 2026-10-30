@@ -22,6 +22,14 @@ $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
 $env:DOTNET_MULTILEVEL_LOOKUP = '0'
 $env:MSBUILDDISABLENODEREUSE = '1'
+$dotnetHome = Join-Path $project 'Tools\dotnet'
+if (Test-Path (Join-Path $dotnetHome 'dotnet.exe')) {
+    $env:DOTNET_ROOT = $dotnetHome
+    $env:DOTNET_ROOT_X64 = $dotnetHome
+    if (-not (($env:PATH -split ';') -contains $dotnetHome)) { $env:PATH = "$dotnetHome;$env:PATH" }
+} else {
+    Write-Warning 'H:-based .NET SDK not installed. Do not build with the C:-based SDK.'
+}
 Write-Host "WorldForge dev environment active: $project"
 Write-Host "Project temp: $env:TEMP"
 Write-Host "NuGet packages: $env:NUGET_PACKAGES"
