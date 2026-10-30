@@ -60,7 +60,7 @@ public partial class VisualTerrain3D : Node3D
         // center vertex changes. Rebuild only resident terrain/foliage.
         foreach (var key in _chunks.Keys)
             BuildChunk(key.X, key.Y);
-        foreach (var key in _foliageChunks.Keys)
+        foreach (var key in new List<(int X, int Y)>(_foliageChunks.Keys))
             RebuildVegetationChunk(key.X, key.Y);
         GD.Print("V2 sculpted terrain facets: " + (SculptedFacets ? "ON" : "OFF"));
     }
@@ -73,7 +73,7 @@ public partial class VisualTerrain3D : Node3D
         // deliberate F3 interaction, never on every simulation frame.
         foreach (var key in _chunks.Keys)
             BuildChunk(key.X, key.Y);
-        foreach (var key in _foliageChunks.Keys)
+        foreach (var key in new List<(int X, int Y)>(_foliageChunks.Keys))
             RebuildVegetationChunk(key.X, key.Y);
         GD.Print("V2 rich terrain surface/cliff shading: " +
             (RichTerrainDetails ? "ON" : "OFF"));
