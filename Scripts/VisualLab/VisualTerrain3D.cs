@@ -202,7 +202,7 @@ public partial class VisualTerrain3D : Node3D
         // Shoreline texture is only rebuilt when terrain edits or world
         // replacement change the land/water boundary, never on every frame.
         if (_water.MaterialOverride is not ShaderMaterial material) return;
-        byte[] rgba = EnvironmentArtMath.BuildShoreMask(
+        byte[] rgba = WaterCoastMath.BuildMask(
             _world.Width, _world.Height, _world.Tile, _world.Seed);
         Image image = Image.CreateFromData(_world.Width, _world.Height,
             false, Image.Format.Rgba8, rgba);
