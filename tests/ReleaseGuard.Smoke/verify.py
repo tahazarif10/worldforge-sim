@@ -20,7 +20,7 @@ assert re.search(r"if \(-not \$ExperimentalV3\)\s*\{(?:(?!\n\}).)*run-visual-lab
 assert "RegionalWorldLab3D.tscn" in launcher, "separate experimental lab should be retained"
 assert "param([switch]$NoLaunch, [switch]$ExperimentalV3)" in verify
 assert "run-regional-world.ps1') -ExperimentalV3:$ExperimentalV3" in verify
-assert "run-visual-lab.ps1" in v2 and "Scenes/VisualLab3D.tscn" in v2
+assert "Scenes/VisualLab3D.tscn" in v2 and "RegionalWorldLab3D.tscn" not in v2
 assert "V3 is withdrawn" in readme
 assert "both visual appearance and movement/camera quality" in docs
 assert (root / "Scenes/Main.tscn").exists()
