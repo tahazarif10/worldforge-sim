@@ -20,7 +20,7 @@ public static class ChunkLoadBudget
             throw new ArgumentOutOfRangeException(nameof(maxBuilds));
         var missing = new List<(int X, int Y)>();
         foreach (var key in desired)
-            if (!resident.ContainsKey(key)) missing.Add(key);
+            if (!resident.Contains(key)) missing.Add(key);
 
         missing.Sort((a, b) =>
         {
