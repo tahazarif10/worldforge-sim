@@ -21,5 +21,7 @@ jobs:
         run: dotnet run --project tests/DirtyTileRegion.Smoke/DirtyTileRegion.Smoke.csproj -c Release
       - name: Original terrain pixel art and coastline smoke tests
         run: dotnet run --project tests/TerrainPixelArt.Smoke/TerrainPixelArt.Smoke.csproj -c Release
+      - name: Camera3D ray and terrain picking tests
+        run: dotnet run --project tests/Camera3D.Smoke/Camera3D.Smoke.csproj -c Release
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false
