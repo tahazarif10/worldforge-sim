@@ -38,7 +38,7 @@ public partial class VisualTerrain3D : Node3D
     public long FoliageChunksRebuilt { get; private set; }
     public long TotalTerrainChunkBuilds { get; private set; }
     public int ActiveTerrainChunks => _chunks.Count;
-    public int LastRequestedChunks { get; private set; };
+    public int LastRequestedChunks { get; private set; }
     public int PendingVisibleChunks => Math.Max(0, LastRequestedChunks - _chunks.Count);
     public bool RichTerrainDetails { get; private set; } = true;
 
