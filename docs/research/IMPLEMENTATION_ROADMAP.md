@@ -8,7 +8,7 @@
 
 ## Workstream ordering
 
-\`\`\`mermaid
+```mermaid
 flowchart LR
   V21[V2.1 Camera/Picking] --> SLICE[First vertical slice]
   V22[V2.2 Region/Chunk Data] --> SLICE
@@ -20,30 +20,30 @@ flowchart LR
   V26 --> V27[V2.7 Living World Scale]
   V25 --> V28[V2.8 Acceptance]
   V27 --> V28
-\`\`\`
+```
 
 Order nuance: the first **art sample** begins after camera contracts are stable but **before** a massive renderer rewrite; don't spend weeks replacing mesh generation without proving the art target. V2.2 region interfaces can be worked on in parallel with V2.1 because the old 2D/V2 scene is not modified until tested.
 
 ## Global development and merge rules
 
 - **Branch per scoped task, PR per branch**. Each PR references issue, owner, dependencies, risk, benchmark results, screenshots and rollback path.
-- CI should compile **actual Godot C#** and run deterministic \`WorldSim\` + camera + region math tests. Runtime/shader import must be tested separately (prefer standalone).
-- The user's Windows \`H:\WorldForge-Sim\` is the final hardware verification location. NEVER intentionally use C: for project files, downloads, dependencies, temp/caches or benchmarks. Respect locally modified \`project.godot\`.
+- CI should compile **actual Godot C#** and run deterministic `WorldSim` + camera + region math tests. Runtime/shader import must be tested separately (prefer standalone).
+- The user's Windows `H:\WorldForge-Sim` is the final hardware verification location. NEVER intentionally use C: for project files, downloads, dependencies, temp/caches or benchmarks. Respect locally modified `project.godot`.
 - PR may be implemented with source/CI green but remain Draft until actual Windows camera, screenshots and performance acceptance. User previously authorized merge *once the gate passes*; no assumption that an untested rendering change is safe.
-- Preserve old \`Scenes/Main.tscn\` and opt-in \`Scenes/VisualLab3D.tscn\` until V2 visual acceptance; do not force-set \`run/main_scene\`.
-- Update \`docs/PROJECT_STATE.md\` with observed facts, missing measurements, failures, reproducibility details and exact commit hashes.
+- Preserve old `Scenes/Main.tscn` and opt-in `Scenes/VisualLab3D.tscn` until V2 visual acceptance; do not force-set `run/main_scene`.
+- Update `docs/PROJECT_STATE.md` with observed facts, missing measurements, failures, reproducibility details and exact commit hashes.
 
 ## Milestones and gates
 
 | Stage / relative effort | Engineering objective and major files | Depends on | Deliverable and acceptance | Rollback and risk |
 |---|---|---|---|---|
-| **V2.1 Camera & Picking — M** | \`Scripts/Camera3D/{CameraPose,DragMath,StrategyCameraRig,TerrainPicker}.cs\`; \`VisualLab3D.cs\` input dispatch; \`tests/Camera3D.Smoke\` | existing V2 | Ground-ray drag stable, cursor-anchored zoom on elevated terrain, correct brush selection; CAM-01..12 tests, 20 sec drag latency profile + user feel approval | Feature toggle to old camera; danger: input math and terrain intersection precision |
-| **V2.2 Region/Chunk Model — L** | New \`src/WorldSim/Regions/{RegionKey,RegionSnapshot,IWorldStore,Commands,RegionCache}.cs\`; \`tests/WorldRegion.Smoke\` | stable simulation seed, command design | 64×64 region snapshots, deterministic cross-region editing and reload, 128² demo without full-world redraw; 512² data-only stress | New store behind adapter; old \`WorldState\` remains reference; deterministic replay risk |
-| **V2.3 Terrain Geometry — L** | \`Scripts/Rendering3D/{ChunkMeshBuilder,HeightSampler,SurfaceMaterialAtlas,CliffGenerator}.cs\` | V2.2 and approved art sample | Non-binary elevation, edge-consistent cliffs/slope, material blending and exact picking; no cracks at chunk borders, local edit rebuild only | Switch scenes to old VisualLab; risk: seams, collision mismatch |
-| **V2.4 Professional Art — M/L** | \`Assets/ArtSource\` (H-local), \`Assets/Nature\` (H-local provenance), \`scripts/import-*.ps1\`, stylized materials/LOD; curated demo | V2.1 + licensing | 2+ coherent tree species, rocks, brush/flowers, near/mid LOD, visual screenshot comparison at 3 zooms, user signs off appearance | Fallback placeholder models; risk: license mismatch, materials unsupported, overly expensive geometry |
-| **V2.5 Water/Lighting — M** | \`Assets/Shaders\`, shore mask/normal/wave materials, sun/shadow quality presets | V2.3/4 | Natural color/foam/shore behavior at all elevations; Compatibility-safe shader compiled/ran; shadow ON/OFF performance and visual approval | Shader/material quality tier toggle; risk: old GPU shader cost |
-| **V2.6 Large-World Streaming — XL** | \`Scripts/Streaming/{VisibilityPlanner,ChunkJobQueue,MainThreadCommit,ChunkCache,LODController}.cs\` + new WorldStore | V2.2/3/4 | 512² → 2048² → 4096² → 8192² sparse-load stress; visible/resident resources bounded; no long teleports stutter; p95/p99 and memory curves documented | Disable large maps / old small world mode; risk: concurrency, stale uploads and seams |
-| **V2.7 Living-World Presentation — XL** | \`WorldSim\` region active/coarse scheduler, \`Scripts/Entities/{EntityPresentation,RegionalBatches}.cs\`, animation assets | V2.6 | 1k/10k visible+background citizens, no new Mesh per entity tick, deterministic reconciliation, settlements later | Activate small simulation fallback; risk: simulation divergence |
+| **V2.1 Camera & Picking — M** | `Scripts/Camera3D/{CameraPose,DragMath,StrategyCameraRig,TerrainPicker}.cs`; `VisualLab3D.cs` input dispatch; `tests/Camera3D.Smoke` | existing V2 | Ground-ray drag stable, cursor-anchored zoom on elevated terrain, correct brush selection; CAM-01..12 tests, 20 sec drag latency profile + user feel approval | Feature toggle to old camera; danger: input math and terrain intersection precision |
+| **V2.2 Region/Chunk Model — L** | New `src/WorldSim/Regions/{RegionKey,RegionSnapshot,IWorldStore,Commands,RegionCache}.cs`; `tests/WorldRegion.Smoke` | stable simulation seed, command design | 64×64 region snapshots, deterministic cross-region editing and reload, 128² demo without full-world redraw; 512² data-only stress | New store behind adapter; old `WorldState` remains reference; deterministic replay risk |
+| **V2.3 Terrain Geometry — L** | `Scripts/Rendering3D/{ChunkMeshBuilder,HeightSampler,SurfaceMaterialAtlas,CliffGenerator}.cs` | V2.2 and approved art sample | Non-binary elevation, edge-consistent cliffs/slope, material blending and exact picking; no cracks at chunk borders, local edit rebuild only | Switch scenes to old VisualLab; risk: seams, collision mismatch |
+| **V2.4 Professional Art — M/L** | `Assets/ArtSource` (H-local), `Assets/Nature` (H-local provenance), `scripts/import-*.ps1`, stylized materials/LOD; curated demo | V2.1 + licensing | 2+ coherent tree species, rocks, brush/flowers, near/mid LOD, visual screenshot comparison at 3 zooms, user signs off appearance | Fallback placeholder models; risk: license mismatch, materials unsupported, overly expensive geometry |
+| **V2.5 Water/Lighting — M** | `Assets/Shaders`, shore mask/normal/wave materials, sun/shadow quality presets | V2.3/4 | Natural color/foam/shore behavior at all elevations; Compatibility-safe shader compiled/ran; shadow ON/OFF performance and visual approval | Shader/material quality tier toggle; risk: old GPU shader cost |
+| **V2.6 Large-World Streaming — XL** | `Scripts/Streaming/{VisibilityPlanner,ChunkJobQueue,MainThreadCommit,ChunkCache,LODController}.cs` + new WorldStore | V2.2/3/4 | 512² → 2048² → 4096² → 8192² sparse-load stress; visible/resident resources bounded; no long teleports stutter; p95/p99 and memory curves documented | Disable large maps / old small world mode; risk: concurrency, stale uploads and seams |
+| **V2.7 Living-World Presentation — XL** | `WorldSim` region active/coarse scheduler, `Scripts/Entities/{EntityPresentation,RegionalBatches}.cs`, animation assets | V2.6 | 1k/10k visible+background citizens, no new Mesh per entity tick, deterministic reconciliation, settlements later | Activate small simulation fallback; risk: simulation divergence |
 | **V2.8 Release & QA — M/L** | H:-based benchmark scripts, reproducible host artifacts, CI/QA dashboards | all relevant phases | Visual user sign-off, gameplay regression, shader import and save/restore validation, 30/60 FPS tier decided from evidence | Revert individual PR/scene toggle, retain old save version until migration validated |
 
 Relative effort guide: **S** <= one isolated component; **M** multiple related components; **L** cross-layer change with integration; **XL** major architecture + profiling. These are *relative* effort categories, not delivery date promises.
@@ -52,11 +52,11 @@ Relative effort guide: **S** <= one isolated component; **M** multiple related c
 
 ### Priority 1 — Make camera navigation correct, then pleasant
 
-**Branch:** \`feat/v2-camera-ray-anchored\`  
-**Issue:** new issue linked to #19, #17; suggested \`[V2.1] Correct camera drag/zoom/terrain picking\`.
+**Branch:** `feat/v2-camera-ray-anchored`  
+**Issue:** new issue linked to #19, #17; suggested `[V2.1] Correct camera drag/zoom/terrain picking`.
 
 Tasks:
-- Extract camera input/controller and pure math to \`Scripts/Camera3D\`.
+- Extract camera input/controller and pure math to `Scripts/Camera3D`.
 - Implement exact screen-ray-to-reference-plane intersection for drag.
 - Zoom anchor at real surface hit; optional pitch/yaw controls and keyboard pan with screen-speed normalization.
 - Replace 0.22-step long-distance CPU raymarch with an indexed terrain hit in current loaded chunks.
@@ -67,11 +67,11 @@ Gate: CAM-01..12, user confirms drag and zoom no longer feel wrong, tested in st
 
 ### Priority 2 — Set a region-aware data boundary before world expansion
 
-**Branch:** \`feat/v2-world-region-contract\`  
-**Issue:** proposed \`[V2.2] Deterministic WorldStore region snapshots\`.
+**Branch:** `feat/v2-world-region-contract`  
+**Issue:** proposed `[V2.2] Deterministic WorldStore region snapshots`.
 
 Tasks:
-- New 64×64 \`RegionKey\`, \`CellCoord(long)\`, \`RegionSnapshot\`, \`IWorldStore\` and \`WorldCommand\`.
+- New 64×64 `RegionKey`, `CellCoord(long)`, `RegionSnapshot`, `IWorldStore` and `WorldCommand`.
 - Seed-stable data generation independent of creation/load order, including negative coord floor division.
 - Serialize/restore region data and a small edit journal on H:; at least 4 adjacent regions in 128×128 test.
 - Adapt existing 120×88 world to new interface without changing user tools; add exact cross-region brush tests.
@@ -81,8 +81,8 @@ Gate: deterministic checksum and reload, multi-region edits correct, no unwanted
 
 ### Priority 3 — Produce one **beautiful**, coherent 3D art scene
 
-**Branch:** \`feat/v2-authored-nature-slice\`  
-**Issue:** proposed \`[V2.4] Authored nature art vertical slice and asset pipeline\`.
+**Branch:** `feat/v2-authored-nature-slice`  
+**Issue:** proposed `[V2.4] Authored nature art vertical slice and asset pipeline`.
 
 Tasks:
 - Inspect actual Quaternius Standard source archive on H:, verify formats and license; support .gltf dependencies as needed (not merely file renaming to .glb).
@@ -121,7 +121,7 @@ Gate: actual artwork recognizably higher quality and approved by user; no accept
 
 For each PR add:
 
-\`\`\`text
+```text
 Issue / branch / base / SHA:
 Before/after captured seed, viewport, camera:
 Core smoke / targeted smoke:
@@ -134,7 +134,7 @@ No C: intentional writes confirmed:
 Local changes in project.godot preserved:
 Risks, fallback mode and deferred problems:
 Approver outcome:
-\`\`\`
+```
 
 When outcomes are missing, write **NOT TESTED**, not PASS. Do not merge a visually destructive default-scene switch while the target remains rejected.
 
