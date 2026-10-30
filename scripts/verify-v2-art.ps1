@@ -32,6 +32,9 @@ if ($LASTEXITCODE -ne 0) {
 & $sdk run --project (Join-Path $root 'tests\NatureScatter.Smoke\NatureScatter.Smoke.csproj') -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Nature art scatter smoke tests failed' }
 
+& $sdk run --project (Join-Path $root 'tests\MountainSummit.Smoke\MountainSummit.Smoke.csproj') -c Release
+if ($LASTEXITCODE -ne 0) { throw 'Mountain summit cap art and bounded accents tests failed' }
+
 & $sdk run --project (Join-Path $root 'tests\EnvironmentArt.Smoke\EnvironmentArt.Smoke.csproj') -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Environment art / shoreline tests failed' }
 
