@@ -22,3 +22,6 @@ artifacts/
 .vs/
 .idea/
 *.log
+
+# Optional third-party licensed visual packs imported locally on H:
+Assets/Nature/
