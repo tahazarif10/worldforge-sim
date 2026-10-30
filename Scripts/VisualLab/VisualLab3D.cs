@@ -18,6 +18,8 @@ public partial class VisualLab3D : Node3D
     private enum Brush { Land, Ocean, Sand, Forest, Mountain, Person, Meteor }
 
     private WorldState _world = null!;
+    private ITerrainTileSource _tileSource = null!;
+    private bool _regionMirrorPreview;
     private VisualTerrain3D _terrain = null!;
     private MultiMeshInstance3D _citizens = null!;
     private MultiMesh _citizenBatch = null!;
@@ -42,6 +44,9 @@ public partial class VisualLab3D : Node3D
     public override void _Ready()
     {
         Name = "WorldForge3D — Visual Lab";
+        // Internal migration proof only; the default V2 world is unchanged.
+        _regionMirrorPreview = Array.Exists(OS.GetCmdlineUserArgs(),
+            arg => arg == "--terrain-backend=region-mirror");
         SetupLighting();
 
         _terrain = new VisualTerrain3D { Name = "WorldAndFoliage" };
@@ -122,7 +127,12 @@ public partial class VisualLab3D : Node3D
         // The simulation is the same WorldSim class as the production 2D game.
         _world = new WorldState(120, 88, seed);
         _world.PopulationLimit = 450;
-        _terrain.BindWorld(_world);
+        _tileSource = _regionMirrorPreview
+            ? new RegionMirrorTerrainSource(_world, maxResidentRegions: 8)
+            : new DirectWorldTerrainSource(_world);
+        _terrain.BindWorld(_world, _tileSource);
+        GD.Print("V2 approved renderer and camera: terrain source = " +
+            _terrain.TerrainBackendName);
         if (_cameraRig is not null)
         {
             _cameraRig.ResetWorld(_world.Width, _world.Height);
@@ -314,7 +324,8 @@ public partial class VisualLab3D : Node3D
                     $"foliage instances: {_terrain.LastPropCount}, " +
                     $"pending visible chunks: {_terrain.PendingVisibleChunks}, " +
                     $"quality: {(_ecoMode ? "Eco" : "Balanced")}, " +
-                    $"terrain builds since launch: {_terrain.TotalTerrainChunkBuilds}");
+                    $"terrain builds since launch: {_terrain.TotalTerrainChunkBuilds}, " +
+                    $"tile source: {_terrain.TerrainBackendName}");
             if (k.Keycode == Key.Escape) GetTree().Quit();
             RefreshHud();
         }
