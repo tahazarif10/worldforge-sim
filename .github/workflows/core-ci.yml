@@ -1,0 +1,17 @@
+name: Simulation core CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build simulation core
+        run: dotnet build src/WorldSim/WorldSim.csproj -c Release
+      - name: Run deterministic smoke tests
+        run: dotnet run --project tests/WorldSim.Smoke/WorldSim.Smoke.csproj -c Release
