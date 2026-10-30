@@ -62,6 +62,8 @@ This **still runs the approved V2 renderer and camera** but accesses the existin
 
 Review [AGENTS.md](AGENTS.md) before modifying code. The project's [critical V3 visual/input regression issue #46](https://github.com/tahazarif10/worldforge-sim/issues/46) remains open; a Linux Godot boot is not user Windows acceptance.
 
+**Current engineering tracker:** [V3.3 exact Windows baseline #52](https://github.com/tahazarif10/worldforge-sim/issues/52), with first slices [#53](https://github.com/tahazarif10/worldforge-sim/issues/53) and [#54](https://github.com/tahazarif10/worldforge-sim/issues/54). The larger-world stages [#55](https://github.com/tahazarif10/worldforge-sim/issues/55), [#56](https://github.com/tahazarif10/worldforge-sim/issues/56) and [#57](https://github.com/tahazarif10/worldforge-sim/issues/57) are **blocked by earlier acceptance gates**, not started.
+
 ## Architecture summary
 
 ```text
