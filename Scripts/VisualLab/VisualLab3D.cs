@@ -323,7 +323,7 @@ public partial class VisualLab3D : Node3D
     private string? ElevationDirectory()
     {
         string root = ProjectSettings.GlobalizePath("res://");
-        if (!root.StartsWith("H:\\\\", StringComparison.OrdinalIgnoreCase))
+        if (!root.StartsWith("H:\\", StringComparison.OrdinalIgnoreCase))
         {
             GD.PushError("Elevation file operation refused: project is not on H:.");
             return null;
