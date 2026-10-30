@@ -3,7 +3,7 @@
 **Status:** **Recommended / conditional**, not ratified in production.  
 **Date:** 2026-10-30.  
 **User goal:** not pure 2D, much higher visual standard than primitive low-poly, excellent world navigation, very large persistent evolving world.  
-**Primary constraints:** existing C# deterministic core, Godot 4.7.2 .NET, R9 M395X running OpenGL Compatibility, all intentional project files/installs/caches/output on \`H:\WorldForge-Sim\`.
+**Primary constraints:** existing C# deterministic core, Godot 4.7.2 .NET, R9 M395X running OpenGL Compatibility, all intentional project files/installs/caches/output on `H:\WorldForge-Sim`.
 
 ## Decision summary
 
@@ -26,8 +26,8 @@ Score: 1 poor → 5 favorable. Weights sum to 100%. "Legacy/compatibility" combi
 | Performance control | 10 | 4 | 2 | 5 | 3 | 1 |
 | Maintainability | 10 | 4 | 3 | 4 | 3 | 2 |
 | Implementation/migration risk | 5 | 4 | 4 | 4 | 1 | 1 |
-| **Weighted total / 500** | **100** | **445** | **360** | **405** | **360** | **315** |
-| **Normalized / 100** | | **89** | **72** | **81** | **72** | **63** |
+| **Weighted total / 500** | **100** | **445** | **355** | **405** | **360** | **315** |
+| **Normalized / 100** | | **89** | **71** | **81** | **72** | **63** |
 
 The matrix ranks strategic fit under user constraints, not verified engine performance. Change scores after running representative quality/performance bake-offs, not from marketing claims.
 
@@ -37,7 +37,7 @@ Epic's recommended Unreal Engine 5 development machine includes 32GB RAM, 8GB+ V
 
 ### Why not Unity URP immediately?
 
-Unity URP supports DX11/OpenGLCore/Vulkan and has strong tooling. It could be appropriate if **actual** authored-art side-by-side Godot comparison fails on shader compatibility or content workflow. But scenes, editor scripts, shaders, mesh APIs and input would all require migration; the pure \`WorldSim\` C# core could be adapted. No migration decision without proof. [Unity URP graphics API matrix](https://docs.unity.com/en-us/engine/6000.7/manual/render-pipelines/universal-render-pipeline/requirements).
+Unity URP supports DX11/OpenGLCore/Vulkan and has strong tooling. It could be appropriate if **actual** authored-art side-by-side Godot comparison fails on shader compatibility or content workflow. But scenes, editor scripts, shaders, mesh APIs and input would all require migration; the pure `WorldSim` C# core could be adapted. No migration decision without proof. [Unity URP graphics API matrix](https://docs.unity.com/en-us/engine/6000.7/manual/render-pipelines/universal-render-pipeline/requirements).
 
 ### Why not simply enable Forward+?
 
@@ -45,17 +45,17 @@ Current Godot has shown Compatibility/OpenGL on AMD R9 M395X. Forward+ and Mobil
 
 ## Accepted design principles
 
-1. **WorldSim authority, render freedom.** The simulation has logical cells/citizens and commands; terrain height, regional persistence and deterministic scheduling become explicit. A renderer never mutates \`WorldSim\` RNG by drawing a tree.
+1. **WorldSim authority, render freedom.** The simulation has logical cells/citizens and commands; terrain height, regional persistence and deterministic scheduling become explicit. A renderer never mutates `WorldSim` RNG by drawing a tree.
 2. **WorldStore via immutable regional snapshots.** Default 64×64 logical data regions with versioned edit journal; no global data-array requirement.
-3. **Camera anchor exactness above cosmetic smoothness.** Screen ray vs actual terrain, stable drag plane, correctness across zoom/pitch, input event separation; no reliance on flattened \`Basis.Y\`.
+3. **Camera anchor exactness above cosmetic smoothness.** Screen ray vs actual terrain, stable drag plane, correctness across zoom/pitch, input event separation; no reliance on flattened `Basis.Y`.
 4. **Bounded active rendering.** Near 3D chunks and per-chunk MultiMesh + LOD, far aggregate region visuals, screen-space level thresholds, prefetch and main-thread upload budgets.
 5. **Art quality through assets and materials first.** Commission/create original cliff/terrain art, import vetted coherent Quaternius CC0 glTF models with correct material/scale/LOD, and design water/lighting to fit Compatibility. Primitive sphere crowns are prototype placeholders, never accepted as final.
 6. **Measured performance, not promises.** Host p95/p99 frame times, GPU process/memory and representative screenshots on R9 M395X. CI compilation is necessary but not sufficient.
-7. **Reversible integration.** Keep separate new scene and H-only branch work until user visual evaluation; no destructive main-scene or \`project.godot\` mutation before final acceptance.
+7. **Reversible integration.** Keep separate new scene and H-only branch work until user visual evaluation; no destructive main-scene or `project.godot` mutation before final acceptance.
 
 ## Components and ownership
 
-\`\`\`mermaid
+```mermaid
 flowchart LR
   I[UI commands] --> CA[CameraRig + TerrainPicker]
   I --> W[Command Bus]
@@ -73,17 +73,17 @@ flowchart LR
   T --> HUD[Profiler and quality presets]
   P --> HUD
   E --> HUD
-\`\`\`
+```
 
 Potential interfaces:
 
-- \`IWorldStore.ReadRegionAsync(RegionKey)\`, \`IWorldStore.ApplyAsync(WorldCommand)\`
-- \`IWorldRenderer.UpdateVisible(CameraPose)\`, \`Invalidate(RegionRevision)\`
-- \`IChunkMeshBuilder.Build(RegionSnapshot, LodLevel)\`: pure CPU buffer result, no Godot calls from workers
-- \`ITerrainPicker.TryPick(screenPx)\`: exact hit and canonical cell
-- \`ICameraController.Consume(InputCommand)\`: deterministic pose state and settings
-- \`IEntityPresentation.Update(EntityDeltaBatch)\`: region-local transforms, no per-tick mesh resource recreation
-- \`IPerformanceProbe.Record(FrameSample)\` with bounded buffers/logging to H:
+- `IWorldStore.ReadRegionAsync(RegionKey)`, `IWorldStore.ApplyAsync(WorldCommand)`
+- `IWorldRenderer.UpdateVisible(CameraPose)`, `Invalidate(RegionRevision)`
+- `IChunkMeshBuilder.Build(RegionSnapshot, LodLevel)`: pure CPU buffer result, no Godot calls from workers
+- `ITerrainPicker.TryPick(screenPx)`: exact hit and canonical cell
+- `ICameraController.Consume(InputCommand)`: deterministic pose state and settings
+- `IEntityPresentation.Update(EntityDeltaBatch)`: region-local transforms, no per-tick mesh resource recreation
+- `IPerformanceProbe.Record(FrameSample)` with bounded buffers/logging to H:
 
 ## Chosen baseline technical settings — subject to measured validation
 
