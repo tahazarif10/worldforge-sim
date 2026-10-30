@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using WorldSim;
+using WorldSim.Regions;
 using WorldForge.Streaming;
 
 namespace WorldForge.VisualLab;
@@ -22,6 +23,8 @@ public partial class VisualTerrain3D : Node3D
 
     private readonly Dictionary<(int X, int Y), MeshInstance3D> _chunks = new();
     private WorldState _world = null!;
+    private ElevationRegionStore _elevation = null!;
+    public int ModifiedElevationRegions => _elevation?.ModifiedRegions ?? 0;
     private Node3D _vegetation = null!;
     private MeshInstance3D _water = null!;
     private ImageTexture? _coastMaskTexture;
@@ -44,6 +47,54 @@ public partial class VisualTerrain3D : Node3D
     public bool SculptedFacets { get; private set; } = true;
     public bool SmoothSlopes { get; private set; } = true;
     public bool SmoothLandEnabled => RichTerrainDetails && SmoothSlopes;
+
+    private SharedCornerHeightfield.Fan EditableFan(int x, int y)
+    {
+        SharedCornerHeightfield.Fan baseline = SharedCornerHeightfield.Tile(
+            x, y, _world.Width, _world.Height, HeightAt, ReliefAt(x, y));
+        float a = _elevation.Offset(new CellCoord(x, y));
+        float b = _elevation.Offset(new CellCoord(x, y + 1));
+        float c = _elevation.Offset(new CellCoord(x + 1, y));
+        float d = _elevation.Offset(new CellCoord(x + 1, y + 1));
+        return new SharedCornerHeightfield.Fan(
+            baseline.A + a, baseline.B + b, baseline.C + c,
+            baseline.D + d, baseline.Center + (a + b + c + d) * .25f);
+    }
+
+    /// <summary>
+    /// Add height offsets only at affected absolute lattice vertices.
+    /// Existing simulation biome, water, assets and four-triangle topology
+    /// remain untouched; only the camera-resident 16x16 chunks rebuild.
+    /// </summary>
+    public int SculptElevation(int centerX, int centerY, int radius, float metres)
+    {
+        if (!SmoothLandEnabled || radius is < 0 or > 12) return 0;
+        int changed = 0;
+        for (int dy = -radius; dy <= radius; dy++)
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            if (dx * dx + dy * dy > radius * radius) continue;
+            int vx = centerX + dx, vz = centerY + dy;
+            if (vx < 0 || vz < 0 || vx > _world.Width || vz > _world.Height)
+                continue;
+            float attenuation = radius == 0 ? 1f :
+                1f - .70f * (dx * dx + dy * dy) / (float)(radius * radius);
+            if (_elevation.AddOffset(new CellCoord(vx,vz), metres * attenuation))
+                changed++;
+        }
+        if (changed > 0) MarkChanged(centerX, centerY, radius + 2);
+        return changed;
+    }
+
+    public int SaveElevation(string directory) =>
+        ElevationRegionFiles.SaveModified(_elevation, directory);
+
+    public int LoadElevation(string directory)
+    {
+        int count = ElevationRegionFiles.LoadAll(_elevation, directory);
+        if (count > 0) RebuildResidentGeometry();
+        return count;
+    }
 
     public void ToggleSmoothSlopes()
     {
@@ -75,8 +126,7 @@ public partial class VisualTerrain3D : Node3D
         if (!_world.Contains(x, y)) return 0.12f;
         if (SmoothLandEnabled &&
             _world.Tile(x,y) is not (Terrain.DeepWater or Terrain.ShallowWater))
-            return SharedCornerHeightfield.Tile(x,y,_world.Width,_world.Height,
-                HeightAt, ReliefAt(x,y)).Sample(localX,localY);
+            return EditableFan(x,y).Sample(localX,localY);
         return TerrainReliefMath.SurfaceHeight(
             HeightAt(x,y), ReliefAt(x,y), localX,localY);
     }
@@ -151,6 +201,7 @@ public partial class VisualTerrain3D : Node3D
     public void BindWorld(WorldState world)
     {
         _world = world;
+        _elevation = new ElevationRegionStore(world.Seed, maxResidentRegions:12);
         foreach (MeshInstance3D mesh in _chunks.Values) mesh.QueueFree();
         _chunks.Clear();
         _changedChunks.Clear();
@@ -428,8 +479,7 @@ public partial class VisualTerrain3D : Node3D
 
     private void AddSmoothTopFace(SurfaceTool surface, int x, int y, Color centerColor)
     {
-        SharedCornerHeightfield.Fan f = SharedCornerHeightfield.Tile(
-            x,y,_world.Width,_world.Height,HeightAt,ReliefAt(x,y));
+        SharedCornerHeightfield.Fan f = EditableFan(x,y);
         Vector3 a = new(x,f.A,y), b = new(x,f.B,y+1);
         Vector3 c = new(x+1,f.C,y), d = new(x+1,f.D,y+1);
         Vector3 mid = new(x+.5f,f.Center,y+.5f);
