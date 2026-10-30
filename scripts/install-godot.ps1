@@ -23,6 +23,10 @@ if ($null -eq $editor) {
     }
     $file = Get-Item -LiteralPath $zip
     if ($file.Length -lt 40000000) { throw "Godot download too small: $($file.Length) bytes; delete bad archive and retry" }
+    $expectedSha256 = 'a2a48473a7414c5f19fab690518caebb738c09ef9601f6bd2388676a7f53b3c0'
+    $actualSha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualSha256 -ne $expectedSha256) { throw "Godot archive SHA-256 mismatch. Delete: $zip; actual: $actualSha256" }
+    Write-Host 'Godot ZIP SHA-256 verified.'
     Write-Host "Extracting to: $dest"
     Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force
     $editor = Get-ChildItem -LiteralPath $dest -Recurse -File -Filter 'Godot_v4.7.2-stable_mono_win64.exe' |
