@@ -29,5 +29,22 @@ jobs:
         run: dotnet run --project tests/FrameTime.Smoke/FrameTime.Smoke.csproj -c Release
       - name: Viewport-driven chunk residency tests
         run: dotnet run --project tests/VisibleChunks.Smoke/VisibleChunks.Smoke.csproj -c Release
+      - name: Authored nature species scatter tests
+        run: dotnet run --project tests/NatureScatter.Smoke/NatureScatter.Smoke.csproj -c Release
+      - name: Validate bundled CC0 GLB asset headers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          folder = Path("Assets/Art/KenneyNature")
+          paths = sorted(folder.glob("*.glb"))
+          assert len(paths) == 10, f"Expected 10 original CC0 model GLBs, got {len(paths)}"
+          for path in paths:
+              data = path.read_bytes()
+              assert len(data) > 1000 and data[:4] == b"glTF", str(path)
+              assert int.from_bytes(data[4:8], "little") == 2, str(path)
+              assert int.from_bytes(data[8:12], "little") == len(data), str(path)
+              assert data[16:20] == b"JSON", str(path)
+          print("PASS: 10 structurally valid CC0 glTF2 binary models")
+          PY
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false
