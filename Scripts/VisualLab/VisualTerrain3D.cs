@@ -26,6 +26,8 @@ public partial class VisualTerrain3D : Node3D
     private MeshInstance3D _water = null!;
     private ImageTexture? _coastMaskTexture;
     private bool _coastDirty;
+    private bool _ecoMode;
+    public bool EcoMode => _ecoMode;
     private readonly HashSet<(int X, int Y)> _changedChunks = new();
     private readonly Dictionary<(int X, int Y), Node3D> _foliageChunks = new();
     private readonly Dictionary<(int X, int Y), int> _propCounts = new();
@@ -36,6 +38,8 @@ public partial class VisualTerrain3D : Node3D
     public long FoliageChunksRebuilt { get; private set; }
     public long TotalTerrainChunkBuilds { get; private set; }
     public int ActiveTerrainChunks => _chunks.Count;
+    public int LastRequestedChunks { get; private set; };
+    public int PendingVisibleChunks => Math.Max(0, LastRequestedChunks - _chunks.Count);
     public bool RichTerrainDetails { get; private set; } = true;
 
     public void ToggleRichTerrainDetails()
@@ -50,6 +54,34 @@ public partial class VisualTerrain3D : Node3D
             (RichTerrainDetails ? "ON" : "OFF"));
     }
     public int ActiveFoliageChunks => _foliageChunks.Count;
+
+    /// <summary>
+    /// Eco keeps all authored meshes and ground colors; only cuts optional
+    /// costly canopy shadows and secondary shader glints.
+    /// Existing scene nodes are updated without rebuilding their geometry.
+    /// </summary>
+    public void SetEcoMode(bool eco)
+    {
+        _ecoMode = eco;
+        if (_water?.MaterialOverride is ShaderMaterial water)
+            water.SetShaderParameter("water_detail", eco ? 0f : 1f);
+        foreach (Node3D foliage in _foliageChunks.Values)
+            ApplyShadowTier(foliage);
+    }
+
+    private void ApplyShadowTier(Node3D chunk)
+    {
+        foreach (Node node in chunk.GetChildren())
+        {
+            if (node is not MultiMeshInstance3D mesh) continue;
+            bool smallFoliage = mesh.Name.ToString().StartsWith("CC0_Grass") ||
+                                mesh.Name.ToString().StartsWith("CC0_Flower") ||
+                                mesh.Name.ToString() == "FlowersShrubs";
+            mesh.CastShadow = (_ecoMode || smallFoliage)
+                ? GeometryInstance3D.ShadowCastingSetting.Off
+                : GeometryInstance3D.ShadowCastingSetting.On;
+        }
+    }
 
     private readonly StandardMaterial3D _earthMaterial = new()
     {
@@ -104,6 +136,7 @@ public partial class VisualTerrain3D : Node3D
         _coastMaskTexture = null;
         _coastDirty = true;
         RefreshCoastMask();
+        SetEcoMode(_ecoMode);
 
         // No eager global mesh construction here. Camera projection determines
         // which chunks should exist after the camera rig is initialized.
@@ -115,7 +148,7 @@ public partial class VisualTerrain3D : Node3D
     /// provide a conservative X/Z footprint; one chunk of safety margin
     /// prevents edge popping as the camera moves.
     /// </summary>
-    public void UpdateVisibility(Godot.Camera3D camera)
+    public void UpdateVisibility(Godot.Camera3D camera, int maxNewChunks = 4)
     {
         if (_world is null) return;
         Vector2 viewport = camera.GetViewport().GetVisibleRect().Size;
@@ -148,6 +181,7 @@ public partial class VisualTerrain3D : Node3D
 
         HashSet<(int X, int Y)> desired = VisibleChunkPlanner.Plan(
             _world.Width, _world.Height, ChunkSize, minX, minZ, maxX, maxZ);
+        LastRequestedChunks = desired.Count;
 
         foreach (var key in new List<(int X, int Y)>(_chunks.Keys))
         {
@@ -160,9 +194,15 @@ public partial class VisualTerrain3D : Node3D
                 LastPropCount -= oldCount;
         }
 
-        foreach (var key in desired)
+        // A fast drag or zoom must NOT build dozens of detailed GLB batches
+        // in a single _Process frame. Nearest missing chunks are shown first;
+        // an extra chunk margin conceals most in-motion loading.
+        var resident = new HashSet<(int X, int Y)>(_chunks.Keys);
+        var toBuild = ChunkLoadBudget.Choose(desired, resident,
+            (minX + maxX) * 0.5f, (minZ + maxZ) * 0.5f,
+            ChunkSize, maxNewChunks);
+        foreach (var key in toBuild)
         {
-            if (_chunks.ContainsKey(key)) continue;
             BuildChunk(key.X, key.Y);
             RebuildVegetationChunk(key.X, key.Y);
         }
@@ -514,6 +554,7 @@ public partial class VisualTerrain3D : Node3D
         AddBatched(chunk, "Rocks", boulderMesh, stones);
         AddBatched(chunk, "FlowersShrubs", foliageMesh, shrubs);
         _natureArt?.Populate(chunk, authoredPlacements);
+        ApplyShadowTier(chunk);
         _propCounts[key] = count;
         LastPropCount += count;
     }
