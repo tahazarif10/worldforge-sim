@@ -70,6 +70,8 @@ The above numeric PR50 counts are code/test counts, **not a pixel-level proof of
 
 ## Next action: V3.3.0 — golden host acceptance and camera/art parity
 
+**Live tracker:** [#52](https://github.com/tahazarif10/worldforge-sim/issues/52); implementation/evidence slices [#53](https://github.com/tahazarif10/worldforge-sim/issues/53), [#54](https://github.com/tahazarif10/worldforge-sim/issues/54).
+
 **Do not start V3.4 or V3.5 data expansion as the next user-visible action.** First:
 
 1. On H:-Windows, safely update main without touching `project.godot`.
