@@ -204,6 +204,15 @@ public partial class VisualTerrain3D : Node3D
     {
         foreach (Node child in _vegetation.GetChildren()) child.QueueFree();
 
+        // Optional curated CC0 GLB models can replace limited preview props.
+        // Without imported assets, all geometry stays procedural and H:-safe.
+        PackedScene? treePrefab = ResourceLoader.Exists("res://Assets/Nature/Tree.glb")
+            ? GD.Load<PackedScene>("res://Assets/Nature/Tree.glb") : null;
+        PackedScene? rockPrefab = ResourceLoader.Exists("res://Assets/Nature/Rock.glb")
+            ? GD.Load<PackedScene>("res://Assets/Nature/Rock.glb") : null;
+        int importedTreeCount = 0, importedRockCount = 0;
+        const int MaxImportedTrees = 140, MaxImportedRocks = 80;
+
         var trunks = new List<(Transform3D Transform, Color Color)>();
         var canopies = new List<(Transform3D Transform, Color Color)>();
         var upperCanopies = new List<(Transform3D Transform, Color Color)>();
@@ -223,6 +232,13 @@ public partial class VisualTerrain3D : Node3D
 
             if (kind == Terrain.Forest && h % 7 < 3)
             {
+                if (treePrefab is not null && importedTreeCount < MaxImportedTrees)
+                {
+                    AddImportedModel(treePrefab, p, 2.8f, h);
+                    importedTreeCount++;
+                    count++;
+                    continue;
+                }
                 float scale = 0.74f + (h % 19) * 0.023f;
                 trunks.Add((MakeTransform(p + Vector3.Up * 0.55f * scale,
                     new Vector3(0.20f * scale, scale, 0.20f * scale)),
@@ -237,6 +253,13 @@ public partial class VisualTerrain3D : Node3D
             }
             else if (kind == Terrain.Mountain && h % 5 < 3)
             {
+                if (rockPrefab is not null && importedRockCount < MaxImportedRocks)
+                {
+                    AddImportedModel(rockPrefab, p, 0.8f, h);
+                    importedRockCount++;
+                    count++;
+                    continue;
+                }
                 float size = 0.35f + (h % 11) * 0.046f;
                 stones.Add((MakeTransform(p + Vector3.Up * 0.17f,
                     new Vector3(size, size * 0.65f, size * 0.8f)),
@@ -261,6 +284,29 @@ public partial class VisualTerrain3D : Node3D
         AddBatched("Rocks", boulderMesh, stones);
         AddBatched("FlowersShrubs", foliageMesh, shrubs);
         LastPropCount = count;
+    }
+
+    /// <summary>Use actual CC0 imported GLB materials, with approximate model height normalization.</summary>
+    private void AddImportedModel(PackedScene scene, Vector3 ground, float desiredHeight, uint variant)
+    {
+        Node3D model = scene.Instantiate<Node3D>();
+        float sourceHeight = Math.Max(0.05f, EstimateMeshHeight(model));
+        float size = Mathf.Clamp(desiredHeight / sourceHeight, 0.08f, 5f);
+        model.Scale = Vector3.One * size;
+        model.Position = ground;
+        model.Rotation = new Vector3(0, (variant % 8) * Mathf.Pi / 4, 0);
+        model.Name = "LicensedNatureModel";
+        _vegetation.AddChild(model);
+    }
+
+    private static float EstimateMeshHeight(Node node)
+    {
+        float height = 0;
+        if (node is MeshInstance3D { Mesh: not null } mesh)
+            height = mesh.Mesh.GetAabb().Size.Y * Math.Abs(mesh.Scale.Y);
+        foreach (Node child in node.GetChildren())
+            height = Math.Max(height, EstimateMeshHeight(child));
+        return height;
     }
 
     private void AddBatched(string name, Mesh mesh,
