@@ -54,6 +54,14 @@ jobs:
             --rendering-method gl_compatibility \
             -- --terrain-backend=region-mirror 2>&1 | tee "$RUNNER_TEMP/parity-scene.log"
           grep -F 'terrain source = region-mirror' "$RUNNER_TEMP/parity-scene.log"
+      - name: Replay exact user mountain screenshot seed in approved V2 scene
+        run: |
+          set -euo pipefail
+          "$GODOT" --headless --path "$GITHUB_WORKSPACE" \
+            --scene res://Scenes/VisualLab3D.tscn --quit-after 24 \
+            --rendering-method gl_compatibility \
+            -- --world-seed=1315511732 2>&1 | tee "$RUNNER_TEMP/mountain-reference.log"
+          grep -F 'V2 reference world seed: 1315511732' "$RUNNER_TEMP/mountain-reference.log"
       - name: Start 8192 logical regional 3D scene headlessly
         run: |
           set -euo pipefail

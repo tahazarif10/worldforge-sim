@@ -85,7 +85,8 @@ public partial class VisualLab3D : Node3D
         };
         AddChild(_camera);
 
-        CreateWorld(20261030);
+        CreateWorld(InitialSeed());
+        GD.Print("V2 reference world seed: " + _world.Seed);
         _cameraRig = new WorldForge.Camera3D.StrategyCameraRig(_camera,
             (x, y) => _terrain.HeightAt(x, y), _world.Width, _world.Height,
             (x, y) => _terrain.ReliefAt(x, y),
@@ -93,6 +94,25 @@ public partial class VisualLab3D : Node3D
             (x,y,u,v) => _terrain.SurfaceHeightAt(x,y,u,v));
         _terrain.UpdateVisibility(_camera, maxNewChunks: 64);
         SetupHud();
+    }
+
+    private static int InitialSeed()
+    {
+        // Explicit screenshot/QA replay only. The regular V2 launcher still
+        // uses the same default seed and the New World button still works.
+        const int fallback = 20261030;
+        const string prefix = "--world-seed=";
+        foreach (string arg in OS.GetCmdlineUserArgs())
+        {
+            if (!arg.StartsWith(prefix, StringComparison.Ordinal)) continue;
+            string text = arg.Substring(prefix.Length);
+            if (int.TryParse(text, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out int seed))
+                return seed;
+            GD.PushWarning("Ignoring invalid --world-seed value: " + text);
+            break;
+        }
+        return fallback;
     }
 
     private void SetupLighting()
