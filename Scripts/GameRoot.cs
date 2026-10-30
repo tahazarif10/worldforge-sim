@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using WorldSim;
+using WorldForge.UI;
 
 namespace WorldForge;
 
@@ -18,7 +19,7 @@ public partial class GameRoot : Node2D
     private Camera2D _camera = null!;
     private Image _image = null!;
     private ImageTexture _texture = null!;
-    private Label _status = null!;
+    private GameHud _hud = null!;
     private Brush _brush = Brush.Person;
     private int _radius = 3;
     private int _speed = 1;
@@ -82,8 +83,8 @@ public partial class GameRoot : Node2D
             }
             if (_elapsed > TickSeconds * 12) _elapsed = TickSeconds;
         }
-        if (_status is not null)
-            _status.Text = $"Seed: {_world.Seed}    People: {_world.People.Count}    Tick: {_world.Tick}    Speed: {_speed}x    Tool: {_brush}  Radius: {_radius}";
+        if (_hud is not null)
+            _hud.UpdateState(_brush.ToString(), _radius, _speed, _world.Seed, _world.People.Count, _world.Tick);
     }
 
     public override void _UnhandledInput(InputEvent input)
@@ -136,40 +137,23 @@ public partial class GameRoot : Node2D
 
     private void SetupUi()
     {
-        CanvasLayer layer = new();
-        AddChild(layer);
-        PanelContainer panel = new() { Position = new Vector2(10, 10) };
-        layer.AddChild(panel);
-        VBoxContainer stack = new();
-        panel.AddChild(stack);
-        HBoxContainer buttons = new();
-        stack.AddChild(buttons);
-        foreach (Brush tool in Enum.GetValues<Brush>())
-        {
-            Brush chosen = tool;
-            Button b = new() { Text = chosen.ToString() };
-            buttons.AddChild(b);
-            b.Pressed += () => _brush = chosen;
-        }
-        HBoxContainer options = new();
-        stack.AddChild(options);
-        AddButton(options, "Brush -", () => _radius = Math.Max(0, _radius - 1));
-        AddButton(options, "Brush +", () => _radius = Math.Min(12, _radius + 1));
-        AddButton(options, "Pause", () => _speed = 0);
-        AddButton(options, "1x", () => _speed = 1);
-        AddButton(options, "2x", () => _speed = 2);
-        AddButton(options, "4x", () => _speed = 4);
-        AddButton(options, "New world", () => CreateWorld(Random.Shared.Next()));
-        _status = new Label();
-        stack.AddChild(_status);
-        Label hint = new() { Text = "Left-click tool | Right-drag pan | Wheel zoom | Space pause" };
-        stack.AddChild(hint);
-    }
+        var uiLayer = new CanvasLayer();
+        AddChild(uiLayer);
+        _hud = new GameHud();
+        uiLayer.AddChild(_hud);
 
-    private static void AddButton(Node parent, string label, Action callback)
-    {
-        Button b = new() { Text = label };
-        parent.AddChild(b);
-        b.Pressed += callback;
+        // Top-wide anchors adapt to 1280x800 and larger native game windows.
+        _hud.SetAnchorsPreset(Control.LayoutPreset.TopWide);
+        _hud.OffsetLeft = 16;
+        _hud.OffsetRight = -16;
+        _hud.OffsetTop = 16;
+        _hud.OffsetBottom = 164;
+
+        _hud.ToolSelected += index => _brush = (Brush)index;
+        _hud.RadiusChangeRequested += delta => _radius = Math.Clamp(_radius + delta, 0, 12);
+        _hud.SpeedRequested += speed => _speed = speed;
+        _hud.NewWorldRequested += () => CreateWorld(Random.Shared.Next());
+        _hud.SetSelectedTool((int)_brush);
+        _hud.UpdateState(_brush.ToString(), _radius, _speed, _world.Seed, _world.People.Count, _world.Tick);
     }
 }

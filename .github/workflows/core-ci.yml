@@ -15,3 +15,5 @@ jobs:
         run: dotnet build src/WorldSim/WorldSim.csproj -c Release
       - name: Run deterministic smoke tests
         run: dotnet run --project tests/WorldSim.Smoke/WorldSim.Smoke.csproj -c Release
+      - name: Build Godot C# project (compilation only)
+        run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false
