@@ -8,25 +8,25 @@
 |---|---|---|
 | User's portable Godot 4.7.2 Mono and .NET 10 SDK run from H: | Prior Windows PowerShell build and standalone Godot logs shared in conversation | Does not prove the V2 3D demo can run 60 FPS at 2048² |
 | GPU advertises AMD Radeon R9 M395X, Godot Compatibility/OpenGL 3.3 | User standalone launch console | Does not establish actual VRAM capacity, Vulkan feature support or shader performance |
-| Simulation smoke and C# Godot project compile succeeded on merged PR #18 | GitHub Actions history; \`.github/workflows/core-ci.yml\` | Does not run a 3D scene or test shader import, input, FPS |
+| Simulation smoke and C# Godot project compile succeeded on merged PR #18 | GitHub Actions history; `.github/workflows/core-ci.yml` | Does not run a 3D scene or test shader import, input, FPS |
 | User says new V2 3D preview looks somewhat better but is inadequate and motion feels very bad | Current user feedback | Does not quantify frame-time latency, draw calls or where input breaks |
 | Previously the **Godot EDITOR**, not game, hung | User clarification, issue #12 | Does not mean editor issue resolved nor that game is CPU-bound |
 
-Current \`VisualLab3D.cs:178–188\` HUD FPS = \`frame count / accumulated delta\` and "worst frame" = maximum \`_Process(delta)\` within a one-second interval. These are useful indicators, but neither reports GPU time, p95/p99 input latency, render submissions or worst frozen intervals where the frame never returns. Do not call the HUD "profiler".
+Current `VisualLab3D.cs:178–188` HUD FPS = `frame count / accumulated delta` and "worst frame" = maximum `_Process(delta)` within a one-second interval. These are useful indicators, but neither reports GPU time, p95/p99 input latency, render submissions or worst frozen intervals where the frame never returns. Do not call the HUD "profiler".
 
 ## Source-derived cost hypotheses (not measured)
 
 | Path | Algorithmic / memory risk | Where |
 |---|---|---|
-| Start new world | WorldSim O(W×H) generation, every terrain chunk built and whole vegetation scan | \`WorldState.Generate\`, \`VisualTerrain3D.BindWorld\` |
-| Brush changes terrain | Dirty affected 16-cell chunks rebuilt; additionally full vegetation O(W×H) | \`VisualTerrain3D.MarkChanged/FlushChanges/RebuildVegetation\` |
-| User drags brush | Each mouse-move can perform ~1,910 candidate ray steps, then \`UpdateActors\` allocates a fresh MultiMesh | \`VisualLab3D.ApplyAtScreen/UpdateActors\` |
-| Simulation | \`WorldState.Advance\` scans all citizens every logical tick; V2 creates new Mesh/MultiMesh each tick | \`WorldState.Advance\`, \`VisualLab3D._Process/UpdateActors\` |
-| Rendering large map | All 16×16 tile chunks created; no stream/LOD; water one world-scale plane | \`VisualTerrain3D.BindWorld\` |
+| Start new world | WorldSim O(W×H) generation, every terrain chunk built and whole vegetation scan | `WorldState.Generate`, `VisualTerrain3D.BindWorld` |
+| Brush changes terrain | Dirty affected 16-cell chunks rebuilt; additionally full vegetation O(W×H) | `VisualTerrain3D.MarkChanged/FlushChanges/RebuildVegetation` |
+| User drags brush | Each mouse-move can perform ~1,910 candidate ray steps, then `UpdateActors` allocates a fresh MultiMesh | `VisualLab3D.ApplyAtScreen/UpdateActors` |
+| Simulation | `WorldState.Advance` scans all citizens every logical tick; V2 creates new Mesh/MultiMesh each tick | `WorldState.Advance`, `VisualLab3D._Process/UpdateActors` |
+| Rendering large map | All 16×16 tile chunks created; no stream/LOD; water one world-scale plane | `VisualTerrain3D.BindWorld` |
 
 ## Required baseline matrix
 
-For each run record \`git SHA\`, engine build, project rendering method, GPU driver string, display resolution, world seed, map size, time speed, zoom/camera pose, shadows ON/OFF, use of Quaternius GLB or placeholders, run type (standalone or Editor), duration, exact user actions and whether profiler was active.
+For each run record `git SHA`, engine build, project rendering method, GPU driver string, display resolution, world seed, map size, time speed, zoom/camera pose, shadows ON/OFF, use of Quaternius GLB or placeholders, run type (standalone or Editor), duration, exact user actions and whether profiler was active.
 
 | Scenario | Map | People | Actions and sample window | Evidence required |
 |---|---|---|---|---|
@@ -40,17 +40,17 @@ For each run record \`git SHA\`, engine build, project rendering method, GPU dri
 | BASE-08 | 512×512 | 0 | **after** region system exists, flythrough | resident chunks, load time, memory and p99 |
 | BASE-09 | 2048² → 8192² | varied | **future** sparse streaming stress | active set bounded / correctness / save load |
 
-Do not edit \`WorldSim\` dimensions to 2048² directly: current ctor has 1024 max and the architecture is full-memory. BASE-08/09 require implementation first; mark "not runnable", not "failed" or "passed".
+Do not edit `WorldSim` dimensions to 2048² directly: current ctor has 1024 max and the architecture is full-memory. BASE-08/09 require implementation first; mark "not runnable", not "failed" or "passed".
 
 ## Metrics contract
 
 - FPS: frames/second, rolling 1 sec.
-- Frame timing: monotonic stopwatch elapsed per frame; capture **every frame** into a bounded ring buffer, calculate mean/median/p95/p99 and max on an offline copy. Record an apparent full freeze separately because \`_Process\` resumes after stall.
+- Frame timing: monotonic stopwatch elapsed per frame; capture **every frame** into a bounded ring buffer, calculate mean/median/p95/p99 and max on an offline copy. Record an apparent full freeze separately because `_Process` resumes after stall.
 - CPU: total process usage normalized by logical CPU count, process working set/private bytes. Host sampler includes editor and game processes if both running: **label PID**.
-- GPU: Godot \`Performance.GetMonitor\` draw calls, 3D objects, primitives, memory where provided; labels must be sourced from actual engine version. Not all monitors work on Compatibility or release builds; render thread/GPU timers may be unavailable and must be recorded \`N/A\`.
+- GPU: Godot `Performance.GetMonitor` draw calls, 3D objects, primitives, memory where provided; labels must be sourced from actual engine version. Not all monitors work on Compatibility or release builds; render thread/GPU timers may be unavailable and must be recorded `N/A`.
 - Geometry: number of active chunks by LOD, mesh surfaces/vertices, shadow casters, batch count, instance count; distinguish triangles submitted from visible and occluded.
 - Latency: high-resolution input event timestamp, event-to-render target screen change; tools need explicit instrumentation before quantifying.
-- Edit: CPU time \`GenerateChunk\`, \`RebuildVegetation\`, \`ApplyBrush\`, GPU upload count/bytes, deferred queue wait.
+- Edit: CPU time `GenerateChunk`, `RebuildVegetation`, `ApplyBrush`, GPU upload count/bytes, deferred queue wait.
 - Streaming: queue depth, stale task cancellation count, bytes per upload, time-to-visible after teleport, cache hit rate.
 - Simulation: active regions/entities vs background aggregations, ticks per second and replay divergence.
 
@@ -58,9 +58,9 @@ Use a reproducible **fixed seed 20261030**, a fixed camera pose and fixed zoom/r
 
 ## Windows H:-only starter commands
 
-Run in Windows PowerShell. Existing user changes to \`project.godot\` must be preserved; never force switch, clean or hard-reset. Perform research benchmark on a branch only if local working tree is safe.
+Run in Windows PowerShell. Existing user changes to `project.godot` must be preserved; never force switch, clean or hard-reset. Perform research benchmark on a branch only if local working tree is safe.
 
-\`\`\`powershell
+```powershell
 Set-Location 'H:\WorldForge-Sim'
 git status --short
 git log -1 --format='%h %s'
@@ -69,21 +69,21 @@ git log -1 --format='%h %s'
 # Current V2 standalone; no editor debug overhead:
 & 'H:\WorldForge-Sim\Tools\dotnet\dotnet.exe' build '.\WorldForgeSim.csproj' -c Debug --disable-build-servers -p:UseSharedCompilation=false
 .\scripts\run-visual-lab.ps1
-\`\`\`
+```
 
 In a **second** PowerShell console (same H: directory), while the game is open, start the existing bounded host sampler:
 
-\`\`\`powershell
+```powershell
 Set-Location 'H:\WorldForge-Sim'
 . .\scripts\enter-dev.ps1
 .\scripts\capture-host-performance.ps1 -Seconds 60 -IntervalSeconds 2
 # Inspect generated CSV files without moving them to C:
 Get-ChildItem '.\artifacts\performance\godot-host-*.csv' | Sort-Object LastWriteTime -Descending | Select-Object -First 3
-\`\`\`
+```
 
-The CSV includes process CPU and working-set/private memory but **does not calculate game frame timing**. The in-game FPS/worst-frame HUD should be screenshotted with identical camera location. If the game fails, inspect \`H:\WorldForge-Sim\artifacts\visual-lab\godot-3d-console.log\` and report exact error. Avoid starting Godot editor interactive mode unless testing editor issue #12 separately.
+The CSV includes process CPU and working-set/private memory but **does not calculate game frame timing**. The in-game FPS/worst-frame HUD should be screenshotted with identical camera location. If the game fails, inspect `H:\WorldForge-Sim\artifacts\visual-lab\godot-3d-console.log` and report exact error. Avoid starting Godot editor interactive mode unless testing editor issue #12 separately.
 
-To measure p95/p99, add a separate **instrumentation-only** PR (not completed yet): lightweight C# \`Stopwatch.GetTimestamp()\` per frame into a preallocated ring buffer, exported to \`artifacts\performance\V2-frame-times-*.csv\` on controlled user stop/hotkey. Include measured time of \`RenderChunk\`, \`UpdateActors\`, \`RebuildVegetation\`; avoid writing to disk every frame. Include app version, GPU, seed, projection and controls header. A Windows performance capture and timestamps are necessary to validate.
+To measure p95/p99, add a separate **instrumentation-only** PR (not completed yet): lightweight C# `Stopwatch.GetTimestamp()` per frame into a preallocated ring buffer, exported to `artifacts\performance\V2-frame-times-*.csv` on controlled user stop/hotkey. Include measured time of `RenderChunk`, `UpdateActors`, `RebuildVegetation`; avoid writing to disk every frame. Include app version, GPU, seed, projection and controls header. A Windows performance capture and timestamps are necessary to validate.
 
 ## Budget-setting method
 
