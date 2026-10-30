@@ -1,8 +1,8 @@
 # WorldForge Sim
 
-Original 2D god-sandbox simulation, influenced by the *genre* of WorldBox. This is not WorldBox and does not use its source code, art or assets.
+Original living-world god-sandbox simulation, influenced by the *genre* of WorldBox. This is not WorldBox and does not use its source code, art or assets.
 
-**Status:** M0 bootstrap proposed in `feat/m0-foundation`. The Godot C# build and Windows runtime are **not yet verified**.
+**Status:** M0/M1 prototype tested on the user's H:-based Windows system; previous 2D art direction was rejected. A separate opt-in V2 stylized 3D/isometric visual lab is being evaluated. Default 2D scene remains available.
 
 ## Windows location policy
 The project lives in **H:\WorldForge-Sim**, not under AIProjects. Keep intentional downloads, dependencies, logs, build outputs and tool caches on H:. Neither this script nor Godot can guarantee Windows or third-party software never writes OS-managed data on C:.
@@ -33,7 +33,26 @@ There are **no** real settlements, combat, food networks, or diplomacy yet.
 - [Visual foundation implementation plan](docs/M1_VISUAL_FOUNDATION.md)
 - [Original art direction](docs/ART_DIRECTION.md)
 - [Build, visual and performance acceptance checklist](docs/ACCEPTANCE_CHECKLIST.md)
-- M1.0 plan [PR #10](https://github.com/tahazarif10/worldforge-sim/pull/10) and initial M1.1 HUD [PR #11](https://github.com/tahazarif10/worldforge-sim/pull/11) are **Draft**, not accepted/merged.
+- M0/M1.0–M1.4 PRs were merged after CI; visual art direction subsequently rejected, so V2 is under evaluation separately.
+
+## New direction: V2 3D / isometric visual lab
+
+The user requested much higher visual quality and specifically **not pure 2D**. We selected real 3D with an orthographic camera and a Compatibility-first GPU tier for AMD R9 M395X.
+
+- [Research, comparisons and art decision](docs/V2_GRAPHICS_RESEARCH.md)
+- [Windows screenshot and performance acceptance](docs/V2_VISUAL_LAB_ACCEPTANCE.md)
+- [V2 issue tracker](https://github.com/tahazarif10/worldforge-sim/issues/17)
+
+Start this **separate** V2 scene without replacing the approved 2D main scene:
+
+```powershell
+Set-Location 'H:\WorldForge-Sim'
+. .\scripts\enter-dev.ps1
+& 'H:\WorldForge-Sim\Tools\dotnet\dotnet.exe' build '.\WorldForgeSim.csproj' -c Debug --disable-build-servers -p:UseSharedCompilation=false
+.\scripts\run-visual-lab.ps1
+```
+
+The initial geometry is an **interactive style prototype**, not final asset-rich quality. If a trusted CC0 pack is obtained on H:, use `scripts/import-nature-pack.ps1` to stage a GLB tree and rock, then run Godot headless `--editor --import` on H:. The pack itself is not bundled or automatically downloaded. Existing 2D gameplay remains the fallback.
 
 ## Engineering workflow
 Each milestone goes into a dedicated branch and PR. Do not merge without CI, build, and Windows visual acceptance. See [roadmap](docs/ROADMAP.md) and [project state](docs/PROJECT_STATE.md).
