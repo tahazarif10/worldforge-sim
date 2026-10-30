@@ -33,7 +33,7 @@ Existing original V2 camera, terrain, water, eco, citizens and deterministic sim
 ## Manual visual and performance acceptance on Windows / H:
 
 - Run `git status --short` before pulling; **do not reset or discard local project.godot**.
-- In `H:\WorldForge-Sim`, update to the merged main and launch `.\scripts\verify-v2-art.ps1`. This is the **approved V2 3D scene** with the 20261030 reference seed.
+- In `H:\WorldForge-Sim`, update to the merged main and launch `.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732`. This opens the **same approved V2 3D scene using the exact seed visible in the user's screenshot**. Without the switch, the regular 20261030 default remains untouched (and may contain no mountains).
 - Zoom toward a mountain (not the water or forests); photograph with **F8** to `H:\WorldForge-Sim\artifacts\visual-review\`.
 - **Visual gate:** There must be NO wide merged reddish/teal rock slab across the peak; grey faceted mountain summit must read as continuous geology, while narrow stones appear on only a few lower/middle cells. Existing forest, coastline, sand, people and camera should look as before.
 - **Performance gate:** Use **F9** to store camera/zoom frame samples on H: and inspect p95/p99 versus the user's prior V2 screenshots/benchmark, with the same viewport and camera pattern. The algorithm creates fewer stone instances; this suggests a cost reduction, **not** guaranteed FPS or Windows host validation.
