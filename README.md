@@ -52,7 +52,28 @@ Set-Location 'H:\WorldForge-Sim'
 .\scripts\run-visual-lab.ps1
 ```
 
-The initial geometry is an **interactive style prototype**, not final asset-rich quality. If a trusted CC0 pack is obtained on H:, use `scripts/import-nature-pack.ps1` to stage a GLB tree and rock, then run Godot headless `--editor --import` on H:. The pack itself is not bundled or automatically downloaded. Existing 2D gameplay remains the fallback.
+The V2 3D lab now includes ten bundled CC0 Kenney Nature Kit GLB models, shared-corner land slopes, camera-region streaming, low-cost lagoon water and a distinct F4 Eco tier. Full user hardware performance and premium art quality still require evidence. Original 2D gameplay remains the fallback.
+
+## V3.0 region-backed world lab (separate, opt-in)
+
+The existing V2 stylized 3D scene is the current approved art/gameplay baseline. V3 introduces a **second scene** to prove an **8192×8192 logical address space** with only 64×64 biome regions and 16×16 rendering chunks near the camera kept in memory. It does **not** run a full 8192×8192 living-world simulation or replace the original V2 scene.
+
+In the portable H:-based Windows checkout:
+
+```powershell
+Set-Location 'H:\WorldForge-Sim'
+git status --short
+git fetch origin
+git switch main
+git pull --ff-only origin main
+.\scripts\verify-v3-regional.ps1
+```
+
+This verifies the region LRU/save format and original 3D art regressions, then launches `Scenes/RegionalWorldLab3D.tscn`. The standalone V2 scene remains `scripts/run-visual-lab.ps1`. Do not reset or overwrite a locally modified `project.godot` if switching branches is blocked.
+
+In regional mode, right-drag/WASD moves, wheel zooms, Home/End/PageUp/PageDown jumps to remote corners, 1–5 chooses a biome brush, F4 toggles Eco, F11/F12 saves/loads edited biome regions on H:, F8 saves a screenshot, F9 saves frame intervals, and F10 logs chunk/region counts.
+
+The official [V3 architecture and Windows acceptance notes](docs/V3_REGIONAL_WORLD_QA.md) separate proven logical-region functionality from remaining entity simulation, world-save and actual AMD R9 M395X FPS testing.
 
 ## Engineering workflow
 Each milestone goes into a dedicated branch and PR. Do not merge without CI, build, and Windows visual acceptance. See [roadmap](docs/ROADMAP.md) and [project state](docs/PROJECT_STATE.md).

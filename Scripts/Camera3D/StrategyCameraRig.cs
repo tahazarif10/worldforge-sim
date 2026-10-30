@@ -55,6 +55,18 @@ public sealed class StrategyCameraRig
         _dragging = RayOnPlane(screen, elevation, out _dragAnchor);
     }
 
+    /// <summary>Explicit navigation to distant logical map coordinates
+    /// without allocating intervening world regions or scene chunks.</summary>
+    public void FocusAt(float x, float z)
+    {
+        if (!float.IsFinite(x) || !float.IsFinite(z))
+            throw new ArgumentOutOfRangeException(nameof(x));
+        _dragging = false;
+        _pivot = new Vector3(x, 0, z);
+        ClampFocus();
+        RefreshCamera();
+    }
+
     public void EndDrag() => _dragging = false;
 
     public void DragTo(Vector2 screen)
