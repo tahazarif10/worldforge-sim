@@ -6,5 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
-  <ItemGroup><ProjectReference Include="../../src/WorldSim/WorldSim.csproj" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../Scripts/VisualLab/SharedCornerHeightfield.cs" Link="SharedCornerHeightfield.cs" />
+    <Compile Include="../../Scripts/Camera3D/CameraRayMath.cs" Link="CameraRayMath.cs" />
+    <ProjectReference Include="../../src/WorldSim/WorldSim.csproj" />
+  </ItemGroup>
 </Project>
