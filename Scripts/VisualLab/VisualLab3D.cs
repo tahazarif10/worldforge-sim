@@ -19,7 +19,7 @@ public partial class VisualLab3D : Node3D
     private WorldState _world = null!;
     private VisualTerrain3D _terrain = null!;
     private MultiMeshInstance3D _citizens = null!;
-    private Camera3D _camera = null!;
+    private Godot.Camera3D _camera = null!;
     private DirectionalLight3D _sun = null!;
     private GameHud _hud = null!;
     private Brush _brush = Brush.Person;
@@ -52,10 +52,10 @@ public partial class VisualLab3D : Node3D
         };
         AddChild(_citizens);
 
-        _camera = new Camera3D
+        _camera = new Godot.Camera3D
         {
             Name = "IsometricCamera",
-            Projection = Camera3D.ProjectionType.Orthogonal,
+            Projection = Godot.Camera3D.ProjectionType.Orthogonal,
             Size = 79f,
             Near = 0.05f,
             Far = 550f,
