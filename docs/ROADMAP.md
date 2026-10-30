@@ -47,6 +47,8 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 
 ### ▶ V3.3 — Freeze / measure the approved 3D baseline (NEXT)
 
+**GitHub tracker:** [#52](https://github.com/tahazarif10/worldforge-sim/issues/52). Initial slices: [#53 V3.3.0](https://github.com/tahazarif10/worldforge-sim/issues/53) and [#54 V3.3.1](https://github.com/tahazarif10/worldforge-sim/issues/54).
+
 **Purpose:** create a real *measured* golden baseline before touching streaming or global world dimensions. Do not implement more world-size or camera changes first.
 
 **V3.3.0 — Lock the reference scene and art contract**
@@ -70,6 +72,8 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 **V3.3 exit gate:** complete real Windows AMD baseline, readable images, no unacceptable camera drift, exact controls working, no lost terrain brush edits, image/FPS evidence recorded; user explicitly approves visual baseline. #46 remains open if V3-like large map visual/UX parity still unproven.
 
 ### ◻ V3.4 — Seamless visual streaming *without visible holes*
+
+**Tracker:** [#55](https://github.com/tahazarif10/worldforge-sim/issues/55).
 
 **Dependency:** V3.3 physical baseline and camera/art acceptance.
 
@@ -97,6 +101,8 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 
 ### ◻ V3.5 — Make terrain regions authoritative, then expand map size
 
+**Tracker:** [#56](https://github.com/tahazarif10/worldforge-sim/issues/56).
+
 **Dependency:** V3.4 seamless streaming and physical acceptance.
 
 **V3.5.1 — Generator art parity and immutable region contract**
@@ -121,6 +127,8 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 **V3.5 exit:** region source becomes the actual source of truth for terrain/tools/save; user has approved camera/coast/forest/mountain parity at progressively larger sizes. No claim of full living 8192² simulation yet.
 
 ### ◻ V3.6 — Region-scoped living world
+
+**Tracker:** [#57](https://github.com/tahazarif10/worldforge-sim/issues/57), continuation of existing [#45](https://github.com/tahazarif10/worldforge-sim/issues/45).
 
 **Dependency:** V3.5 authoritative regions and durable saves.
 
