@@ -23,6 +23,9 @@ public sealed class ElevationRegionSnapshot
         Key = key;
         Seed = seed;
         Revision = revision;
+        foreach (short value in units)
+            if (value is < -2048 or > 2048)
+                throw new ArgumentException("Elevation value exceeds 8m bound.", nameof(units));
         _units = (short[])units.Clone();
     }
 
@@ -93,7 +96,8 @@ public sealed class ElevationRegionStore
     public bool AddOffset(CellCoord vertex, float metres)
     {
         if (!float.IsFinite(metres)) throw new ArgumentOutOfRangeException(nameof(metres));
-        int increment = (int)MathF.Round(metres * UnitsPerMetre);
+        int increment = (int)MathF.Round(Math.Clamp(metres,
+            -MaxAbsoluteOffset, MaxAbsoluteOffset) * UnitsPerMetre);
         if (increment == 0) return false;
         long candidate = (long)Units(vertex) + increment;
         return SetUnits(vertex, (short)Math.Clamp(candidate, -MaxUnits, MaxUnits));
