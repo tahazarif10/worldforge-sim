@@ -5,7 +5,7 @@ using WorldForge.VisualLab;
 static void Check(bool condition, string name)
 {
     if (!condition) throw new InvalidOperationException("FAIL: " + name);
-    Console.WriteLine("PASS: " + name);
+
 }
 
 for (uint h = 0; h < 12000; h += 37)
