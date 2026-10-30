@@ -3,6 +3,7 @@ using Godot;
 using WorldSim;
 using WorldForge.UI;
 using WorldForge.Camera;
+using WorldForge.Rendering;
 
 namespace WorldForge;
 
@@ -12,26 +13,18 @@ public partial class GameRoot : Node2D
     private const double TickSeconds = 0.18;
     private const double HudRefreshIntervalSeconds = 0.25;
     private const double PerformanceSampleIntervalSeconds = 1.0;
-    private static readonly Color CitizenOutline = new("#292a33");
-    private static readonly Color CitizenFace = new("#ffe0ad");
-    private static readonly Color[] Colors =
-    [
-        new("#183e75"), new("#3278ab"), new("#d7c17d"), new("#6aab55"),
-        new("#367b43"), new("#78828c"), new("#503e35")
-    ];
     private enum Brush { Land, Ocean, Sand, Forest, Mountain, Person, Meteor }
     private WorldState _world = null!;
     private Camera2D _camera = null!;
     private WorldCameraController _cameraController = null!;
-    private Image _image = null!;
-    private ImageTexture _texture = null!;
+    private TerrainRenderer _terrainRenderer = null!;
+    private EntityRenderer _entityRenderer = null!;
     private GameHud _hud = null!;
     private Brush _brush = Brush.Person;
     private int _radius = 3;
     private int _speed = 1;
     private double _elapsed;
     private bool _panning;
-    private bool _terrainDirty;
     private double _hudClock;
     private double _perfClock;
     private double _worstFrameMilliseconds;
@@ -40,6 +33,13 @@ public partial class GameRoot : Node2D
     public override void _Ready()
     {
         TextureFilter = TextureFilterEnum.Nearest;
+        _terrainRenderer = new TerrainRenderer();
+        AddChild(_terrainRenderer);
+        _entityRenderer = new EntityRenderer();
+        AddChild(_entityRenderer);
+        // Dedicated foreground layer for future particles/impact visuals.
+        AddChild(new Node2D { Name = "EffectsLayer", ZIndex = 20 });
+
         CreateWorld(20261030);
         _camera = new Camera2D
         {
@@ -57,31 +57,9 @@ public partial class GameRoot : Node2D
     private void CreateWorld(int seed)
     {
         _world = new WorldState(160, 120, seed);
-        _image = Image.CreateEmpty(_world.Width, _world.Height, false, Image.Format.Rgba8);
         _elapsed = 0;
-        _terrainDirty = false;
-        UpdateTerrain();
-    }
-
-    private void UpdateTerrain()
-    {
-        for (int y = 0; y < _world.Height; y++)
-        for (int x = 0; x < _world.Width; x++)
-            _image.SetPixel(x, y, Colors[(int)_world.Tile(x, y)]);
-        if (_texture is null) _texture = ImageTexture.CreateFromImage(_image);
-        else _texture.Update(_image);
-        QueueRedraw();
-    }
-
-    public override void _Draw()
-    {
-        DrawTextureRect(_texture, new Rect2(0, 0, _world.Width * TileSize, _world.Height * TileSize), false);
-        foreach (Citizen person in _world.People)
-        {
-            Vector2 center = new((person.X + .5f) * TileSize, (person.Y + .5f) * TileSize);
-            DrawCircle(center, 3.1f, CitizenOutline);
-            DrawCircle(center, 2.2f, CitizenFace);
-        }
+        _terrainRenderer.BindWorld(_world);
+        _entityRenderer.BindWorld(_world);
     }
 
     public override void _Process(double delta)
@@ -92,13 +70,9 @@ public partial class GameRoot : Node2D
         if (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up)) keyboardPan.Y -= 1f;
         if (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down)) keyboardPan.Y += 1f;
         _cameraController.PanByKeyboard(keyboardPan, delta);
-        // Input events may arrive many times between rendered frames. Upload the terrain
-        // texture once per frame rather than once per pointer movement.
-        if (_terrainDirty)
-        {
-            _terrainDirty = false;
-            UpdateTerrain();
-        }
+        // Only terrain changes require GPU texture upload. Multiple brush
+        // inputs coalesce into a bounded CPU pixel update once per frame.
+        _terrainRenderer.FlushPending();
 
         if (_speed > 0)
         {
@@ -108,7 +82,7 @@ public partial class GameRoot : Node2D
             {
                 _world.Advance();
                 _elapsed -= TickSeconds;
-                QueueRedraw();
+                _entityRenderer.MarkChanged();
             }
             if (_elapsed > TickSeconds * 12) _elapsed = TickSeconds;
         }
@@ -178,8 +152,9 @@ public partial class GameRoot : Node2D
             case Brush.Person: _world.Spawn(x, y); break;
             case Brush.Meteor: _world.Meteor(x, y, Math.Max(2, _radius)); break;
         }
-        if (_brush != Brush.Person) _terrainDirty = true;
-        QueueRedraw();
+        if (_brush != Brush.Person)
+            _terrainRenderer.MarkBrush(x, y, _brush == Brush.Meteor ? Math.Max(2, _radius) : _radius);
+        _entityRenderer.MarkChanged();
     }
 
     private void SetupUi()
