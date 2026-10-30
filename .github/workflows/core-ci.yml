@@ -58,5 +58,7 @@ jobs:
         run: dotnet run --project tests/ElevationRegion.Smoke/ElevationRegion.Smoke.csproj -c Release
       - name: 8192 logical region-world LRU and persistent biome tests
         run: dotnet run --project tests/RegionalWorld.Smoke/RegionalWorld.Smoke.csproj -c Release
+      - name: Guard approved V2 default from rejected V3 experimental scene
+        run: python3 tests/ReleaseGuard.Smoke/verify.py
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false

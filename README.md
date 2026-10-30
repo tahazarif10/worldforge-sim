@@ -54,26 +54,22 @@ Set-Location 'H:\WorldForge-Sim'
 
 The V2 3D lab now includes ten bundled CC0 Kenney Nature Kit GLB models, shared-corner land slopes, camera-region streaming, low-cost lagoon water and a distinct F4 Eco tier. Full user hardware performance and premium art quality still require evidence. Original 2D gameplay remains the fallback.
 
-## V3.0 region-backed world lab (separate, opt-in)
+## Approved 3D game versus experimental V3
 
-The existing V2 stylized 3D scene is the current approved art/gameplay baseline. V3 introduces a **second scene** to prove an **8192×8192 logical address space** with only 64×64 biome regions and 16×16 rendering chunks near the camera kept in memory. It does **not** run a full 8192×8192 living-world simulation or replace the original V2 scene.
-
-In the portable H:-based Windows checkout:
+**Playable / user-approved:** the V2.9 stylized 3D scene `Scenes/VisualLab3D.tscn` with its established camera, terrain, lagoon, 10 bundled CC0 nature models, citizens and Eco graphics. Launch it via:
 
 ```powershell
 Set-Location 'H:\WorldForge-Sim'
-git status --short
-git fetch origin
-git switch main
-git pull --ff-only origin main
-.\scripts\verify-v3-regional.ps1
+.\scripts\verify-v2-art.ps1
 ```
 
-This verifies the region LRU/save format and original 3D art regressions, then launches `Scenes/RegionalWorldLab3D.tscn`. The standalone V2 scene remains `scripts/run-visual-lab.ps1`. Do not reset or overwrite a locally modified `project.godot` if switching branches is blocked.
+**V3 is withdrawn as a playable preview.** On 2026-10-30 the user rejected **both visual quality and camera/movement behavior** of the separate `RegionalWorldLab3D.tscn` scene. It simplified the lagoon and terrain art, omitted citizens, and its capped/slowly built render chunks could leave visible holes and cause stalls. A Linux headless boot/CI pass **did not prove visual quality or Windows responsiveness**.
 
-In regional mode, right-drag/WASD moves, wheel zooms, Home/End/PageUp/PageDown jumps to remote corners, 1–5 chooses a biome brush, F4 toggles Eco, F11/F12 saves/loads edited biome regions on H:, F8 saves a screenshot, F9 saves frame intervals, and F10 logs chunk/region counts.
+The existing region data and biome persistence code remain available as engineering infrastructure, but the separate V3 scene must NOT be presented as a successor. `scripts/run-regional-world.ps1` and `scripts/verify-v3-regional.ps1` now **launch the approved V2 scene by default**. To run the rejected prototype for an explicit engineering diagnostic, use `-ExperimentalV3` with either script.
 
-The official [V3 architecture and Windows acceptance notes](docs/V3_REGIONAL_WORLD_QA.md) separate proven logical-region functionality from remaining entity simulation, world-save and actual AMD R9 M395X FPS testing.
+Do not expand V3's visible world or move users to it until one **shared V2 renderer and camera behavior** is proven with region-backed data and A/B art/interaction tests. See [V3 rejection and release gates](docs/V3_REJECTION_POSTMORTEM.md) and [regression issue #46](https://github.com/tahazarif10/worldforge-sim/issues/46).
+
+The V2 user project is on H:. **Never reset, clean, or overwrite locally edited `project.godot`**. Do not intentionally put project tools or artifacts on C:.
 
 ## Engineering workflow
 Each milestone goes into a dedicated branch and PR. Do not merge without CI, build, and Windows visual acceptance. See [roadmap](docs/ROADMAP.md) and [project state](docs/PROJECT_STATE.md).
