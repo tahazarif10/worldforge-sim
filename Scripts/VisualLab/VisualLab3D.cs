@@ -268,6 +268,7 @@ public partial class VisualLab3D : Node3D
             if (k.Keycode == Key.Key2) _speed = 2;
             if (k.Keycode == Key.Key3) _speed = 4;
             if (k.Keycode == Key.F2) _sun.ShadowEnabled = !_sun.ShadowEnabled;
+            if (k.Keycode == Key.F3) _terrain.ToggleRichTerrainDetails();
             if (k.Keycode == Key.F8) SaveVisualSnapshot();
             if (k.Keycode == Key.F9) SaveFrameTimeSamples();
             if (k.Keycode == Key.F10)
