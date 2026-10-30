@@ -11,6 +11,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Documentation milestone links, evidence state and ADR integrity
+        run: python3 tests/Documentation.Smoke/verify.py
       - name: Build simulation core
         run: dotnet build src/WorldSim/WorldSim.csproj -c Release
       - name: Run deterministic smoke tests
