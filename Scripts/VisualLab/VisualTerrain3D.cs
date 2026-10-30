@@ -688,7 +688,56 @@ public partial class VisualTerrain3D : Node3D
                     ((h >> 6) & 1) == 0 ? new Color("#5cba81") : new Color("#2d7658")));
                 count++;
             }
-            else if (kind is Terrain.Mountain or Terrain.Sand && species is 6 or 7)
+            else if (kind == Terrain.Mountain)
+            {
+                // Mountain *terrain* already provides the broad base, layered
+                // slopes and actual summit. The old >50% coverage of broad
+                // RockLargeA GLBs was the visible flat boulder cap from the
+                // user's screenshot. Do not place such a mesh on top again.
+                // Preserve the legacy one-import-per-chunk budget for sand:
+                // a previously eligible mountain still reserves that slot,
+                // but never actually instantiates the oversized top boulder.
+                if (_rockPrefab is not null && species is 6 or 7 &&
+                    importedRockCount < MaxImportedRocksPerChunk)
+                    importedRockCount++;
+                int heightStep = (int)(Hash(x, y, _world.Seed) % 11);
+                // ~80%+ of mountain cells fail this conservative gate;
+                // don't touch four neighbor tiles or the cache for them.
+                if (!MountainSummitArtMath.MayHaveAccent(h, heightStep))
+                    continue;
+                int exposed = 0;
+                if (x == 0 || _tiles.Tile(x - 1, y) != Terrain.Mountain) exposed++;
+                if (y == 0 || _tiles.Tile(x, y - 1) != Terrain.Mountain) exposed++;
+                if (x + 1 == _world.Width || _tiles.Tile(x + 1, y) != Terrain.Mountain) exposed++;
+                if (y + 1 == _world.Height || _tiles.Tile(x, y + 1) != Terrain.Mountain) exposed++;
+                MountainSummitArtMath.Accent accent =
+                    MountainSummitArtMath.Choose(h, heightStep, exposed);
+                if (!accent.Visible) continue;
+
+                Vector3 basePoint = p - Vector3.Up * accent.Embed;
+                if (_natureArt is not null &&
+                    _natureArt.Has((NatureArtLibrary.Species)accent.Species))
+                {
+                    // Existing authored GLB and MultiMesh batching: no new
+                    // draw passes and no extra terrain triangles.
+                    authoredPlacements.Add(new NatureArtLibrary.Placement(
+                        (NatureArtLibrary.Species)accent.Species, basePoint,
+                        accent.Height * NatureScatter.HeightFactor(h),
+                        NatureScatter.RotationRadians(h)));
+                }
+                else
+                {
+                    // Missing import fallback stays small and partly embedded,
+                    // never a replacement for an oversized summit boulder.
+                    float size = accent.Height * NatureScatter.HeightFactor(h);
+                    stones.Add((MakeTransform(basePoint + Vector3.Up * size * .16f,
+                        new Vector3(size * .63f, size * .36f, size * .72f)),
+                        ((h >> 6) & 1) == 0
+                            ? new Color("#a5b1b8") : new Color("#637582")));
+                }
+                count++;
+            }
+            else if (kind == Terrain.Sand && species is 6 or 7)
             {
                 if (_rockPrefab is not null && importedRockCount < MaxImportedRocksPerChunk)
                 {
@@ -701,7 +750,7 @@ public partial class VisualTerrain3D : Node3D
                 {
                     authoredPlacements.Add(new NatureArtLibrary.Placement(
                         (NatureArtLibrary.Species)species, p,
-                        (kind == Terrain.Mountain ? 0.9f : 0.55f) *
+                        0.55f *
                         NatureScatter.HeightFactor(h), NatureScatter.RotationRadians(h)));
                     count++;
                     continue;

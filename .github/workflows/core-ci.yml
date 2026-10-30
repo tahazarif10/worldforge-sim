@@ -31,6 +31,8 @@ jobs:
         run: dotnet run --project tests/VisibleChunks.Smoke/VisibleChunks.Smoke.csproj -c Release
       - name: Authored nature species scatter tests
         run: dotnet run --project tests/NatureScatter.Smoke/NatureScatter.Smoke.csproj -c Release
+      - name: Summit cap removal, mountain accent bounds and real-map density
+        run: dotnet run --project tests/MountainSummit.Smoke/MountainSummit.Smoke.csproj -c Release
       - name: Validate bundled CC0 GLB asset headers
         run: |
           python3 - <<'PY'
