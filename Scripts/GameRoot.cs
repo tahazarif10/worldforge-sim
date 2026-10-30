@@ -9,6 +9,10 @@ public partial class GameRoot : Node2D
 {
     private const float TileSize = 8;
     private const double TickSeconds = 0.18;
+    private const double HudRefreshIntervalSeconds = 0.25;
+    private const double PerformanceSampleIntervalSeconds = 1.0;
+    private static readonly Color CitizenOutline = new("#292a33");
+    private static readonly Color CitizenFace = new("#ffe0ad");
     private static readonly Color[] Colors =
     [
         new("#183e75"), new("#3278ab"), new("#d7c17d"), new("#6aab55"),
@@ -25,6 +29,11 @@ public partial class GameRoot : Node2D
     private int _speed = 1;
     private double _elapsed;
     private bool _panning;
+    private bool _terrainDirty;
+    private double _hudClock;
+    private double _perfClock;
+    private double _worstFrameMilliseconds;
+    private int _frameSamples;
 
     public override void _Ready()
     {
@@ -45,6 +54,7 @@ public partial class GameRoot : Node2D
         _world = new WorldState(160, 120, seed);
         _image = Image.CreateEmpty(_world.Width, _world.Height, false, Image.Format.Rgba8);
         _elapsed = 0;
+        _terrainDirty = false;
         UpdateTerrain();
     }
 
@@ -64,13 +74,21 @@ public partial class GameRoot : Node2D
         foreach (Citizen person in _world.People)
         {
             Vector2 center = new((person.X + .5f) * TileSize, (person.Y + .5f) * TileSize);
-            DrawCircle(center, 3.1f, new Color("#292a33"));
-            DrawCircle(center, 2.2f, new Color("#ffe0ad"));
+            DrawCircle(center, 3.1f, CitizenOutline);
+            DrawCircle(center, 2.2f, CitizenFace);
         }
     }
 
     public override void _Process(double delta)
     {
+        // Input events may arrive many times between rendered frames. Upload the terrain
+        // texture once per frame rather than once per pointer movement.
+        if (_terrainDirty)
+        {
+            _terrainDirty = false;
+            UpdateTerrain();
+        }
+
         if (_speed > 0)
         {
             _elapsed += delta * _speed;
@@ -83,9 +101,29 @@ public partial class GameRoot : Node2D
             }
             if (_elapsed > TickSeconds * 12) _elapsed = TickSeconds;
         }
-        if (_hud is not null)
-            _hud.UpdateState(_brush.ToString(), _radius, _speed, _world.Seed, _world.People.Count, _world.Tick);
+        _hudClock += delta;
+        if (_hudClock >= HudRefreshIntervalSeconds)
+        {
+            _hudClock = 0;
+            RefreshHud();
+        }
+
+        // Sample frame time without formatting strings or mutating Controls every frame.
+        _frameSamples++;
+        _perfClock += delta;
+        _worstFrameMilliseconds = Math.Max(_worstFrameMilliseconds, delta * 1000.0);
+        if (_perfClock >= PerformanceSampleIntervalSeconds)
+        {
+            int fps = (int)Math.Round(_frameSamples / _perfClock);
+            _hud.UpdatePerformance(fps, _worstFrameMilliseconds);
+            _perfClock = 0;
+            _frameSamples = 0;
+            _worstFrameMilliseconds = 0;
+        }
     }
+
+    private void RefreshHud() =>
+        _hud.UpdateState(_brush.ToString(), _radius, _speed, _world.Seed, _world.People.Count, _world.Tick);
 
     public override void _UnhandledInput(InputEvent input)
     {
@@ -107,6 +145,7 @@ public partial class GameRoot : Node2D
             if (key.Keycode == Key.Key1) _speed = 1;
             if (key.Keycode == Key.Key2) _speed = 2;
             if (key.Keycode == Key.Key3) _speed = 4;
+            RefreshHud();
         }
     }
 
@@ -131,7 +170,7 @@ public partial class GameRoot : Node2D
             case Brush.Person: _world.Spawn(x, y); break;
             case Brush.Meteor: _world.Meteor(x, y, Math.Max(2, _radius)); break;
         }
-        if (_brush != Brush.Person) UpdateTerrain();
+        if (_brush != Brush.Person) _terrainDirty = true;
         QueueRedraw();
     }
 
@@ -147,13 +186,13 @@ public partial class GameRoot : Node2D
         _hud.OffsetLeft = 16;
         _hud.OffsetRight = -16;
         _hud.OffsetTop = 16;
-        _hud.OffsetBottom = 164;
+        _hud.OffsetBottom = 194;
 
-        _hud.ToolSelected += index => _brush = (Brush)index;
-        _hud.RadiusChangeRequested += delta => _radius = Math.Clamp(_radius + delta, 0, 12);
-        _hud.SpeedRequested += speed => _speed = speed;
-        _hud.NewWorldRequested += () => CreateWorld(Random.Shared.Next());
+        _hud.ToolSelected += index => { _brush = (Brush)index; RefreshHud(); };
+        _hud.RadiusChangeRequested += delta => { _radius = Math.Clamp(_radius + delta, 0, 12); RefreshHud(); };
+        _hud.SpeedRequested += speed => { _speed = speed; RefreshHud(); };
+        _hud.NewWorldRequested += () => { CreateWorld(Random.Shared.Next()); RefreshHud(); };
         _hud.SetSelectedTool((int)_brush);
-        _hud.UpdateState(_brush.ToString(), _radius, _speed, _world.Seed, _world.People.Count, _world.Tick);
+        RefreshHud();
     }
 }

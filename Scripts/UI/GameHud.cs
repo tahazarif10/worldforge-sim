@@ -15,6 +15,7 @@ public partial class GameHud : PanelContainer
     private Label _readout = null!;
     private Label _selection = null!;
     private Label _speedLabel = null!;
+    private Label _performance = null!;
 
     public event Action<int>? ToolSelected;
     public event Action<int>? RadiusChangeRequested;
@@ -94,6 +95,9 @@ public partial class GameHud : PanelContainer
 
         _readout = MakeLabel("", 16, Muted);
         rows.AddChild(_readout);
+
+        _performance = MakeLabel("FPS: measuring...    Worst frame: measuring...", 16, Muted);
+        rows.AddChild(_performance);
     }
 
     public void SetSelectedTool(int index)
@@ -109,9 +113,20 @@ public partial class GameHud : PanelContainer
 
     public void UpdateState(string toolName, int radius, int speed, int seed, int population, long tick)
     {
-        _selection.Text = $"Brush: {toolName}  |  Radius: {radius}";
-        _speedLabel.Text = $"Time  {speed}x";
-        _readout.Text = $"Seed {seed}    People {population}    Tick {tick}     Left-click paint / spawn   |   Right-drag pan   |   Wheel zoom   |   Space pause";
+        SetTextIfChanged(_selection, $"Brush: {toolName}  |  Radius: {radius}");
+        SetTextIfChanged(_speedLabel, $"Time  {speed}x");
+        SetTextIfChanged(_readout, $"Seed {seed}    People {population}    Tick {tick}     Left-click paint / spawn   |   Right-drag pan   |   Wheel zoom   |   Space pause");
+    }
+
+    /// <summary>Updates once per second; worst-frame time is based on _Process deltas, not a GPU profiler.</summary>
+    public void UpdatePerformance(int fps, double worstFrameMilliseconds)
+    {
+        SetTextIfChanged(_performance, $"FPS: {fps}    Worst frame: {worstFrameMilliseconds:F1} ms  (1s interval)");
+    }
+
+    private static void SetTextIfChanged(Label label, string value)
+    {
+        if (label.Text != value) label.Text = value;
     }
 
     private static Label MakeLabel(string text, int size, Color color)
