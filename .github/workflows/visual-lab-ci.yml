@@ -4,6 +4,7 @@ on:
     paths:
       - 'Scripts/VisualLab/**'
       - 'Scenes/VisualLab3D.tscn'
+      - 'Scenes/RegionalWorldLab3D.tscn'
       - 'Assets/**'
       - 'WorldForgeSim.csproj'
       - '.github/workflows/visual-lab-ci.yml'
@@ -43,4 +44,10 @@ jobs:
           set -euo pipefail
           timeout 70s "$GODOT" --headless --path "$GITHUB_WORKSPACE" \
             --scene res://Scenes/VisualLab3D.tscn --quit-after 24 \
+            --rendering-method gl_compatibility
+      - name: Start 8192 logical regional 3D scene headlessly
+        run: |
+          set -euo pipefail
+          timeout 70s "$GODOT" --headless --path "$GITHUB_WORKSPACE" \
+            --scene res://Scenes/RegionalWorldLab3D.tscn --quit-after 24 \
             --rendering-method gl_compatibility
