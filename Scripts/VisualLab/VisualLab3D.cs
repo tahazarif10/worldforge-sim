@@ -29,6 +29,7 @@ public partial class VisualLab3D : Node3D
     private WorldForge.Camera3D.StrategyCameraRig _cameraRig = null!;
     private double _tickAccumulator;
     private double _terrainRefresh;
+    private double _visibilityRefresh;
     private double _hudRefresh;
     private double _fpsWindow;
     private double _slowestFrame;
@@ -68,6 +69,7 @@ public partial class VisualLab3D : Node3D
         CreateWorld(20261030);
         _cameraRig = new WorldForge.Camera3D.StrategyCameraRig(_camera,
             (x, y) => _terrain.HeightAt(x, y), _world.Width, _world.Height);
+        _terrain.UpdateVisibility(_camera);
         SetupHud();
     }
 
@@ -104,7 +106,11 @@ public partial class VisualLab3D : Node3D
         _world = new WorldState(120, 88, seed);
         _world.PopulationLimit = 450;
         _terrain.BindWorld(_world);
-        _cameraRig?.ResetWorld(_world.Width, _world.Height);
+        if (_cameraRig is not null)
+        {
+            _cameraRig.ResetWorld(_world.Width, _world.Height);
+            _terrain.UpdateVisibility(_camera);
+        }
         _tickAccumulator = 0;
         _terrainRefresh = 0;
         UpdateActors();
@@ -158,6 +164,15 @@ public partial class VisualLab3D : Node3D
                 UpdateActors();
             }
             if (_tickAccumulator > TickSeconds * 12) _tickAccumulator = TickSeconds;
+        }
+
+        // Camera-driven resident scene chunks; 100ms cadence with a one-chunk
+        // visual safety margin. The map is still 120x88 in WorldSim here.
+        _visibilityRefresh += delta;
+        if (_visibilityRefresh >= 0.10)
+        {
+            _visibilityRefresh = 0;
+            _terrain.UpdateVisibility(_camera);
         }
 
         _terrainRefresh += delta;
