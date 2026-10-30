@@ -7,9 +7,11 @@ New-Item -ItemType Directory -Force -Path $out | Out-Null
 $report = Join-Path $out 'result.txt'
 "WorldForge acceptance - $(Get-Date -Format o)" | Set-Content -LiteralPath $report
 
-# Windows PowerShell 5.1 can turn native stderr into a terminating RemoteException
-# when using *>> under ErrorActionPreference=Stop. Start-Process captures
-# stdout/stderr separately and validates the actual native process exit code.
+# Windows PowerShell 5.1 turns redirected native stderr into RemoteException
+# with ErrorActionPreference=Stop. Start-Process captures separate files.
+# IMPORTANT: Do not use Start-Process -Wait: it can wait for descendants
+# (including build/compiler servers) after the target process has exited.
+# Process.WaitForExit waits only for the intended process, with a timeout.
 function Invoke-LoggedStep {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
@@ -26,10 +28,16 @@ function Invoke-LoggedStep {
     "Executable: $Exe" | Add-Content -LiteralPath $report
     "Arguments: $($Arguments -join ' ')" | Add-Content -LiteralPath $report
     $process = Start-Process -FilePath $Exe -ArgumentList $Arguments `
-        -WorkingDirectory $root -PassThru -Wait -NoNewWindow `
+        -WorkingDirectory $root -PassThru -NoNewWindow `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-
-    "Exit code: $($process.ExitCode)" | Add-Content -LiteralPath $report
+    $timeoutMs = 600000
+    if (-not $process.WaitForExit($timeoutMs)) {
+        try { $process.Kill() } catch {}
+        throw "Step '$Name' timed out. See $stdout and $stderr"
+    }
+    $exitCode = $process.ExitCode
+    $process.Dispose()
+    "Exit code: $exitCode" | Add-Content -LiteralPath $report
     if (Test-Path -LiteralPath $stdout) {
         $message = Get-Content -LiteralPath $stdout -Raw
         if ($message) { "[stdout]`n$message" | Add-Content -LiteralPath $report }
@@ -39,8 +47,8 @@ function Invoke-LoggedStep {
         if ($message) { "[stderr]`n$message" | Add-Content -LiteralPath $report }
     }
     "===== END: $Name =====" | Add-Content -LiteralPath $report
-    if ($process.ExitCode -ne 0) {
-        throw "Step '$Name' failed with exit code $($process.ExitCode). Check $Name.stderr.txt and $Name.stdout.txt under $out"
+    if ($exitCode -ne 0) {
+        throw "Step '$Name' failed with exit code $exitCode. Check $Name.stderr.txt and $Name.stdout.txt under $out"
     }
     Write-Host "PASS: $Name"
 }
