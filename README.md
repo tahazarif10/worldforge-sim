@@ -15,7 +15,7 @@ Set-Location 'H:\WorldForge-Sim'
 ```
 The dot before `enter-dev.ps1` is important: it applies environment variables to the **current PowerShell session**. The script fails if this checkout is not on H:.
 
-Install **Godot 4.7.2 .NET/C# edition** and .NET 10 SDK **under H:** before running the full acceptance. Do not run a conventional default-path installer without checking its paths. For Godot, unzip its portable .NET editor into `H:\WorldForge-Sim\Tools\Godot\` and create an empty file named `_sc_` beside the editor .exe **before launching it**, activating self-contained editor data under `Tools\Godot\editor_data\`. Install the H:-based SDK with `scripts/install-dotnet.ps1`; then dot-source `scripts/enter-dev.ps1` again so the H: SDK takes precedence. The existing C: SDK is left untouched.
+Install **Godot 4.7.2 .NET/C# edition** and .NET 10 SDK **under H:** before running the full acceptance. Do not run a conventional default-path installer without checking its paths. For Godot, run `scripts/install-godot.ps1`, which downloads the official Windows x64 .NET edition to H:, checks the archive SHA-256, extracts under `H:\WorldForge-Sim\Tools\Godot\`, verifies the editor signature and creates `_sc_` beside the editor binary **before launch**. Run the editor via `scripts/run-editor.ps1`. Install the H:-based SDK with `scripts/install-dotnet.ps1`; then dot-source `scripts/enter-dev.ps1` again so the H: SDK takes precedence. The existing C: SDK is left untouched.
 
 If both tools are installed, open `project.godot` with the Godot .NET editor, build C# and run F5.
 
