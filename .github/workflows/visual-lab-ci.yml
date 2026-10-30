@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'Scripts/VisualLab/**'
+      - 'src/WorldSim/**'
       - 'Scenes/VisualLab3D.tscn'
       - 'Scenes/RegionalWorldLab3D.tscn'
       - 'Assets/**'
@@ -45,6 +46,14 @@ jobs:
           timeout 70s "$GODOT" --headless --path "$GITHUB_WORKSPACE" \
             --scene res://Scenes/VisualLab3D.tscn --quit-after 24 \
             --rendering-method gl_compatibility
+      - name: Start approved V2 camera, water and nature with region-mirror backend
+        run: |
+          set -euo pipefail
+          "$GODOT" --headless --path "$GITHUB_WORKSPACE" \
+            --scene res://Scenes/VisualLab3D.tscn --quit-after 24 \
+            --rendering-method gl_compatibility \
+            -- --terrain-backend=region-mirror 2>&1 | tee "$RUNNER_TEMP/parity-scene.log"
+          grep -F 'terrain source = region-mirror' "$RUNNER_TEMP/parity-scene.log"
       - name: Start 8192 logical regional 3D scene headlessly
         run: |
           set -euo pipefail
