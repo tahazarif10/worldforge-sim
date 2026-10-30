@@ -4,11 +4,11 @@
 
 ## Why the present V2 3D still looks low-quality
 
-1. **Shape language:** \`VisualTerrain3D.HeightAt:104–119\` gives whole tiles a handful of categorical heights. \`BuildChunk:138–187\` creates horizontal flat squares with vertical cliff walls, without continuous ridge curves, strata, slopes, erosion or sculpting. This creates artificial platforms, not convincing terrain.
-2. **Asset quality:** default trees use 1 cylinder and 2 low-poly spherical crowns; rocks use ellipsoids (\`:233–285\`). These are **debug geometry**, not final tree silhouettes. A better shader cannot turn a 7-segment sphere into convincing foliage.
-3. **Environment composition:** one large flat sea plane, simple sinusoids/color (\`Assets/Shaders/stylized_water.gdshader:1–21\`), no gradient/masks integrated with terrain depth, foam at limited two cardinal sides only (\`VisualTerrain3D:172–182\`), no cliffs/beaches blending.
-4. **Lighting:** one sun and ambient color (\`VisualLab3D.cs:75–99\`); no validated exposure or color grading profile, terrain AO or readable canopy shadows on R9 M395X. We should tune physical composition before adding expensive post-effects.
-5. **Camera/scale:** the default \`Camera3D.Size=79\` and high angled distance reduce the readability of small details. Need at least three art evaluations: regional overview, village distance and close-up.
+1. **Shape language:** `VisualTerrain3D.HeightAt:104–119` gives whole tiles a handful of categorical heights. `BuildChunk:138–187` creates horizontal flat squares with vertical cliff walls, without continuous ridge curves, strata, slopes, erosion or sculpting. This creates artificial platforms, not convincing terrain.
+2. **Asset quality:** default trees use 1 cylinder and 2 low-poly spherical crowns; rocks use ellipsoids (`:233–285`). These are **debug geometry**, not final tree silhouettes. A better shader cannot turn a 7-segment sphere into convincing foliage.
+3. **Environment composition:** one large flat sea plane, simple sinusoids/color (`Assets/Shaders/stylized_water.gdshader:1–21`), no gradient/masks integrated with terrain depth, foam at limited two cardinal sides only (`VisualTerrain3D:172–182`), no cliffs/beaches blending.
+4. **Lighting:** one sun and ambient color (`VisualLab3D.cs:75–99`); no validated exposure or color grading profile, terrain AO or readable canopy shadows on R9 M395X. We should tune physical composition before adding expensive post-effects.
+5. **Camera/scale:** the default `Camera3D.Size=79` and high angled distance reduce the readability of small details. Need at least three art evaluations: regional overview, village distance and close-up.
 6. **Cohesion:** optional GLB import (only a tree and rock) plus primitive filler mixes incompatible material, silhouette and resolution families. Art style cannot be judged as professional until a consistent licensed authored asset set and material rules are used.
 
 The recommendation is an **art-directed vertical slice**: one 64×64-cell biome segment with an attractive forest, mountain/cliff and beach, and 2–3 coherent authored nature species, **before** attempting a giant 3D map.
@@ -51,7 +51,7 @@ The recommendation is an **art-directed vertical slice**: one 64×64-cell biome 
 | Blender-authored originals | Our own art, local H: workflow | Original art; maintain source and licenses for dependencies | Required for cohesive terrain/cliffs, unique settlements, biome accents |
 | Commercial Unity/Unreal-only nature packs | Vary by listing | Different license / shader dependencies | Only evaluate with verified Godot-compatible export and commercial redistribution terms |
 
-**Important importer issue:** \`scripts/import-nature-pack.ps1\` only recognizes \`*.glb\` and picks one tree/rock by file name; the official Quaternius pack lists **glTF** but does not guarantee that the free Standard archive contains self-contained \`.glb\`. Thus the current import path may fail on a legal pack. Inspect archive first; implement glTF + external textures/buffers with dependency-preserving import or convert on H: using a reproducible Blender export script. Never rename \`.gltf\` to \`.glb\`.
+**Important importer issue:** `scripts/import-nature-pack.ps1` only recognizes `*.glb` and picks one tree/rock by file name; the official Quaternius pack lists **glTF** but does not guarantee that the free Standard archive contains self-contained `.glb`. Thus the current import path may fail on a legal pack. Inspect archive first; implement glTF + external textures/buffers with dependency-preserving import or convert on H: using a reproducible Blender export script. Never rename `.gltf` to `.glb`.
 
 Asset metadata: source URL, download version, content SHA256, per-file original path, exact license text, modifications and export settings; keep third-party pack ZIP and model cache on H:. Do not copy copyrighted reference game art.
 
@@ -67,7 +67,7 @@ Asset metadata: source URL, download version, content SHA256, per-file original 
 
 ## Asset pipeline proposal (original + vetted licensed)
 
-\`\`\`text
+```text
 Publisher/Blender source -> H: secure asset staging + license manifest
  -> validate dimensions/units, pivot, UV, normals, material count, tri count
  -> convert/export GLB on H: (preserve textures)
@@ -76,7 +76,7 @@ Publisher/Blender source -> H: secure asset staging + license manifest
  -> create near/mid/far LOD + impostor in asset-build step
  -> batch by chunk/material/LOD
  -> fixed-camera screenshot + benchmark
-\`\`\`
+```
 
 For the first vertical slice, deliver **one curated near-view scene** with at least 2 tree species, 1 rock cluster, 2 ground material blends, coherent water edge and one warm light. Compare with the same seed/camera before changing the default runtime. Quality must be accepted by the user; code compilation is not art approval.
 
@@ -88,7 +88,7 @@ For the first vertical slice, deliver **one curated near-view scene** with at le
 - [ ] Model scale/axis/pivot and palette unified (no giant/small mixed trees).
 - [ ] Compatibility shader compilation and actual AMD FPS/VRAM recorded.
 - [ ] At least low/high graphics tiers differ in **detail/LOD/shadow distance**, not world simulation semantics.
-- [ ] Artists/technical art can swap model sets without editing \`WorldSim\`.
+- [ ] Artists/technical art can swap model sets without editing `WorldSim`.
 - [ ] High-end optional path can add improved lighting without blocking old-GPU tier.
 
 **Source references:** [Godot renderer feature matrix](https://docs.godotengine.org/en/stable/tutorials/rendering/renderers.html), [Godot 3D LOD and culling](https://docs.godotengine.org/en/latest/tutorials/performance/optimizing_3d_performance.html), [Quaternius official listing](https://quaternius.com/packs/stylizednaturemegakit.html), [Quaternius Standard Godot store note](https://store.godotengine.org/asset/quaternius/stylized-nature-megakit/), [Kenney secondary catalog](https://tmhsdigital.github.io/Free-Game-Dev-Assets/entry/kenney-nature-kit/).
