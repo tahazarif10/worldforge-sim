@@ -31,7 +31,7 @@ public partial class GameHud : PanelContainer
     public GameHud()
     {
         Name = "GameHud";
-        MouseFilter = MouseFilterEnum.Stop;
+        MouseFilter = Control.MouseFilterEnum.Stop;
         AddThemeStyleboxOverride("panel", Box(Background, 12));
 
         var padding = new MarginContainer();
@@ -79,7 +79,7 @@ public partial class GameHud : PanelContainer
         options.AddChild(MakeButton("Size -", () => RadiusChangeRequested?.Invoke(-1), 96, 43));
         options.AddChild(MakeButton("Size +", () => RadiusChangeRequested?.Invoke(+1), 96, 43));
 
-        var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
+        var spacer = new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MouseFilter = Control.MouseFilterEnum.Ignore };
         options.AddChild(spacer);
 
         _speedLabel = MakeLabel("Time  1x", 17, Muted);
@@ -119,7 +119,7 @@ public partial class GameHud : PanelContainer
         var label = new Label { Text = text, VerticalAlignment = VerticalAlignment.Center };
         label.AddThemeFontSizeOverride("font_size", size);
         label.AddThemeColorOverride("font_color", color);
-        label.MouseFilter = MouseFilterEnum.Ignore;
+        label.MouseFilter = Control.MouseFilterEnum.Ignore;
         return label;
     }
 
@@ -129,8 +129,8 @@ public partial class GameHud : PanelContainer
         {
             Text = text,
             CustomMinimumSize = new Vector2(width, height),
-            FocusMode = FocusModeEnum.None,
-            MouseFilter = MouseFilterEnum.Stop
+            FocusMode = Control.FocusModeEnum.None,
+            MouseFilter = Control.MouseFilterEnum.Stop
         };
         button.AddThemeFontSizeOverride("font_size", 17);
         button.AddThemeColorOverride("font_color", Foreground);
