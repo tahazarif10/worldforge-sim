@@ -2,6 +2,7 @@ using System;
 using Godot;
 using WorldSim;
 using WorldForge.UI;
+using WorldForge.Camera;
 
 namespace WorldForge;
 
@@ -21,6 +22,7 @@ public partial class GameRoot : Node2D
     private enum Brush { Land, Ocean, Sand, Forest, Mountain, Person, Meteor }
     private WorldState _world = null!;
     private Camera2D _camera = null!;
+    private WorldCameraController _cameraController = null!;
     private Image _image = null!;
     private ImageTexture _texture = null!;
     private GameHud _hud = null!;
@@ -43,9 +45,12 @@ public partial class GameRoot : Node2D
         {
             Enabled = true,
             Position = new Vector2(_world.Width * TileSize / 2, _world.Height * TileSize / 2),
-            Zoom = new Vector2(.85f, .85f)
+            Zoom = Vector2.One
         };
         AddChild(_camera);
+        _cameraController = new WorldCameraController(
+            _camera, GetViewport(), new Vector2(_world.Width * TileSize, _world.Height * TileSize));
+        GetViewport().SizeChanged += _cameraController.KeepInBounds;
         SetupUi();
     }
 
@@ -81,6 +86,12 @@ public partial class GameRoot : Node2D
 
     public override void _Process(double delta)
     {
+        Vector2 keyboardPan = Vector2.Zero;
+        if (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left)) keyboardPan.X -= 1f;
+        if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right)) keyboardPan.X += 1f;
+        if (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up)) keyboardPan.Y -= 1f;
+        if (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down)) keyboardPan.Y += 1f;
+        _cameraController.PanByKeyboard(keyboardPan, delta);
         // Input events may arrive many times between rendered frames. Upload the terrain
         // texture once per frame rather than once per pointer movement.
         if (_terrainDirty)
@@ -129,14 +140,17 @@ public partial class GameRoot : Node2D
     {
         if (input is InputEventMouseButton button)
         {
-            if (button.ButtonIndex == MouseButton.WheelUp && button.Pressed) Zoom(1.12f);
-            if (button.ButtonIndex == MouseButton.WheelDown && button.Pressed) Zoom(1f / 1.12f);
+            if (button.ButtonIndex == MouseButton.WheelUp && button.Pressed)
+                _cameraController.ZoomAtScreen(button.Position, +1);
+            if (button.ButtonIndex == MouseButton.WheelDown && button.Pressed)
+                _cameraController.ZoomAtScreen(button.Position, -1);
             if (button.ButtonIndex == MouseButton.Right) _panning = button.Pressed;
             if (button.ButtonIndex == MouseButton.Left && button.Pressed) Apply();
         }
         else if (input is InputEventMouseMotion motion)
         {
-            if (_panning) _camera.Position -= motion.Relative / _camera.Zoom;
+            if (_panning && Input.IsMouseButtonPressed(MouseButton.Right))
+                _cameraController.DragByPixels(motion.Relative);
             else if (Input.IsMouseButtonPressed(MouseButton.Left)) Apply();
         }
         else if (input is InputEventKey key && key.Pressed && !key.Echo)
@@ -147,12 +161,6 @@ public partial class GameRoot : Node2D
             if (key.Keycode == Key.Key3) _speed = 4;
             RefreshHud();
         }
-    }
-
-    private void Zoom(float by)
-    {
-        float value = Mathf.Clamp(_camera.Zoom.X * by, .35f, 4f);
-        _camera.Zoom = Vector2.One * value;
     }
 
     private void Apply()
