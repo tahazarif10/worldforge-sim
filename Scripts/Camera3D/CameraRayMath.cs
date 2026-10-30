@@ -55,7 +55,8 @@ public static class TerrainGridPicker
     public readonly record struct Hit(int X, int Y, Vector3 Point);
 
     public static bool TryPick(Vector3 origin, Vector3 direction,
-        int width, int height, Func<int, int, float> heightAt, out Hit hit)
+        int width, int height, Func<int, int, float> heightAt, out Hit hit,
+        Func<int, int, float>? liftAt = null)
     {
         hit = default;
         if (width <= 0 || height <= 0 || !CameraRayMath.IsFinite(origin) ||
@@ -92,15 +93,12 @@ public static class TerrainGridPicker
             float surface = heightAt(x, z);
             if (!float.IsFinite(surface)) return false;
 
-            if (MathF.Abs(direction.Y) > 0.000001f)
+            float lift = liftAt?.Invoke(x, z) ?? 0f;
+            if (TrySurfaceHit(origin, direction, x, z, surface, lift,
+                t, exit, out Vector3 topPoint))
             {
-                float top = (surface - origin.Y) / direction.Y;
-                if (top >= t - Epsilon && top <= exit + Epsilon && top >= 0)
-                {
-                    Vector3 position = origin + direction * top;
-                    hit = new Hit(x, z, position);
-                    return true;
-                }
+                hit = new Hit(x, z, topPoint);
+                return true;
             }
 
             // The ray entered this cell through an exposed high cliff wall.
@@ -131,6 +129,61 @@ public static class TerrainGridPicker
             }
         }
         return false;
+    }
+
+    private static bool TrySurfaceHit(
+        Vector3 origin, Vector3 direction, int x, int z,
+        float baseY, float centerLift, float firstT, float lastT,
+        out Vector3 intersection)
+    {
+        intersection = default;
+        // Keep the original inexpensive exact plane code for zero relief.
+        if (centerLift <= 0.000001f)
+        {
+            if (MathF.Abs(direction.Y) < 0.000001f) return false;
+            float t = (baseY - origin.Y) / direction.Y;
+            if (t < MathF.Max(0f, firstT) - Epsilon ||
+                t > lastT + Epsilon) return false;
+            intersection = origin + direction * t;
+            return true;
+        }
+
+        // Four triangles match VisualTerrain3D.AddTopFace EXACTLY:
+        // a,b,mid; b,d,mid; d,c,mid; c,a,mid.
+        Vector3 a = new(x, baseY, z);
+        Vector3 b = new(x, baseY, z + 1);
+        Vector3 c = new(x + 1, baseY, z);
+        Vector3 d = new(x + 1, baseY, z + 1);
+        Vector3 mid = new(x + .5f, baseY + centerLift, z + .5f);
+        float best = float.PositiveInfinity;
+        if (HitTriangle(origin,direction,a,b,mid,out float t0)) best = MathF.Min(best,t0);
+        if (HitTriangle(origin,direction,b,d,mid,out float t1)) best = MathF.Min(best,t1);
+        if (HitTriangle(origin,direction,d,c,mid,out float t2)) best = MathF.Min(best,t2);
+        if (HitTriangle(origin,direction,c,a,mid,out float t3)) best = MathF.Min(best,t3);
+        if (!float.IsFinite(best) || best < MathF.Max(0f, firstT) - Epsilon ||
+            best > lastT + Epsilon) return false;
+        intersection = origin + direction * best;
+        return CameraRayMath.IsFinite(intersection);
+    }
+
+    // Two-sided Moller-Trumbore. No collision nodes or allocations per pick.
+    private static bool HitTriangle(Vector3 origin, Vector3 direction,
+        Vector3 a, Vector3 b, Vector3 c, out float distance)
+    {
+        distance = 0f;
+        Vector3 e1 = b - a, e2 = c - a;
+        Vector3 p = Vector3.Cross(direction, e2);
+        float determinant = Vector3.Dot(e1, p);
+        if (MathF.Abs(determinant) < 0.000001f) return false;
+        float inverse = 1f / determinant;
+        Vector3 t = origin - a;
+        float u = Vector3.Dot(t, p) * inverse;
+        if (u < -Epsilon || u > 1f + Epsilon) return false;
+        Vector3 q = Vector3.Cross(t, e1);
+        float v = Vector3.Dot(direction, q) * inverse;
+        if (v < -Epsilon || u + v > 1f + Epsilon) return false;
+        distance = Vector3.Dot(e2, q) * inverse;
+        return float.IsFinite(distance) && distance >= -Epsilon;
     }
 
     private static bool ClipSlab(float coordinate, float direction,
