@@ -694,12 +694,16 @@ public partial class VisualTerrain3D : Node3D
                 // slopes and actual summit. The old >50% coverage of broad
                 // RockLargeA GLBs was the visible flat boulder cap from the
                 // user's screenshot. Do not place such a mesh on top again.
+                int heightStep = (int)(Hash(x, y, _world.Seed) % 11);
+                // ~80%+ of mountain cells fail this conservative gate;
+                // don't touch four neighbor tiles or the cache for them.
+                if (!MountainSummitArtMath.MayHaveAccent(h, heightStep))
+                    continue;
                 int exposed = 0;
                 if (x == 0 || _tiles.Tile(x - 1, y) != Terrain.Mountain) exposed++;
                 if (y == 0 || _tiles.Tile(x, y - 1) != Terrain.Mountain) exposed++;
                 if (x + 1 == _world.Width || _tiles.Tile(x + 1, y) != Terrain.Mountain) exposed++;
                 if (y + 1 == _world.Height || _tiles.Tile(x, y + 1) != Terrain.Mountain) exposed++;
-                int heightStep = (int)(Hash(x, y, _world.Seed) % 11);
                 MountainSummitArtMath.Accent accent =
                     MountainSummitArtMath.Choose(h, heightStep, exposed);
                 if (!accent.Visible) continue;
