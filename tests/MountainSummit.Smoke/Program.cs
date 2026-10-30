@@ -18,6 +18,8 @@ for (int exposed = 0; exposed <= 4; exposed++)
     for (int rank = 0; rank <= 7; rank++)
     {
         var rock = MountainSummitArtMath.Choose(hash,rank,exposed);
+        Check(!rock.Visible || MountainSummitArtMath.MayHaveAccent(hash,rank),
+            "Fast candidate gate never excludes a valid mountain stone");
         Check(rock == MountainSummitArtMath.Choose(hash,rank,exposed),
             "Mountain art is deterministic and stable under region rebuild");
         if (!rock.Visible) continue;
