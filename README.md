@@ -1,75 +1,95 @@
 # WorldForge Sim
 
-Original living-world god-sandbox simulation, influenced by the *genre* of WorldBox. This is not WorldBox and does not use its source code, art or assets.
+**Original stylized 3D living-world god sandbox** — island terrain, coastal water, forests, mountains, authored CC0 nature, human agents and god powers, with an orthographic/isometric camera. Inspired by the sandbox-simulation **genre**, not WorldBox proprietary art/source/UI.
 
-**Status:** M0/M1 prototype tested on the user's H:-based Windows system; previous 2D art direction was rejected. A separate opt-in V2 stylized 3D/isometric visual lab is being evaluated. Default 2D scene remains available.
+**Development state — 2026-10-30:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. The standalone V3 regional demo is **rejected** for degraded visuals and controls, and is **not** the playable successor. We are planning **V3.3 physical baseline acceptance**, then no-hole streaming and authoritative region simulation. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
 
-## Windows location policy
-The project lives in **H:\WorldForge-Sim**, not under AIProjects. Keep intentional downloads, dependencies, logs, build outputs and tool caches on H:. Neither this script nor Godot can guarantee Windows or third-party software never writes OS-managed data on C:.
+## Start the approved 3D game (Windows, H: drive)
 
-From PowerShell:
-```powershell
-Set-Location 'H:\WorldForge-Sim'
-. .\scripts\enter-dev.ps1
-.\scripts\acceptance.ps1
-```
-The dot before `enter-dev.ps1` is important: it applies environment variables to the **current PowerShell session**. The script fails if this checkout is not on H:.
+This project was configured for **Godot 4.7.2 Mono/.NET 10**, AMD Radeon R9 M395X, **Compatibility/OpenGL**. Tools, .NET packages, game assets, builds, cache and screenshots intentionally stay under **H:\WorldForge-Sim**. Third-party/Windows system activity on C: cannot be globally prevented.
 
-Install **Godot 4.7.2 .NET/C# edition** and .NET 10 SDK **under H:** before running the full acceptance. Do not run a conventional default-path installer without checking its paths. For Godot, run `scripts/install-godot.ps1`, which downloads the official Windows x64 .NET edition to H:, checks the archive SHA-256, extracts under `H:\WorldForge-Sim\Tools\Godot\`, verifies the editor signature and creates `_sc_` beside the editor binary **before launch**. Run the editor via `scripts/run-editor.ps1`. Install the H:-based SDK with `scripts/install-dotnet.ps1`; then dot-source `scripts/enter-dev.ps1` again so the H: SDK takes precedence. The existing C: SDK is left untouched.
-
-If both tools are installed, open `project.godot` with the Godot .NET editor, build C# and run F5.
-
-## First playable prototype
-- Procedural seeded 160x120 map with water, sand, grass, forest and mountains
-- Paint terrain, spawn people, meteor impact
-- Wander simulation, camera pan/zoom, pause/simulation speed
-- Framework-independent deterministic core and smoke checks
-
-There are **no** real settlements, combat, food networks, or diplomacy yet.
-
-## Current development track: M1 Visual Foundation
-
-- [Master tracker and seven subissues](https://github.com/tahazarif10/worldforge-sim/issues/2)
-- [Visual foundation implementation plan](docs/M1_VISUAL_FOUNDATION.md)
-- [Original art direction](docs/ART_DIRECTION.md)
-- [Build, visual and performance acceptance checklist](docs/ACCEPTANCE_CHECKLIST.md)
-- M0/M1.0–M1.4 PRs were merged after CI; visual art direction subsequently rejected, so V2 is under evaluation separately.
-
-## New direction: V2 3D / isometric visual lab
-
-The user requested much higher visual quality and specifically **not pure 2D**. We selected real 3D with an orthographic camera and a Compatibility-first GPU tier for AMD R9 M395X.
-
-- [Research, comparisons and art decision](docs/V2_GRAPHICS_RESEARCH.md)
-- [Windows screenshot and performance acceptance](docs/V2_VISUAL_LAB_ACCEPTANCE.md)
-- [V2 issue tracker](https://github.com/tahazarif10/worldforge-sim/issues/17)
-
-Start this **separate** V2 scene without replacing the approved 2D main scene:
+From Windows PowerShell (safe Git update **only if local modifications do not block it**):
 
 ```powershell
 Set-Location 'H:\WorldForge-Sim'
-. .\scripts\enter-dev.ps1
-& 'H:\WorldForge-Sim\Tools\dotnet\dotnet.exe' build '.\WorldForgeSim.csproj' -c Debug --disable-build-servers -p:UseSharedCompilation=false
-.\scripts\run-visual-lab.ps1
+git branch --show-current
+git rev-parse HEAD
+git status --short
+git fetch origin
+git switch main
+git pull --ff-only origin main
+
+# Start the same mountain world as the user screenshot:
+.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732
 ```
 
-The V2 3D lab now includes ten bundled CC0 Kenney Nature Kit GLB models, shared-corner land slopes, camera-region streaming, low-cost lagoon water and a distinct F4 Eco tier. Full user hardware performance and premium art quality still require evidence. Original 2D gameplay remains the fallback.
+**Do not `git reset --hard`, `git clean`, force a branch switch or overwrite locally modified `project.godot`** if Git stops. The default old `Scenes/Main.tscn` remains in the repo but the **preferred** approved 3D scene is `Scenes/VisualLab3D.tscn`, launched without changing project.godot.
 
-## Approved 3D game versus experimental V3
+Use **F8** screenshot (H:/artifacts/visual-review), **F9** frame-time CSV (H:/artifacts/performance), **F10** chunk counters, **F4** Eco/Balanced, **F6** smooth/legacy slopes. `-WorldSeed 1315511732` is optional and recreates the exact screenshot seed; omit for the original launch seed.
 
-**Playable / user-approved:** the V2.9 stylized 3D scene `Scenes/VisualLab3D.tscn` with its established camera, terrain, lagoon, 10 bundled CC0 nature models, citizens and Eco graphics. Launch it via:
+### Engineering terrain-source parity (opt-in; same scene)
 
 ```powershell
 Set-Location 'H:\WorldForge-Sim'
-.\scripts\verify-v2-art.ps1
+.\scripts\verify-v2-region-parity.ps1
 ```
 
-**V3 is withdrawn as a playable preview.** On 2026-10-30 the user rejected **both visual quality and camera/movement behavior** of the separate `RegionalWorldLab3D.tscn` scene. It simplified the lagoon and terrain art, omitted citizens, and its capped/slowly built render chunks could leave visible holes and cause stalls. A Linux headless boot/CI pass **did not prove visual quality or Windows responsiveness**.
+This **still runs the approved V2 renderer and camera** but accesses the existing 120×88 WorldState tiles through a bounded 64×64 `RegionStore` cache. It is not a playable 8192×8192 world. Do not run the user-rejected `RegionalWorldLab3D.tscn` for gameplay. Its engineering-only scripts require `-ExperimentalV3`.
 
-The existing region data and biome persistence code remain available as engineering infrastructure, but the separate V3 scene must NOT be presented as a successor. `scripts/run-regional-world.ps1` and `scripts/verify-v3-regional.ps1` now **launch the approved V2 scene by default**. To run the rejected prototype for an explicit engineering diagnostic, use `-ExperimentalV3` with either script.
+## Current code capabilities and limitations
 
-Do not expand V3's visible world or move users to it until one **shared V2 renderer and camera behavior** is proven with region-backed data and A/B art/interaction tests. See [V3 rejection and release gates](docs/V3_REJECTION_POSTMORTEM.md) and [regression issue #46](https://github.com/tahazarif10/worldforge-sim/issues/46).
+| Implemented | Not yet implemented / not yet physically verified |
+| --- | --- |
+| 3D biome terrain, Kenney 10 CC0 GLBs, coast/waves/foam, shared-corner mountain elevation and exact pointer picking | Verified premium Quaternius hero pack and high-end effects without host AMD cost |
+| F4 Eco, 16×16 visual chunks, 64×64 sparse region height edits | No-hole streamed far-LOD coverage, pure off-main-thread mesh build pipeline |
+| WorldState people/meteor/brush/tick controls on V2 map | Persistent authoritative giant regions, 8192² simulated life |
+| Signed 64×64 biome and elevation region stores, checksummed per-region file codecs | Full crash-atomic multi-region manifest/backup/world saves |
+| V2 direct/RegionMirror data parity and mountain rock cap reduction, merged + CI passed | Final user Windows screenshot review of corrected summit; direct/mirror p95/p99 at matching camera |
 
-The V2 user project is on H:. **Never reset, clean, or overwrite locally edited `project.godot`**. Do not intentionally put project tools or artifacts on C:.
+## Source-of-truth documents — same milestone discipline as Local AI Desktop Copilot
 
-## Engineering workflow
-Each milestone goes into a dedicated branch and PR. Do not merge without CI, build, and Windows visual acceptance. See [roadmap](docs/ROADMAP.md) and [project state](docs/PROJECT_STATE.md).
+| Document | Why to read it |
+| --- | --- |
+| [Project State](docs/PROJECT_STATE.md) | Factual implemented/verified status, exact accepted SHA, blockers and next gate |
+| [Master Roadmap](docs/ROADMAP.md) | Detailed V3.3 through V5 dependency-ordered slices, scope, goals and exit criteria |
+| [Engineering Workflow](docs/ENGINEERING_WORKFLOW.md) | Branch/issue/PR, CI, H:-Windows acceptance, evidence, rollback process |
+| [V3 Architecture](docs/V3_ARCHITECTURE.md) | Data/scene ownership, region streaming, worker safety, LOD/coast, save schemas |
+| [Technical Research](docs/V3_TECHNICAL_RESEARCH_2026.md) | Godot official sources, asset licensing, alternatives, rejected approaches |
+| [Acceptance Matrix](docs/V3_ACCEPTANCE_MATRIX.md) | Exact F8/F9/camera/painting scenarios, reproducible metadata and pass/fail |
+| [ADRs](docs/decisions/README.md) | Persistent architecture choices and why V3 failed |
+| [Historical Project Log](docs/PROJECT_HISTORY_2026-10-30.md) | Original M0/M1/V2 chronological development notes kept intact |
+| [Mountain correction](docs/V3_2_MOUNTAIN_SUMMIT_QA.md) | Summit rock art, numeric regression evidence, reference seed 1315511732 |
+
+Review [AGENTS.md](AGENTS.md) before modifying code. The project's [critical V3 visual/input regression issue #46](https://github.com/tahazarif10/worldforge-sim/issues/46) remains open; a Linux Godot boot is not user Windows acceptance.
+
+## Architecture summary
+
+```text
+WorldSim (pure C#, authoritative small-world gameplay today)
+          |
+          +--> DirectWorldTerrainSource [default]
+          +--> RegionMirrorTerrainSource [experimental, source parity]
+                        |
+                        v
+VisualTerrain3D + approved stylized ocean/coast + Kenney MultiMesh
+                        |
+                 StrategyCameraRig
+                        |
+              VisualLab3D / GameHud
+```
+
+Future bounded regional world: make 64×64 data regions authoritative behind this **same** art/camera path, introduce far-LOD fallback with no blank visible cells, then persistent region/entity simulation and crash-safe saves. No destructive replacement of the V2 visual scene.
+
+## Historical milestones
+
+- M0/M1 established the original Godot project and 2D gameplay; the original 2D/pixel-art art direction was later rejected.
+- V2 introduced true stylized 3D, mouse-anchored orthographic camera, animated ocean and real CC0 models.
+- V3.0's alternate region demo proved only logical coordinates and some storage; **the user rejected appearance AND movement**. [Postmortem](docs/V3_REJECTION_POSTMORTEM.md).
+- [PR #47](https://github.com/tahazarif10/worldforge-sim/pull/47) restored approved V2 as the safe default; [PR #49](https://github.com/tahazarif10/worldforge-sim/pull/49) added opt-in exact data-source parity; [PR #50](https://github.com/tahazarif10/worldforge-sim/pull/50) removed dense rock caps from summits; [PR #51](https://github.com/tahazarif10/worldforge-sim/pull/51) added exact screenshot seed replay.
+- **Next:** measured V3.3 baseline/QA and only then streaming/LOD development, per the [roadmap](docs/ROADMAP.md).
+
+## Rights, CI and product boundaries
+
+All art/code must be original or use verified licensing. Bundled Kenney Nature Kit models are CC0; track hashes and source [here](Assets/Art/KenneyNature/README.md). Do not copy WorldBox assets or proprietary game logic.
+
+GitHub core smoke and Godot Mono headless scene tests are **engineering gates**, not performance measurements. Real Windows **AMD R9 M395X** FPS, p95/p99, camera responsiveness and user visual acceptance are distinct required release gates. No new feature is promoted when the screen looks worse, the camera lags or visible land disappears.
