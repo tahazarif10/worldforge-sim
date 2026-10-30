@@ -60,5 +60,7 @@ jobs:
         run: dotnet run --project tests/RegionalWorld.Smoke/RegionalWorld.Smoke.csproj -c Release
       - name: Guard approved V2 default from rejected V3 experimental scene
         run: python3 tests/ReleaseGuard.Smoke/verify.py
+      - name: Approved V2 renderer region-mirror exact parity and LRU smoke
+        run: dotnet run --project tests/TerrainBackendParity.Smoke/TerrainBackendParity.Smoke.csproj -c Release
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false
