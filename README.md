@@ -2,7 +2,7 @@
 
 **Original stylized 3D living-world god sandbox** — island terrain, coastal water, forests, mountains, authored CC0 nature, human agents and god powers, with an orthographic/isometric camera. Inspired by the sandbox-simulation **genre**, not WorldBox proprietary art/source/UI.
 
-**Development state — 2026-10-30:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. The standalone V3 regional demo is **rejected** for degraded visuals and controls, and is **not** the playable successor. We are planning **V3.3 physical baseline acceptance**, then no-hole streaming and authoritative region simulation. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
+**Development state — 2026-10-30:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. We are planning **V3.3 physical baseline acceptance**, then no-hole streaming and authoritative region simulation. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
 
 ## Start the approved 3D game (Windows, H: drive)
 
