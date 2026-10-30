@@ -20,7 +20,7 @@ public partial class RegionalWorld3D : Node3D
     private const int WorldSize = 8192;
     private const int ChunkSize = 16;
     private const int Seed = 20261030;
-    private const int MaxVisibleChunks = 90;
+    private const int MaxVisibleChunks = 48;
     private readonly RegionStore _biomes = new(Seed, maxResidentRegions: 24);
     private readonly Dictionary<(int X, int Y), Node3D> _renderChunks = new();
     private readonly HashSet<(int X, int Y)> _dirtyChunks = new();
@@ -102,7 +102,7 @@ public partial class RegionalWorld3D : Node3D
         _legend.AddThemeColorOverride("font_shadow_color", Colors.Black);
         _legend.AddThemeConstantOverride("shadow_offset_x", 2);
         _legend.AddThemeConstantOverride("shadow_offset_y", 2);
-        RefreshVisible(16);
+        RefreshVisible(12);
         RefreshLegend();
     }
 
@@ -193,7 +193,7 @@ public partial class RegionalWorld3D : Node3D
             // only in camera-resident chunks, bounded by deterministic test.
             uint h=EnvironmentArtMath.Hash(x,z,Seed+72);
             int species=NatureScatter.Pick(type,h);
-            if(species>=0 && plants.Count<100 &&
+            if(species>=0 && plants.Count<40 &&
                _art.Has((NatureArtLibrary.Species)species))
             {
                 float u=.25f+(h%49)*.01f;
