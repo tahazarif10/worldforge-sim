@@ -1,9 +1,13 @@
-# WorldForge-Sim engineering policy
+# WorldForge Sim — repository agent / engineering policy
 
-1. Source repo: tahazarif10/worldforge-sim. Canonical local checkout: H:\WorldForge-Sim.
-2. Never intentionally download or install project binaries, assets, dependencies, packages, caches or builds onto C:. Use H:; verify paths before running scripts. Avoid saying third-party/Windows writes on C: can be absolutely prevented.
-3. Before every task read README.md, docs/ROADMAP.md and docs/PROJECT_STATE.md; inspect branch and status.
-4. Keep core world simulation (src/WorldSim) independent from Godot rendering/input.
-5. Make small PRs; add deterministic tests; no invented test results. Run actual Windows build and visual checks before merging.
-6. No WorldBox copyrighted artwork, source code, UI assets or branding.
-7. Maintain docs/PROJECT_STATE.md with verified results, known issues and next actions.
+1. **Canonical repo and checkout:** `tahazarif10/worldforge-sim`, `H:\WorldForge-Sim`. Never intentionally download project tools/assets, NuGet packages, builds, caches or artifacts onto C:. Do not promise to stop Windows OS-managed C: writes.
+2. **Source of truth before action:** read `README.md`, `docs/PROJECT_STATE.md`, `docs/ROADMAP.md`, `docs/ENGINEERING_WORKFLOW.md`, `docs/V3_ARCHITECTURE.md`, accepted `docs/decisions/`, then the touched code and tests. Inspect branch, HEAD and git status; no unverified statements.
+3. **User-accepted scene:** `Scenes/VisualLab3D.tscn`, same `VisualTerrain3D` art, `StrategyCameraRig`, V2 water/coast, forests, CC0 Kenney, citizen simulation, and Compatibility/OpenGL. User rejected standalone `Scenes/RegionalWorldLab3D.tscn` for both visuals and camera. **Do not promote or default to that scene.** Preserve default old `Scenes/Main.tscn`.
+4. **Never destroy user work:** locally modified `project.godot` must not be reset, overwritten, cleaned, force-switched or automatically stashed. Don't run `git reset --hard` or `git clean`; stop on conflict.
+5. **Architecture invariants:** WorldSim core pure C# independent of Godot; 64x64 data regions vs 16x16 display chunks; one authoritative terrain source; versioned region/snapshot/epoch; zero missing visible land/water (use fallback LOD); bounded resident cache and queue; GPU/SceneTree upload main thread only unless new ADR proves otherwise; no all-world 8192² ocean texture.
+6. **Steps:** small issue/branch/PR for each milestone slice; first deterministic tests and falsifiable hypothesis, then official Godot 4.7.2 Mono CI; update `PROJECT_STATE` with exact evidence. For architectural changes add/supersede ADR. Never invent tests/benchmarks.
+7. **Separate two gates:** code can merge OFF by default only after required CI passes; **user-facing visual/performance release** requires actual H:-Windows AMD R9 M395X screenshots (F8), camera/brush behavior, F9 p95/p99 measurements and explicit user approval. Headless CI alone never proves art or camera feel.
+8. **Art and rights:** original God-sandbox mechanics; no WorldBox proprietary artwork, code, UI, music or branding. Track Kenney/Quaternius CC0 asset provenance and verify actual imported pack contents.
+9. **Resource protection:** low-end Compatibility renderer is a first-class target; no required Vulkan/Forward+, compute, SSR or large transparent effects; never degrade approved near-field art to mask a measured performance failure.
+10. **At every milestone:** preserve previous accepted baseline, log known issues and blockers, record exact next command and pending physical acceptance in `docs/PROJECT_STATE.md`; do not mark unrun Windows checks PASS.
+11. **Usage:** project contributor has asked to avoid ChatGPT Work/Codex for this work; do not initiate those modes without explicit subsequent authorization. Direct GitHub tools/GitHub Actions do not by themselves prove anything about OpenAI plan credit consumption.
