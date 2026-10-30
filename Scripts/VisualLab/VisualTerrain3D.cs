@@ -42,6 +42,26 @@ public partial class VisualTerrain3D : Node3D
     public int PendingVisibleChunks => Math.Max(0, LastRequestedChunks - _chunks.Count);
     public bool RichTerrainDetails { get; private set; } = true;
     public bool SculptedFacets { get; private set; } = true;
+    public bool SmoothSlopes { get; private set; } = true;
+    public bool SmoothLandEnabled => RichTerrainDetails && SmoothSlopes;
+
+    public void ToggleSmoothSlopes()
+    {
+        SmoothSlopes = !SmoothSlopes;
+        RebuildResidentGeometry();
+        GD.Print("V2 shared-corner continuous slopes: " +
+            (SmoothLandEnabled ? "ON" : "OFF (legacy terraced terrain)"));
+    }
+
+    private void RebuildResidentGeometry()
+    {
+        // Debug quality toggle only: the usual view-driven loading remains
+        // bounded. Snapshot dictionary keys before replacing foliage batches.
+        foreach (var key in new List<(int X, int Y)>(_chunks.Keys))
+            BuildChunk(key.X, key.Y);
+        foreach (var key in new List<(int X, int Y)>(_foliageChunks.Keys))
+            RebuildVegetationChunk(key.X, key.Y);
+    }
 
     public float ReliefAt(int x, int y)
     {
@@ -50,18 +70,23 @@ public partial class VisualTerrain3D : Node3D
         return TerrainReliefMath.CenterLift(_world.Tile(x, y), x, y, _world.Seed);
     }
 
-    public float SurfaceHeightAt(int x, int y, float localX, float localY) =>
-        TerrainReliefMath.SurfaceHeight(HeightAt(x, y), ReliefAt(x, y), localX, localY);
+    public float SurfaceHeightAt(int x, int y, float localX, float localY)
+    {
+        if (!_world.Contains(x, y)) return 0.12f;
+        if (SmoothLandEnabled &&
+            _world.Tile(x,y) is not (Terrain.DeepWater or Terrain.ShallowWater))
+            return SharedCornerHeightfield.Tile(x,y,_world.Width,_world.Height,
+                HeightAt, ReliefAt(x,y)).Sample(localX,localY);
+        return TerrainReliefMath.SurfaceHeight(
+            HeightAt(x,y), ReliefAt(x,y), localX,localY);
+    }
 
     public void ToggleSculptedFacets()
     {
         SculptedFacets = !SculptedFacets;
         // The existing four triangles keep the same topology; only their
         // center vertex changes. Rebuild only resident terrain/foliage.
-        foreach (var key in _chunks.Keys)
-            BuildChunk(key.X, key.Y);
-        foreach (var key in new List<(int X, int Y)>(_foliageChunks.Keys))
-            RebuildVegetationChunk(key.X, key.Y);
+        RebuildResidentGeometry();
         GD.Print("V2 sculpted terrain facets: " + (SculptedFacets ? "ON" : "OFF"));
     }
 
@@ -71,10 +96,7 @@ public partial class VisualTerrain3D : Node3D
         // Compare visual style and frame intervals with exactly the same
         // WorldSim state and camera pose. Rebuild resident meshes only on
         // deliberate F3 interaction, never on every simulation frame.
-        foreach (var key in _chunks.Keys)
-            BuildChunk(key.X, key.Y);
-        foreach (var key in new List<(int X, int Y)>(_foliageChunks.Keys))
-            RebuildVegetationChunk(key.X, key.Y);
+        RebuildResidentGeometry();
         GD.Print("V2 rich terrain surface/cliff shading: " +
             (RichTerrainDetails ? "ON" : "OFF"));
     }
@@ -328,60 +350,132 @@ public partial class VisualTerrain3D : Node3D
             // Four shaded top triangles share the actual simulation height.
             // Color blends biomes across boundaries, with deterministic
             // small-scale color variation. Picking remains exact.
-            if (RichTerrainDetails) AddTopFace(surface, x, y, h, col, a, b, c, d);
-            else AddQuad(surface, a, b, c, d, col, Vector3.Up);
+            if (SmoothLandEnabled)
+                AddSmoothTopFace(surface,x,y,col);
+            else if (RichTerrainDetails)
+                AddTopFace(surface, x, y, h, col, a, b, c, d);
+            else
+                AddQuad(surface, a, b, c, d, col, Vector3.Up);
 
-            // Real vertical cliff faces, darker beneath the upper terrain.
-            Color rock = tile == Terrain.Mountain ? new Color("#5a5d62") :
-                         tile == Terrain.Sand ? new Color("#b89c69") : new Color("#77654e");
-            float west = x > 0 ? HeightAt(x - 1, y) : 0.12f;
-            float east = x < _world.Width - 1 ? HeightAt(x + 1, y) : 0.12f;
-            float north = y > 0 ? HeightAt(x, y - 1) : 0.12f;
-            float south = y < _world.Height - 1 ? HeightAt(x, y + 1) : 0.12f;
-            uint strataVariation = Hash(x, y, _world.Seed + 309);
-            if (h > west + 0.02f)
-                DrawCliff(surface, new(x, west, y), new(x, west, y + 1),
-                    new(x, h, y), new(x, h, y + 1), rock, Vector3.Left, strataVariation);
-            if (h > east + 0.02f)
-                DrawCliff(surface, new(x + 1, east, y + 1), new(x + 1, east, y),
-                    new(x + 1, h, y + 1), new(x + 1, h, y), rock, Vector3.Right, strataVariation);
-            if (h > north + 0.02f)
-                DrawCliff(surface, new(x + 1, north, y), new(x, north, y),
-                    new(x + 1, h, y), new(x, h, y), rock, Vector3.Back, strataVariation);
-            if (h > south + 0.02f)
-                DrawCliff(surface, new(x, south, y + 1), new(x + 1, south, y + 1),
-                    new(x, h, y + 1), new(x + 1, h, y + 1), rock, Vector3.Forward, strataVariation);
+            if (SmoothLandEnabled)
+            {
+                // Only sea-facing and world-boundary skirts: neighboring land
+                // cells use the exact SAME corner vertices, so no interior
+                // cliff faces or terrain cracks across mesh chunk borders.
+                DrawSmoothCoastSkirts(surface,x,y);
+            }
+            else
+            {
+                // Real vertical cliff faces, darker beneath the upper terrain.
+                Color rock = tile == Terrain.Mountain ? new Color("#5a5d62") :
+                             tile == Terrain.Sand ? new Color("#b89c69") : new Color("#77654e");
+                float west = x > 0 ? HeightAt(x - 1, y) : 0.12f;
+                float east = x < _world.Width - 1 ? HeightAt(x + 1, y) : 0.12f;
+                float north = y > 0 ? HeightAt(x, y - 1) : 0.12f;
+                float south = y < _world.Height - 1 ? HeightAt(x, y + 1) : 0.12f;
+                uint strataVariation = Hash(x, y, _world.Seed + 309);
+                if (h > west + 0.02f)
+                    DrawCliff(surface, new(x, west, y), new(x, west, y + 1),
+                        new(x, h, y), new(x, h, y + 1), rock, Vector3.Left, strataVariation);
+                if (h > east + 0.02f)
+                    DrawCliff(surface, new(x + 1, east, y + 1), new(x + 1, east, y),
+                        new(x + 1, h, y + 1), new(x + 1, h, y), rock, Vector3.Right, strataVariation);
+                if (h > north + 0.02f)
+                    DrawCliff(surface, new(x + 1, north, y), new(x, north, y),
+                        new(x + 1, h, y), new(x, h, y), rock, Vector3.Back, strataVariation);
+                if (h > south + 0.02f)
+                    DrawCliff(surface, new(x, south, y + 1), new(x + 1, south, y + 1),
+                        new(x, h, y + 1), new(x + 1, h, y + 1), rock, Vector3.Forward, strataVariation);
 
-            // Narrow pale tide line on the land side of the coast.
-            if (x > 0 && IsWater(_world.Tile(x - 1, y)))
-                AddQuad(surface,
-                    new(x, h + 0.012f, y), new(x, h + 0.012f, y + 1),
-                    new(x + 0.12f, h + 0.012f, y), new(x + 0.12f, h + 0.012f, y + 1),
-                    new Color("#f5e4b2"), Vector3.Up);
-            if (y > 0 && IsWater(_world.Tile(x, y - 1)))
-                AddQuad(surface,
-                    new(x, h + 0.012f, y), new(x, h + 0.012f, y + 0.12f),
-                    new(x + 1, h + 0.012f, y), new(x + 1, h + 0.012f, y + 0.12f),
-                    new Color("#f5e4b2"), Vector3.Up);
-            if (x + 1 < _world.Width && IsWater(_world.Tile(x + 1, y)))
-                AddQuad(surface,
-                    new(x + 0.88f, h + 0.012f, y),
-                    new(x + 0.88f, h + 0.012f, y + 1),
-                    new(x + 1, h + 0.012f, y),
-                    new(x + 1, h + 0.012f, y + 1),
-                    new Color("#f5e4b2"), Vector3.Up);
-            if (y + 1 < _world.Height && IsWater(_world.Tile(x, y + 1)))
-                AddQuad(surface,
-                    new(x, h + 0.012f, y + 0.88f),
-                    new(x, h + 0.012f, y + 1),
-                    new(x + 1, h + 0.012f, y + 0.88f),
-                    new(x + 1, h + 0.012f, y + 1),
-                    new Color("#f5e4b2"), Vector3.Up);
+            }
+
+            // Legacy pale stripes are designed for flat land plateaus;
+            // smooth mode uses the existing low-cost ocean foam shader.
+            if (!SmoothLandEnabled)
+            {
+                // Narrow pale tide line on the land side of the coast.
+                if (x > 0 && IsWater(_world.Tile(x - 1, y)))
+                    AddQuad(surface,
+                        new(x, h + 0.012f, y), new(x, h + 0.012f, y + 1),
+                        new(x + 0.12f, h + 0.012f, y), new(x + 0.12f, h + 0.012f, y + 1),
+                        new Color("#f5e4b2"), Vector3.Up);
+                if (y > 0 && IsWater(_world.Tile(x, y - 1)))
+                    AddQuad(surface,
+                        new(x, h + 0.012f, y), new(x, h + 0.012f, y + 0.12f),
+                        new(x + 1, h + 0.012f, y), new(x + 1, h + 0.012f, y + 0.12f),
+                        new Color("#f5e4b2"), Vector3.Up);
+                if (x + 1 < _world.Width && IsWater(_world.Tile(x + 1, y)))
+                    AddQuad(surface,
+                        new(x + 0.88f, h + 0.012f, y),
+                        new(x + 0.88f, h + 0.012f, y + 1),
+                        new(x + 1, h + 0.012f, y),
+                        new(x + 1, h + 0.012f, y + 1),
+                        new Color("#f5e4b2"), Vector3.Up);
+                if (y + 1 < _world.Height && IsWater(_world.Tile(x, y + 1)))
+                    AddQuad(surface,
+                        new(x, h + 0.012f, y + 0.88f),
+                        new(x, h + 0.012f, y + 1),
+                        new(x + 1, h + 0.012f, y + 0.88f),
+                        new(x + 1, h + 0.012f, y + 1),
+                        new Color("#f5e4b2"), Vector3.Up);
+            }
         }
 
         instance.Visible = any;
         if (any) instance.Mesh = surface.Commit();
         else instance.Mesh = null;
+    }
+
+    private void AddSmoothTopFace(SurfaceTool surface, int x, int y, Color centerColor)
+    {
+        SharedCornerHeightfield.Fan f = SharedCornerHeightfield.Tile(
+            x,y,_world.Width,_world.Height,HeightAt,ReliefAt(x,y));
+        Vector3 a = new(x,f.A,y), b = new(x,f.B,y+1);
+        Vector3 c = new(x+1,f.C,y), d = new(x+1,f.D,y+1);
+        Vector3 mid = new(x+.5f,f.Center,y+.5f);
+        Color ca = ToColor(EnvironmentArtMath.CornerColor(x,y,0,0,
+            _world.Width,_world.Height,_world.Tile,_world.Seed));
+        Color cb = ToColor(EnvironmentArtMath.CornerColor(x,y,0,1,
+            _world.Width,_world.Height,_world.Tile,_world.Seed));
+        Color cc = ToColor(EnvironmentArtMath.CornerColor(x,y,1,0,
+            _world.Width,_world.Height,_world.Tile,_world.Seed));
+        Color cd = ToColor(EnvironmentArtMath.CornerColor(x,y,1,1,
+            _world.Width,_world.Height,_world.Tile,_world.Seed));
+        AddColoredTriangle(surface,a,b,mid,ca,cb,centerColor);
+        AddColoredTriangle(surface,b,d,mid,cb,cd,centerColor);
+        AddColoredTriangle(surface,d,c,mid,cd,cc,centerColor);
+        AddColoredTriangle(surface,c,a,mid,cc,ca,centerColor);
+    }
+
+    private void DrawSmoothCoastSkirts(SurfaceTool surface,int x,int y)
+    {
+        SharedCornerHeightfield.Fan f = SharedCornerHeightfield.Tile(
+            x,y,_world.Width,_world.Height,HeightAt,ReliefAt(x,y));
+        const float sea = .12f;
+        Color bank = _world.Tile(x,y) == Terrain.Sand
+            ? new Color("#b89c69") : new Color("#746d5c");
+        uint variation = Hash(x,y,_world.Seed+309);
+        // Same edge samples for all chunks, with 3 affordable strata layers.
+        if (x == 0 || IsWater(_world.Tile(x-1,y)))
+            DrawCliff(surface,
+                new(x,sea,y),new(x,sea,y+1),
+                new(x,f.A,y),new(x,f.B,y+1),
+                bank,Vector3.Left,variation);
+        if (x == _world.Width-1 || IsWater(_world.Tile(x+1,y)))
+            DrawCliff(surface,
+                new(x+1,sea,y+1),new(x+1,sea,y),
+                new(x+1,f.D,y+1),new(x+1,f.C,y),
+                bank,Vector3.Right,variation);
+        if (y == 0 || IsWater(_world.Tile(x,y-1)))
+            DrawCliff(surface,
+                new(x+1,sea,y),new(x,sea,y),
+                new(x+1,f.C,y),new(x,f.A,y),
+                bank,Vector3.Back,variation);
+        if (y == _world.Height-1 || IsWater(_world.Tile(x,y+1)))
+            DrawCliff(surface,
+                new(x,sea,y+1),new(x+1,sea,y+1),
+                new(x,f.B,y+1),new(x+1,f.D,y+1),
+                bank,Vector3.Forward,variation);
     }
 
     private void AddTopFace(SurfaceTool surface, int x, int y, float height,
