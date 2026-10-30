@@ -694,6 +694,12 @@ public partial class VisualTerrain3D : Node3D
                 // slopes and actual summit. The old >50% coverage of broad
                 // RockLargeA GLBs was the visible flat boulder cap from the
                 // user's screenshot. Do not place such a mesh on top again.
+                // Preserve the legacy one-import-per-chunk budget for sand:
+                // a previously eligible mountain still reserves that slot,
+                // but never actually instantiates the oversized top boulder.
+                if (_rockPrefab is not null && species is 6 or 7 &&
+                    importedRockCount < MaxImportedRocksPerChunk)
+                    importedRockCount++;
                 int heightStep = (int)(Hash(x, y, _world.Seed) % 11);
                 // ~80%+ of mountain cells fail this conservative gate;
                 // don't touch four neighbor tiles or the cache for them.
