@@ -12,6 +12,11 @@ public static class MountainSummitArtMath
         public static Accent None => new(false, -1, 0f, 0f);
     }
 
+    /// <summary>Cheap conservative reject before any neighbor biome reads:
+    /// never return false for a rock that Choose could make visible.</summary>
+    public static bool MayHaveAccent(uint hash, int heightStep) =>
+        heightStep is >= 0 and < 8 && (hash >> 7) % 100 < 22;
+
     /// <param name="hash">Existing seeded prop hash for this absolute cell.</param>
     /// <param name="heightStep">Exactly Hash(x,y,worldSeed) % 11 as used
     /// by VisualTerrain3D.HeightAt for mountain top elevation.</param>
