@@ -35,11 +35,14 @@ if ($LASTEXITCODE -ne 0) { throw 'Nature art scatter smoke tests failed' }
 & $sdk run --project (Join-Path $root 'tests\EnvironmentArt.Smoke\EnvironmentArt.Smoke.csproj') -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Environment art / shoreline tests failed' }
 
+& $sdk run --project (Join-Path $root 'tests\WaterAndStreaming.Smoke\WaterAndStreaming.Smoke.csproj') -c Release
+if ($LASTEXITCODE -ne 0) { throw 'Water and chunk budget tests failed' }
+
 & $sdk build (Join-Path $root 'WorldForgeSim.csproj') -c Debug --disable-build-servers -p:UseSharedCompilation=false
 if ($LASTEXITCODE -ne 0) { throw 'Godot C# game build failed' }
 
 Write-Host 'GLB import, art scatter checks and game build succeeded.'
-Write-Host 'F8 saves screenshot to H:artifacts/visual-review; F9 saves frame intervals; F10 shows chunk counts.'
+Write-Host 'F4 toggles Eco/Balanced. F8 saves screenshot to H:artifacts/visual-review; F9 saves frame intervals; F10 shows chunk counts.'
 if (-not $NoLaunch) {
     & (Join-Path $PSScriptRoot 'run-visual-lab.ps1')
 }

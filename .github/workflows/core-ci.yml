@@ -48,5 +48,7 @@ jobs:
           PY
       - name: Environment biome blending and live shoreline mask tests
         run: dotnet run --project tests/EnvironmentArt.Smoke/EnvironmentArt.Smoke.csproj -c Release
+      - name: Low-cost water, coast gradient and bounded chunk loading tests
+        run: dotnet run --project tests/WaterAndStreaming.Smoke/WaterAndStreaming.Smoke.csproj -c Release
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false

@@ -35,6 +35,7 @@ public partial class VisualLab3D : Node3D
     private double _fpsWindow;
     private double _slowestFrame;
     private int _frames;
+    private bool _ecoMode;
     private readonly WorldForge.Instrumentation.FrameTimeProbe _frameProbe = new();
 
     public override void _Ready()
@@ -81,7 +82,7 @@ public partial class VisualLab3D : Node3D
         CreateWorld(20261030);
         _cameraRig = new WorldForge.Camera3D.StrategyCameraRig(_camera,
             (x, y) => _terrain.HeightAt(x, y), _world.Width, _world.Height);
-        _terrain.UpdateVisibility(_camera);
+        _terrain.UpdateVisibility(_camera, maxNewChunks: 64);
         SetupHud();
     }
 
@@ -121,7 +122,7 @@ public partial class VisualLab3D : Node3D
         if (_cameraRig is not null)
         {
             _cameraRig.ResetWorld(_world.Width, _world.Height);
-            _terrain.UpdateVisibility(_camera);
+            _terrain.UpdateVisibility(_camera, maxNewChunks: 64);
         }
         _tickAccumulator = 0;
         _terrainRefresh = 0;
@@ -173,13 +174,14 @@ public partial class VisualLab3D : Node3D
             if (_tickAccumulator > TickSeconds * 12) _tickAccumulator = TickSeconds;
         }
 
-        // Camera-driven resident scene chunks; 100ms cadence with a one-chunk
-        // visual safety margin. The map is still 120x88 in WorldSim here.
+        // Fast travel cannot synchronously instantiate the whole visible
+        // forest in one frame. 50ms cadence + bounded 2/4 chunks per pass.
+        // Startup preloads the preview once; moving cameras build gradually.
         _visibilityRefresh += delta;
-        if (_visibilityRefresh >= 0.10)
+        if (_visibilityRefresh >= 0.05)
         {
             _visibilityRefresh = 0;
-            _terrain.UpdateVisibility(_camera);
+            _terrain.UpdateVisibility(_camera, maxNewChunks: _ecoMode ? 2 : 4);
         }
 
         _terrainRefresh += delta;
@@ -269,12 +271,26 @@ public partial class VisualLab3D : Node3D
             if (k.Keycode == Key.Key3) _speed = 4;
             if (k.Keycode == Key.F2) _sun.ShadowEnabled = !_sun.ShadowEnabled;
             if (k.Keycode == Key.F3) _terrain.ToggleRichTerrainDetails();
+            if (k.Keycode == Key.F4)
+            {
+                _ecoMode = !_ecoMode;
+                _terrain.SetEcoMode(_ecoMode);
+                _sun.ShadowEnabled = !_ecoMode;
+                _citizens.CastShadow = _ecoMode
+                    ? GeometryInstance3D.ShadowCastingSetting.Off
+                    : GeometryInstance3D.ShadowCastingSetting.On;
+                GD.Print("V2 quality tier: " +
+                    (_ecoMode ? "ECO (no dynamic shadows, reduced water math, 2 chunks/pass)" :
+                                "BALANCED (full authored art, shadows and detailed water)"));
+            }
             if (k.Keycode == Key.F8) SaveVisualSnapshot();
             if (k.Keycode == Key.F9) SaveFrameTimeSamples();
             if (k.Keycode == Key.F10)
                 GD.Print($"Visible terrain chunks: {_terrain.ActiveTerrainChunks}, " +
                     $"foliage chunks: {_terrain.ActiveFoliageChunks}, " +
                     $"foliage instances: {_terrain.LastPropCount}, " +
+                    $"pending visible chunks: {_terrain.PendingVisibleChunks}, " +
+                    $"quality: {(_ecoMode ? "Eco" : "Balanced")}, " +
                     $"terrain builds since launch: {_terrain.TotalTerrainChunkBuilds}");
             if (k.Keycode == Key.Escape) GetTree().Quit();
             RefreshHud();
