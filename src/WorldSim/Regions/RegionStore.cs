@@ -19,6 +19,11 @@ public sealed class RegionSnapshot
         ArgumentNullException.ThrowIfNull(tiles);
         if (tiles.Length != RegionCoordinates.CellCount)
             throw new ArgumentException("Region must have exactly 64x64 terrain bytes", nameof(tiles));
+        if (revision < 0)
+            throw new ArgumentOutOfRangeException(nameof(revision));
+        foreach (byte value in tiles)
+            if (!Enum.IsDefined((Terrain)value))
+                throw new ArgumentException("Region contains an unknown terrain type.", nameof(tiles));
         Key = key;
         Seed = seed;
         Revision = revision;
@@ -93,6 +98,7 @@ public sealed class RegionStore
     private readonly LinkedList<RegionKey> _lru = new();
     private readonly Dictionary<RegionKey, Dictionary<int, byte>> _overrides = new();
     private readonly Dictionary<RegionKey, long> _revision = new();
+    private readonly HashSet<RegionKey> _dirty = new();
 
     public int Seed { get; }
     public int MaxResidentRegions { get; }
@@ -129,8 +135,14 @@ public sealed class RegionStore
             overrides = new Dictionary<int, byte>();
             _overrides[key] = overrides;
         }
-        overrides[index] = value;
+        if (value == (byte)RegionGenerator.TerrainAt(cell, Seed))
+        {
+            overrides.Remove(index);
+            if (overrides.Count == 0) _overrides.Remove(key);
+        }
+        else overrides[index] = value;
         _revision[key] = GetRevision(key) + 1;
+        _dirty.Add(key);
     }
 
     public void PaintCircle(CellCoord center, int radius, Terrain terrain)
@@ -167,8 +179,29 @@ public sealed class RegionStore
         if (overrides.Count == 0) _overrides.Remove(key);
         else _overrides[key] = overrides;
         _revision[key] = snapshot.Revision;
+        _dirty.Add(key);
         if (_resident.TryGetValue(key, out CacheEntry? existing))
             Array.Copy(tiles, existing.Tiles, tiles.Length);
+    }
+
+    public IReadOnlyList<RegionKey> ModifiedKeys()
+    {
+        var keys = new List<RegionKey>(_dirty);
+        keys.Sort((a, b) =>
+        {
+            int result = a.Y.CompareTo(b.Y);
+            return result != 0 ? result : a.X.CompareTo(b.X);
+        });
+        return keys;
+    }
+
+    public void ClearEdits()
+    {
+        _resident.Clear();
+        _lru.Clear();
+        _overrides.Clear();
+        _revision.Clear();
+        _dirty.Clear();
     }
 
     public long GetRevision(RegionKey key) =>
