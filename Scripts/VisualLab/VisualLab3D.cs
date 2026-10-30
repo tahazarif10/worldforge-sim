@@ -268,6 +268,7 @@ public partial class VisualLab3D : Node3D
             if (k.Keycode == Key.Key2) _speed = 2;
             if (k.Keycode == Key.Key3) _speed = 4;
             if (k.Keycode == Key.F2) _sun.ShadowEnabled = !_sun.ShadowEnabled;
+            if (k.Keycode == Key.F8) SaveVisualSnapshot();
             if (k.Keycode == Key.F9) SaveFrameTimeSamples();
             if (k.Keycode == Key.F10)
                 GD.Print($"Visible terrain chunks: {_terrain.ActiveTerrainChunks}, " +
@@ -276,6 +277,32 @@ public partial class VisualLab3D : Node3D
                     $"terrain builds since launch: {_terrain.TotalTerrainChunkBuilds}");
             if (k.Keycode == Key.Escape) GetTree().Quit();
             RefreshHud();
+        }
+    }
+
+    private void SaveVisualSnapshot()
+    {
+        // One on-demand GPU readback for design review, never per-frame.
+        // Keep all project screenshots and outputs on the H: drive.
+        string project = ProjectSettings.GlobalizePath("res://");
+        if (!project.StartsWith("H:\\", StringComparison.OrdinalIgnoreCase))
+        {
+            GD.PushError("Screenshot refused: project is not on H:.");
+            return;
+        }
+        try
+        {
+            string folder = Path.Combine(project, "artifacts", "visual-review");
+            Directory.CreateDirectory(folder);
+            string path = Path.Combine(folder,
+                "v2-art-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".png");
+            Error status = GetViewport().GetTexture().GetImage().SavePng(path);
+            if (status == Error.Ok) GD.Print("Saved 3D game screenshot: " + path);
+            else GD.PushError("Screenshot save error: " + status);
+        }
+        catch (Exception ex)
+        {
+            GD.PushError("Screenshot failed: " + ex.Message);
         }
     }
 
