@@ -43,3 +43,9 @@ Code hypotheses:
 - Root cause documented or narrowed to a specific engine/driver/editor effect; further targeted fixes as needed.
 
 **Data policy:** Project H: root, logs under `H:\WorldForge-Sim\artifacts\performance`; no intentional C: storage. Windows-managed background writes remain outside absolute control.
+
+## CORRECTION — editor hang versus game slowdown (2026-10-30)
+
+The user clarified that **the Godot editor hangs; the playable WorldForge game itself does not hang**. The initial "game performance regression" hypothesis was premature. Do not infer that the HUD update loop caused the reported freeze, or that the gameplay optimization in this PR solves it. Preserve these changes as optional benchmarked improvements only.
+
+**First priority (no code change):** on the existing `feat/m1-ui-scale` branch, launch Godot and switch to the **Game** workspace. From the Game bar's top-right dropdown, **uncheck "Embed Game on Next Play"** so the game runs in a truly separate window. Test editor focus, idle editing, F5 and stopping the game, and compare with editor behavior when no game is running. Floating embedded mode is not equivalent to disabled embedding. If freezes continue, gather editor logs under H:-based portable `editor_data` and exact user actions. Reference: https://docs.godotengine.org/en/4.7/tutorials/editor/game_embedding.html ; upstream embedding freeze report: https://github.com/godotengine/godot/issues/101310 . Neither proves the root cause for this PC.
