@@ -44,6 +44,9 @@ if ($LASTEXITCODE -ne 0) { throw '3D relief geometry and ray picking tests faile
 & $sdk run --project (Join-Path $root 'tests\SharedHeightfield.Smoke\SharedHeightfield.Smoke.csproj') -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Continuous terrain border and ray picking tests failed' }
 
+& $sdk run --project (Join-Path $root 'tests\ElevationRegion.Smoke\ElevationRegion.Smoke.csproj') -c Release
+if ($LASTEXITCODE -ne 0) { throw 'Elevation region and save recovery tests failed' }
+
 & $sdk build (Join-Path $root 'WorldForgeSim.csproj') -c Debug --disable-build-servers -p:UseSharedCompilation=false
 if ($LASTEXITCODE -ne 0) { throw 'Godot C# game build failed' }
 
