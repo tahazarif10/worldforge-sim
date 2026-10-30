@@ -11,7 +11,7 @@
 `Scripts/VisualLab/MountainSummitArtMath.cs` is new **Godot-free deterministic** placement policy, used **only on Mountain cells**:
 
 - Height tier = **the exact existing** `Hash(x,y,worldSeed)%11` term used by the current mountain elevation formula. High summits (tiers 8–10) receive **zero** decorative boulders, always.
-- Low exposed flanks have a low chance of an accent (17–22%); interior midsection 8%; near ridges 4%. No large dense cluster, no stacked mass.
+- Low exposed flanks have a low chance of an accent (26–32%); interior midsection 18%; near ridges 5%. No large dense cluster, no stacked mass.
 - Every placed mountain rock is the **upright/tall** existing Kenney CC0 `rock-talla.glb` (species 7), **never** the broad plate `rock-largea.glb` (species 6). Sand beach rocks **still use the original unchanged mixture**.
 - Max mountain authored detail height **0.43 world units before variation** (old was 0.9), minimum 0.17. Rocks are embedded 0.055 unit into the **already sampled exact terrain surface**; they should read as exposed rock chips on the slope, not separate caps.
 - `VisualTerrain3D` uses the existing shared materials, original real mountain topology, unchanged shared-corner picker, shadow tier, authored NatureArtLibrary and per-16x16 MultiMesh batching. Existing missing-GLB fallback also now uses the same bounded mountain accent, not its original oversized boulder.
