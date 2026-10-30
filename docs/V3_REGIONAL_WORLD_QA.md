@@ -1,4 +1,14 @@
-# V3.0 — Region-backed 8192×8192 logical world laboratory
+# V3.0 — Region-backed 8192×8192 logical world laboratory (archived experimental preview)
+
+> **USER-REJECTED EXPERIMENT — NOT A PLAYABLE V3 RELEASE.**
+> On 2026-10-30 the user reported both substantially worse visuals and
+> unacceptable camera/movement feel. Default `run-regional-world.ps1` and
+> `verify-v3-regional.ps1` now launch approved V2.9 instead of this scene.
+> Only use `-ExperimentalV3` when explicitly testing a known-bad technical
+> prototype. See [V3 rejection postmortem](V3_REJECTION_POSTMORTEM.md).
+>
+> Passing headless CI is not visual acceptance.
+
 
 **2026-10-30 | Separate opt-in scene | GitHub issue #43**
 
@@ -38,11 +48,12 @@ Close Godot Editor and the game. **Do not reset, clean or overwrite locally modi
 Set-Location 'H:\WorldForge-Sim'
 git status --short
 git fetch origin
-git switch feat/v3-regional-world-lab
-.\scripts\verify-v3-regional.ps1
+git switch main
+git pull --ff-only origin main
+.\scripts\verify-v3-regional.ps1 # runs tests and approved V2 by default
 ```
 
-After merging use `git switch main; git pull --ff-only origin main` rather than the feature branch.
+For the explicitly rejected engineering-only scene, add `-ExperimentalV3` to the verification or launcher command; it is **not** recommended for gameplay.
 
 ### Acceptance sequence
 
