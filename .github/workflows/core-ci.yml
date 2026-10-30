@@ -27,5 +27,7 @@ jobs:
         run: dotnet run --project tests/Camera3D.Smoke/Camera3D.Smoke.csproj -c Release
       - name: Frame timing ring buffer and percentile tests
         run: dotnet run --project tests/FrameTime.Smoke/FrameTime.Smoke.csproj -c Release
+      - name: Viewport-driven chunk residency tests
+        run: dotnet run --project tests/VisibleChunks.Smoke/VisibleChunks.Smoke.csproj -c Release
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false
