@@ -5,7 +5,6 @@ using WorldForge.VisualLab;
 static void Check(bool result, string name)
 {
     if (!result) throw new InvalidOperationException("FAIL " + name);
-    Console.WriteLine("PASS " + name);
 }
 
 // Exhaust every possible seeded hash sample used in mountain decoration.
