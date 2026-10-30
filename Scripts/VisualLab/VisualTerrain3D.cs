@@ -257,6 +257,20 @@ public partial class VisualTerrain3D : Node3D
                     new(x, h + 0.012f, y), new(x, h + 0.012f, y + 0.12f),
                     new(x + 1, h + 0.012f, y), new(x + 1, h + 0.012f, y + 0.12f),
                     new Color("#f5e4b2"), Vector3.Up);
+            if (x + 1 < _world.Width && IsWater(_world.Tile(x + 1, y)))
+                AddQuad(surface,
+                    new(x + 0.88f, h + 0.012f, y),
+                    new(x + 0.88f, h + 0.012f, y + 1),
+                    new(x + 1, h + 0.012f, y),
+                    new(x + 1, h + 0.012f, y + 1),
+                    new Color("#f5e4b2"), Vector3.Up);
+            if (y + 1 < _world.Height && IsWater(_world.Tile(x, y + 1)))
+                AddQuad(surface,
+                    new(x, h + 0.012f, y + 0.88f),
+                    new(x, h + 0.012f, y + 1),
+                    new(x + 1, h + 0.012f, y + 0.88f),
+                    new(x + 1, h + 0.012f, y + 1),
+                    new Color("#f5e4b2"), Vector3.Up);
         }
 
         instance.Visible = any;
