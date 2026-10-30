@@ -24,7 +24,12 @@ public partial class VisualTerrain3D : Node3D
     private Node3D _vegetation = null!;
     private MeshInstance3D _water = null!;
     private readonly HashSet<(int X, int Y)> _changedChunks = new();
-    private bool _vegetationDirty;
+    private readonly Dictionary<(int X, int Y), Node3D> _foliageChunks = new();
+    private readonly Dictionary<(int X, int Y), int> _propCounts = new();
+    private PackedScene? _treePrefab;
+    private PackedScene? _rockPrefab;
+    public long FoliageCellsVisited { get; private set; }
+    public long FoliageChunksRebuilt { get; private set; }
 
     private readonly StandardMaterial3D _earthMaterial = new()
     {
@@ -50,9 +55,17 @@ public partial class VisualTerrain3D : Node3D
         foreach (MeshInstance3D mesh in _chunks.Values) mesh.QueueFree();
         _chunks.Clear();
         _changedChunks.Clear();
+        foreach (Node3D chunk in _foliageChunks.Values) chunk.QueueFree();
+        _foliageChunks.Clear();
+        _propCounts.Clear();
+        LastPropCount = 0;
 
         _vegetation ??= new Node3D { Name = "FoliageBatches" };
         if (_vegetation.GetParent() is null) AddChild(_vegetation);
+        _treePrefab = ResourceLoader.Exists("res://Assets/Nature/Tree.glb")
+            ? GD.Load<PackedScene>("res://Assets/Nature/Tree.glb") : null;
+        _rockPrefab = ResourceLoader.Exists("res://Assets/Nature/Rock.glb")
+            ? GD.Load<PackedScene>("res://Assets/Nature/Rock.glb") : null;
 
         if (_water is null)
         {
@@ -70,9 +83,10 @@ public partial class VisualTerrain3D : Node3D
 
         for (int y = 0; y < world.Height; y += ChunkSize)
         for (int x = 0; x < world.Width; x += ChunkSize)
+        {
             BuildChunk(x / ChunkSize, y / ChunkSize);
-
-        RebuildVegetation();
+            RebuildVegetationChunk(x / ChunkSize, y / ChunkSize);
+        }
     }
 
     /// <summary>Defer all geometry changes until end of simulation frame.</summary>
@@ -86,19 +100,17 @@ public partial class VisualTerrain3D : Node3D
         for (int cy = top / ChunkSize; cy <= bottom / ChunkSize; cy++)
         for (int cx = left / ChunkSize; cx <= right / ChunkSize; cx++)
             _changedChunks.Add((cx, cy));
-        _vegetationDirty = true;
     }
 
     public void FlushChanges()
     {
-        if (_changedChunks.Count == 0 && !_vegetationDirty) return;
-        foreach (var (x, y) in _changedChunks) BuildChunk(x, y);
-        _changedChunks.Clear();
-        if (_vegetationDirty)
+        if (_changedChunks.Count == 0) return;
+        foreach (var (x, y) in _changedChunks)
         {
-            _vegetationDirty = false;
-            RebuildVegetation();
+            BuildChunk(x, y);
+            RebuildVegetationChunk(x, y);
         }
+        _changedChunks.Clear();
     }
 
     public float HeightAt(int x, int y)
@@ -200,18 +212,22 @@ public partial class VisualTerrain3D : Node3D
         surface.AddVertex(d);
     }
 
-    private void RebuildVegetation()
+    private void RebuildVegetationChunk(int cx, int cy)
     {
-        foreach (Node child in _vegetation.GetChildren()) child.QueueFree();
+        var key = (cx, cy);
+        if (_foliageChunks.TryGetValue(key, out Node3D? previous))
+        {
+            previous.QueueFree();
+            LastPropCount -= _propCounts[key];
+        }
+        var chunk = new Node3D { Name = $"FoliageChunk_{cx}_{cy}" };
+        _vegetation.AddChild(chunk);
+        _foliageChunks[key] = chunk;
 
-        // Optional curated CC0 GLB models can replace limited preview props.
-        // Without imported assets, all geometry stays procedural and H:-safe.
-        PackedScene? treePrefab = ResourceLoader.Exists("res://Assets/Nature/Tree.glb")
-            ? GD.Load<PackedScene>("res://Assets/Nature/Tree.glb") : null;
-        PackedScene? rockPrefab = ResourceLoader.Exists("res://Assets/Nature/Rock.glb")
-            ? GD.Load<PackedScene>("res://Assets/Nature/Rock.glb") : null;
         int importedTreeCount = 0, importedRockCount = 0;
-        const int MaxImportedTrees = 140, MaxImportedRocks = 80;
+        // Spatial cap is per chunk: no global allocation or edit-order bias.
+        const int MaxImportedTreesPerChunk = 2, MaxImportedRocksPerChunk = 1;
+        FoliageChunksRebuilt++;
 
         var trunks = new List<(Transform3D Transform, Color Color)>();
         var canopies = new List<(Transform3D Transform, Color Color)>();
@@ -220,9 +236,12 @@ public partial class VisualTerrain3D : Node3D
         var shrubs = new List<(Transform3D Transform, Color Color)>();
 
         int count = 0;
-        for (int y = 0; y < _world.Height; y++)
-        for (int x = 0; x < _world.Width; x++)
+        int maxY = Math.Min(_world.Height, (cy + 1) * ChunkSize);
+        int maxX = Math.Min(_world.Width, (cx + 1) * ChunkSize);
+        for (int y = cy * ChunkSize; y < maxY; y++)
+        for (int x = cx * ChunkSize; x < maxX; x++)
         {
+            FoliageCellsVisited++;
             Terrain kind = _world.Tile(x, y);
             uint h = Hash(x, y, _world.Seed + 119);
             float offsetX = ((h >> 10) % 100) / 310f + 0.34f;
@@ -232,9 +251,9 @@ public partial class VisualTerrain3D : Node3D
 
             if (kind == Terrain.Forest && h % 7 < 3)
             {
-                if (treePrefab is not null && importedTreeCount < MaxImportedTrees)
+                if (_treePrefab is not null && importedTreeCount < MaxImportedTreesPerChunk)
                 {
-                    AddImportedModel(treePrefab, p, 2.8f, h);
+                    AddImportedModel(chunk, _treePrefab, p, 2.8f, h);
                     importedTreeCount++;
                     count++;
                     continue;
@@ -253,9 +272,9 @@ public partial class VisualTerrain3D : Node3D
             }
             else if (kind == Terrain.Mountain && h % 5 < 3)
             {
-                if (rockPrefab is not null && importedRockCount < MaxImportedRocks)
+                if (_rockPrefab is not null && importedRockCount < MaxImportedRocksPerChunk)
                 {
-                    AddImportedModel(rockPrefab, p, 0.8f, h);
+                    AddImportedModel(chunk, _rockPrefab, p, 0.8f, h);
                     importedRockCount++;
                     count++;
                     continue;
@@ -278,16 +297,17 @@ public partial class VisualTerrain3D : Node3D
         var foliageMesh = new SphereMesh { Radius = 0.5f, Height = 1.0f, RadialSegments = 7, Rings = 4 };
         var boulderMesh = new SphereMesh { Radius = 0.5f, Height = 1.0f, RadialSegments = 6, Rings = 3 };
 
-        AddBatched("TreeTrunks", trunkMesh, trunks);
-        AddBatched("TreeCrownsLower", foliageMesh, canopies);
-        AddBatched("TreeCrownsUpper", foliageMesh, upperCanopies);
-        AddBatched("Rocks", boulderMesh, stones);
-        AddBatched("FlowersShrubs", foliageMesh, shrubs);
-        LastPropCount = count;
+        AddBatched(chunk, "TreeTrunks", trunkMesh, trunks);
+        AddBatched(chunk, "TreeCrownsLower", foliageMesh, canopies);
+        AddBatched(chunk, "TreeCrownsUpper", foliageMesh, upperCanopies);
+        AddBatched(chunk, "Rocks", boulderMesh, stones);
+        AddBatched(chunk, "FlowersShrubs", foliageMesh, shrubs);
+        _propCounts[key] = count;
+        LastPropCount += count;
     }
 
     /// <summary>Use actual CC0 imported GLB materials, with approximate model height normalization.</summary>
-    private void AddImportedModel(PackedScene scene, Vector3 ground, float desiredHeight, uint variant)
+    private void AddImportedModel(Node3D parent, PackedScene scene, Vector3 ground, float desiredHeight, uint variant)
     {
         Node3D model = scene.Instantiate<Node3D>();
         float sourceHeight = Math.Max(0.05f, EstimateMeshHeight(model));
@@ -296,7 +316,7 @@ public partial class VisualTerrain3D : Node3D
         model.Position = ground;
         model.Rotation = new Vector3(0, (variant % 8) * Mathf.Pi / 4, 0);
         model.Name = "LicensedNatureModel";
-        _vegetation.AddChild(model);
+        parent.AddChild(model);
     }
 
     private static float EstimateMeshHeight(Node node)
@@ -309,7 +329,7 @@ public partial class VisualTerrain3D : Node3D
         return height;
     }
 
-    private void AddBatched(string name, Mesh mesh,
+    private void AddBatched(Node3D parent, string name, Mesh mesh,
         List<(Transform3D Transform, Color Color)> transforms)
     {
         if (transforms.Count == 0) return;
@@ -325,7 +345,7 @@ public partial class VisualTerrain3D : Node3D
             multi.SetInstanceTransform(i, transforms[i].Transform);
             multi.SetInstanceColor(i, transforms[i].Color);
         }
-        _vegetation.AddChild(new MultiMeshInstance3D
+        parent.AddChild(new MultiMeshInstance3D
         {
             Name = name,
             Multimesh = multi,
