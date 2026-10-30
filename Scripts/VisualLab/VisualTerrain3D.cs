@@ -41,6 +41,29 @@ public partial class VisualTerrain3D : Node3D
     public int LastRequestedChunks { get; private set; }
     public int PendingVisibleChunks => Math.Max(0, LastRequestedChunks - _chunks.Count);
     public bool RichTerrainDetails { get; private set; } = true;
+    public bool SculptedFacets { get; private set; } = true;
+
+    public float ReliefAt(int x, int y)
+    {
+        if (!RichTerrainDetails || !SculptedFacets || !_world.Contains(x, y))
+            return 0f;
+        return TerrainReliefMath.CenterLift(_world.Tile(x, y), x, y, _world.Seed);
+    }
+
+    public float SurfaceHeightAt(int x, int y, float localX, float localY) =>
+        TerrainReliefMath.SurfaceHeight(HeightAt(x, y), ReliefAt(x, y), localX, localY);
+
+    public void ToggleSculptedFacets()
+    {
+        SculptedFacets = !SculptedFacets;
+        // The existing four triangles keep the same topology; only their
+        // center vertex changes. Rebuild only resident terrain/foliage.
+        foreach (var key in _chunks.Keys)
+            BuildChunk(key.X, key.Y);
+        foreach (var key in new List<(int X, int Y)>(_foliageChunks.Keys))
+            RebuildVegetationChunk(key.X, key.Y);
+        GD.Print("V2 sculpted terrain facets: " + (SculptedFacets ? "ON" : "OFF"));
+    }
 
     public void ToggleRichTerrainDetails()
     {
@@ -50,6 +73,8 @@ public partial class VisualTerrain3D : Node3D
         // deliberate F3 interaction, never on every simulation frame.
         foreach (var key in _chunks.Keys)
             BuildChunk(key.X, key.Y);
+        foreach (var key in new List<(int X, int Y)>(_foliageChunks.Keys))
+            RebuildVegetationChunk(key.X, key.Y);
         GD.Print("V2 rich terrain surface/cliff shading: " +
             (RichTerrainDetails ? "ON" : "OFF"));
     }
@@ -370,7 +395,7 @@ public partial class VisualTerrain3D : Node3D
             _world.Width,_world.Height,_world.Tile,_world.Seed));
         Color cd = ToColor(EnvironmentArtMath.CornerColor(x,y,1,1,
             _world.Width,_world.Height,_world.Tile,_world.Seed));
-        Vector3 mid = new(x + .5f, height, y + .5f);
+        Vector3 mid = new(x + .5f, height + ReliefAt(x, y), y + .5f);
         AddColoredTriangle(surface, a,b,mid,ca,cb,centerColor);
         AddColoredTriangle(surface, b,d,mid,cb,cd,centerColor);
         AddColoredTriangle(surface, d,c,mid,cd,cc,centerColor);
@@ -383,7 +408,10 @@ public partial class VisualTerrain3D : Node3D
     private static void AddColoredTriangle(SurfaceTool surface,
         Vector3 a, Vector3 b, Vector3 c, Color ca, Color cb, Color cc)
     {
-        surface.SetNormal(Vector3.Up);
+        // Correct per-facet normal gives the 3D slopes an actual lighting
+        // response. No extra triangles and no normal map/extra texture reads.
+        Vector3 normal = (b - a).Cross(c - a).Normalized();
+        surface.SetNormal(normal);
         surface.SetColor(ca); surface.AddVertex(a);
         surface.SetColor(cb); surface.AddVertex(b);
         surface.SetColor(cc); surface.AddVertex(c);
@@ -406,7 +434,7 @@ public partial class VisualTerrain3D : Node3D
     {
         // Pale rim, ochre/dark banding and irregular seeded tones suggest
         // a geological cut without changing collision or surface height.
-        float[] marks = [0f, .33f, .72f, 1f];
+        // No heap float[] allocation for every cliff face in a rebuilt chunk.
         for (int layer = 0; layer < 3; layer++)
         {
             float blend = layer switch { 0 => .18f, 1 => .06f, _ => .11f };
@@ -414,8 +442,10 @@ public partial class VisualTerrain3D : Node3D
             if (((variation >> (layer * 3)) & 1u) == 1u)
                 tone = tone.Lightened(.055f);
             AddQuad(surface,
-                lowA.Lerp(highA, marks[layer]), lowB.Lerp(highB, marks[layer]),
-                lowA.Lerp(highA, marks[layer+1]), lowB.Lerp(highB, marks[layer+1]),
+                lowA.Lerp(highA, layer == 0 ? 0f : layer == 1 ? .33f : .72f),
+                lowB.Lerp(highB, layer == 0 ? 0f : layer == 1 ? .33f : .72f),
+                lowA.Lerp(highA, layer == 0 ? .33f : layer == 1 ? .72f : 1f),
+                lowB.Lerp(highB, layer == 0 ? .33f : layer == 1 ? .72f : 1f),
                 tone, normal);
         }
     }
@@ -468,7 +498,7 @@ public partial class VisualTerrain3D : Node3D
             uint h = Hash(x, y, _world.Seed + 119);
             float offsetX = ((h >> 10) % 100) / 310f + 0.34f;
             float offsetZ = ((h >> 18) % 100) / 310f + 0.34f;
-            float ground = HeightAt(x, y);
+            float ground = SurfaceHeightAt(x, y, offsetX, offsetZ);
             Vector3 p = new(x + offsetX, ground, y + offsetZ);
 
             int species = NatureScatter.Pick(kind, h);

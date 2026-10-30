@@ -81,7 +81,8 @@ public partial class VisualLab3D : Node3D
 
         CreateWorld(20261030);
         _cameraRig = new WorldForge.Camera3D.StrategyCameraRig(_camera,
-            (x, y) => _terrain.HeightAt(x, y), _world.Width, _world.Height);
+            (x, y) => _terrain.HeightAt(x, y), _world.Width, _world.Height,
+            (x, y) => _terrain.ReliefAt(x, y));
         _terrain.UpdateVisibility(_camera, maxNewChunks: 64);
         SetupHud();
     }
@@ -138,7 +139,7 @@ public partial class VisualLab3D : Node3D
         int i = 0;
         foreach (Citizen citizen in _world.People)
         {
-            float elevation = _terrain.HeightAt(citizen.X, citizen.Y);
+            float elevation = _terrain.SurfaceHeightAt(citizen.X, citizen.Y, .5f, .5f);
             _citizenBatch.SetInstanceTransform(i, new Transform3D(
                 Basis.Identity, new Vector3(citizen.X + .5f,
                     elevation + .38f, citizen.Y + .5f)));
@@ -271,6 +272,11 @@ public partial class VisualLab3D : Node3D
             if (k.Keycode == Key.Key3) _speed = 4;
             if (k.Keycode == Key.F2) _sun.ShadowEnabled = !_sun.ShadowEnabled;
             if (k.Keycode == Key.F3) _terrain.ToggleRichTerrainDetails();
+            if (k.Keycode == Key.F5)
+            {
+                _terrain.ToggleSculptedFacets();
+                UpdateActors();
+            }
             if (k.Keycode == Key.F4)
             {
                 _ecoMode = !_ecoMode;
