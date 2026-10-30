@@ -229,7 +229,7 @@ public sealed class RegionStore
         {
             CellCoord absolute = RegionCoordinates.GlobalOf(key, new LocalCell(x, y));
             tiles[y * RegionCoordinates.Size + x] =
-                (byte)RegionGenerator.TerrainAt(absolute, Seed);
+                (byte)_generator(absolute);
         }
 
         if (_overrides.TryGetValue(key, out Dictionary<int, byte>? changes))
