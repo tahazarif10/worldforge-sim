@@ -51,3 +51,22 @@ The launcher explicitly selects `res://Scenes/VisualLab3D.tscn` via Godot's docu
 ## Quality gate
 
 **Do not switch main scene/default visual mode or remove 2D fallback until approved.** Existing 2D game remains the safe version. CI C# compile is not a substitute for actual Godot startup/shader import/visual quality and GPU testing. If this is worse than expected, return to quality target and integrate real licensed models before adopting.
+
+## Optional: import genuine authored nature models (separate from geometry demo)
+
+The visual lab can now replace a capped subset of placeholder tree/rock objects with **actual .glb models** and their materials from a legal CC0 nature pack. Because GitHub integration only writes UTF-8 source files here, asset binaries are **not included** or claimed downloaded. You must obtain the pack from its official publisher and save the ZIP **directly on H:** (e.g. `H:\Downloads\StylizedNature.zip`). Suggested pack: Quaternius Stylized Nature MegaKit (<https://quaternius.com/packs/stylizednaturemegakit.html>) or Kenney Nature Kit (<https://kenney.nl/assets/nature-kit>).
+
+```powershell
+Set-Location 'H:\WorldForge-Sim'
+. .\scripts\enter-dev.ps1
+.\scripts\import-nature-pack.ps1 -ZipPath 'H:\Downloads\YOUR_NATURE_PACK.zip'
+# Re-import copied GLB resources once (do not run the editor interactively).
+$godot = 'H:\WorldForge-Sim\Tools\Godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64.exe'
+& $godot --headless --path 'H:\WorldForge-Sim' --editor --import
+& 'H:\WorldForge-Sim\Tools\dotnet\dotnet.exe' build '.\WorldForgeSim.csproj' -c Debug --disable-build-servers -p:UseSharedCompilation=false
+.\scripts\run-visual-lab.ps1
+```
+
+The importer accepts only H:-based ZIPs and stages/copies inside the project on H:. It selects one `*tree*.glb` and one `*rock*.glb` by filename; you can override `-TreePattern` and `-RockPattern` to choose different files. The preview caps imported scene-node instances to **140 trees and 80 rocks** on the reference GPU; the remainder use batched fallback primitives. Production art needs imported meshes baked into a MultiMesh renderer to scale to larger forests without hundreds of scene nodes. Keep a record of model source and verified CC0 license before distribution.
+
+Note: the current asset extractor does **not** import .gltf + external texture/.bin files, only self-contained .glb. Do not assume a downloaded archive contains GLB until inspected; if it doesn't, use a GLB pack or implement a dependency-preserving glTF importer. If import errors arise, revert to source branch without discarding user data.
