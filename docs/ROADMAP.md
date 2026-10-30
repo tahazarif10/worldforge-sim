@@ -10,17 +10,17 @@
 WorldForge Sim is an **original** 3D stylized god-sandbox and living-world simulation, inspired by the *genre* of WorldBox, not its proprietary code, art or game content. Target: unusually readable and attractive miniature worlds with mountains, coastlines, forests, creatures, autonomous villages/civilizations and user powers; comfortable on older Windows GPUs.
 
 **Keep the currently approved 3D scene as the release baseline:**
-- Scene: \`Scenes/VisualLab3D.tscn\`, authoritative gameplay \`WorldState\` currently **120×88**; default scene \`Scenes/Main.tscn\` and user-modified \`project.godot\` remain untouched.
-- Original \`VisualTerrain3D\` renderer and \`StrategyCameraRig\`, opaque stylized ocean/coast shader, land color/relief, Kenney CC0 authored nature, F4 Eco, deterministic people and brushes.
-- Known rejected path: \`Scenes/RegionalWorldLab3D.tscn\` from old V3.0. It **must not become the release scene**; #46 stays open until proven visual AND control parity on Windows. Technical 8192² addressability did not demonstrate a playable large world.
-- Canonical hardware/OS: Godot **4.7.2 Mono/.NET 10**, AMD **Radeon R9 M395X**, OpenGL **Compatibility**, project \`H:\WorldForge-Sim\`. Never overwrite/reset dirty local \`project.godot\` or intentionally redirect project caches to C:.
+- Scene: `Scenes/VisualLab3D.tscn`, authoritative gameplay `WorldState` currently **120×88**; default scene `Scenes/Main.tscn` and user-modified `project.godot` remain untouched.
+- Original `VisualTerrain3D` renderer and `StrategyCameraRig`, opaque stylized ocean/coast shader, land color/relief, Kenney CC0 authored nature, F4 Eco, deterministic people and brushes.
+- Known rejected path: `Scenes/RegionalWorldLab3D.tscn` from old V3.0. It **must not become the release scene**; #46 stays open until proven visual AND control parity on Windows. Technical 8192² addressability did not demonstrate a playable large world.
+- Canonical hardware/OS: Godot **4.7.2 Mono/.NET 10**, AMD **Radeon R9 M395X**, OpenGL **Compatibility**, project `H:\WorldForge-Sim`. Never overwrite/reset dirty local `project.godot` or intentionally redirect project caches to C:.
 - No Codex/Work by default; scoped source changes through GitHub branch/PR, pure .NET and Godot CI. Account credits cannot be inferred from tool names; check Usage independently.
 
 ## 1. Status legend — do not conflate implementation and acceptance
 
 | Symbol | Meaning |
 | --- | --- |
-| ✅ CI-verified and merged | Source exists on \`main\` and named CI passed; **not** automatic real-machine acceptance |
+| ✅ CI-verified and merged | Source exists on `main` and named CI passed; **not** automatic real-machine acceptance |
 | 🟨 Source merged, Windows gate missing | Needs exact local host screenshot / mouse behavior / FPS / data evidence |
 | ▶ Next recommended slice | Planned first implementation, **not yet coded** |
 | ◻ Planned | Dependencies and proposed acceptance defined, implementation not begun |
@@ -38,8 +38,8 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 | V2.7/V2.8 | Center relief and shared-corner continuous fan terrain; matched camera ray/brush picking | [PR #38](https://github.com/tahazarif10/worldforge-sim/pull/38), [PR #40](https://github.com/tahazarif10/worldforge-sim/pull/40); Windows perf still needed |
 | V2.9 | Sparse 64×64 signed quantized elevation offsets, explicit H: save/load, opt-in F7 sculpt | [PR #42](https://github.com/tahazarif10/worldforge-sim/pull/42); not a full-world height/simulation save |
 | V3.0 | Independent 8192² logical region prototype | [PR #44](https://github.com/tahazarif10/worldforge-sim/pull/44) **WITHDRAWN FOR GAMEPLAY**: bad art/camera, no citizens, missing visible chunks; [regression #46](https://github.com/tahazarif10/worldforge-sim/issues/46) |
-| Recovery | V3 launcher defaults back to approved V2; optional \`WorldState\`-backed \`RegionStore\` cache inside V2 renderer | [PR #47](https://github.com/tahazarif10/worldforge-sim/pull/47), [PR #49](https://github.com/tahazarif10/worldforge-sim/pull/49) CI-verified; physical V2 vs mirror FPS/drag comparison open |
-| V3.2 art correction | Removed oversized flat mountain slab decorations; 66 -> 9 mountain accents for the user's \`1315511732\` seed; optional exact seed replay | [PR #50](https://github.com/tahazarif10/worldforge-sim/pull/50), [PR #51](https://github.com/tahazarif10/worldforge-sim/pull/51) CI green; actual Windows summit screenshot approval still **pending** |
+| Recovery | V3 launcher defaults back to approved V2; optional `WorldState`-backed `RegionStore` cache inside V2 renderer | [PR #47](https://github.com/tahazarif10/worldforge-sim/pull/47), [PR #49](https://github.com/tahazarif10/worldforge-sim/pull/49) CI-verified; physical V2 vs mirror FPS/drag comparison open |
+| V3.2 art correction | Removed oversized flat mountain slab decorations; 66 -> 9 mountain accents for the user's `1315511732` seed; optional exact seed replay | [PR #50](https://github.com/tahazarif10/worldforge-sim/pull/50), [PR #51](https://github.com/tahazarif10/worldforge-sim/pull/51) CI green; actual Windows summit screenshot approval still **pending** |
 
 ## 3. Dependency-ordered milestone plan
 
@@ -50,15 +50,15 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 **Purpose:** create a real *measured* golden baseline before touching streaming or global world dimensions. Do not implement more world-size or camera changes first.
 
 **V3.3.0 — Lock the reference scene and art contract**
-- Fix representative world seeds: \`1315511732\` (user's mountain ridge) and \`20261030\` (default), plus one new randomized seed recorded verbatim. State that \`20261030\` may contain **zero mountains**.
+- Fix representative world seeds: `1315511732` (user's mountain ridge) and `20261030` (default), plus one new randomized seed recorded verbatim. State that `20261030` may contain **zero mountains**.
 - Lock 1280×800 window screenshot/camera pose, orthographic size, Eco/Balanced mode and fixed camera interaction script; H:-only screenshot and frame exports.
 - Capture official user's *actual* V2 approved scene and new mountain fix. F8 screenshots and F9 CSV; do not claim automated pixel matching until reference images and matching camera poses exist.
 - Characterize baseline: CPU frame time, wall-clock frame intervals, p50/p95/p99/max, RAM/VRAM where available, terrain/foliage rebuild and GC, click->camera response.
 - Fix reference record: Windows build, Godot/.NET version, branch SHA, GPU driver, viewport, zoom, seed, quality flag, elapsed warm-up, exact test commands.
 
 **V3.3.1 — Instrumentation / parity harness**
-- Add **one-command PowerShell 5.1-compatible, H:-only** acceptance runner (future file \`scripts/run-v3-3-acceptance.ps1\`, **not yet present**); avoid modifying \`project.godot\`.
-- Compare direct \`WorldState\` and opt-in \`RegionMirrorTerrainSource\` in the SAME V2 renderer/camera at the SAME seed; F8 image and F9 frame samples. No separate V3 scene.
+- Add **one-command PowerShell 5.1-compatible, H:-only** acceptance runner (future file `scripts/run-v3-3-acceptance.ps1`, **not yet present**); avoid modifying `project.godot`.
+- Compare direct `WorldState` and opt-in `RegionMirrorTerrainSource` in the SAME V2 renderer/camera at the SAME seed; F8 image and F9 frame samples. No separate V3 scene.
 - Record input-latency samples (right-drag, mouse-anchored wheel, brush screen-to-ground), missing geometry counts, artifact hashes and an explicit operator **accept/reject** field.
 - Verify F2–F12 shortcuts, painting, citizen spawn and meteor, mid-frame camera edits, repeated new-world and failure recovery.
 
@@ -74,8 +74,8 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 **Dependency:** V3.3 physical baseline and camera/art acceptance.
 
 **V3.4.1 — Pure viewport planner and residency contract**
-- Extract exact shared visible-footprint planner from current \`VisualTerrain3D.UpdateVisibility\` and \`StrategyCameraRig\`. Camera can move or zoom; border margin and elevation bounds conservatively cover screen.
-- Define \`TileKey\`, \`ChunkCoord\` (16×16 display), \`RegionKey\` (64×64 data), \`ChunkGeneration\`, explicit \`Unloaded/Queued/Generating/Ready/Stale/Disposed\`.
+- Extract exact shared visible-footprint planner from current `VisualTerrain3D.UpdateVisibility` and `StrategyCameraRig`. Camera can move or zoom; border margin and elevation bounds conservatively cover screen.
+- Define `TileKey`, `ChunkCoord` (16×16 display), `RegionKey` (64×64 data), `ChunkGeneration`, explicit `Unloaded/Queued/Generating/Ready/Stale/Disposed`.
 - Bounded nearest-first / latest-camera-wins queue. A superseded request cannot publish after zoom/seed change. No per-frame unbounded work. Record count of **uncovered visible pixels/cells**.
 
 **V3.4.2 — Guaranteed distant fallback**
@@ -84,7 +84,7 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 - Verify rapid pans, zoom-in/out, window resize and teleport at map limits never show the blank background where ground/water should be.
 
 **V3.4.3 — Immutable worker mesh-data snapshots**
-- Off-main-thread compute only **pure C# arrays** from immutable versioned region snapshots: vertices, indices, colors, normals, foliage placements. NO Godot \`SceneTree\`, \`MeshInstance3D\`, \`SurfaceTool\` or GPU texture operations in workers.
+- Off-main-thread compute only **pure C# arrays** from immutable versioned region snapshots: vertices, indices, colors, normals, foliage placements. NO Godot `SceneTree`, `MeshInstance3D`, `SurfaceTool` or GPU texture operations in workers.
 - Main thread owns Godot mesh/material/nodes and uploads a bounded number/bytes or measured milliseconds per frame. Cancel/discard stale generations.
 - Buffer capacity, world-seed generation identity, bounded memory accounting, teardown/join and background worker failure handling must be tested.
 
@@ -100,9 +100,9 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 **Dependency:** V3.4 seamless streaming and physical acceptance.
 
 **V3.5.1 — Generator art parity and immutable region contract**
-- Build a new **deterministic V2-compatible regional generator** from shared seed/absolute coordinates, independent of region arrival/eviction/edit order. Do not point the live game at the unrelated V3.0 \`RegionGenerator\`.
-- \`RegionStore\` becomes terrain authority only after generated tiles, coastline, shared-corner elevation and scatter are identical to the approved baseline on the reference worlds, or have an explicitly approved art migration.
-- Define regional revision, world-generation ID, immutable read snapshot, negative/global coords and halo ownership. No direct mutable \`WorldState\` reference in production regional baseline.
+- Build a new **deterministic V2-compatible regional generator** from shared seed/absolute coordinates, independent of region arrival/eviction/edit order. Do not point the live game at the unrelated V3.0 `RegionGenerator`.
+- `RegionStore` becomes terrain authority only after generated tiles, coastline, shared-corner elevation and scatter are identical to the approved baseline on the reference worlds, or have an explicitly approved art migration.
+- Define regional revision, world-generation ID, immutable read snapshot, negative/global coords and halo ownership. No direct mutable `WorldState` reference in production regional baseline.
 
 **V3.5.2 — Height and tool integration**
 - Integrate existing sparse elevation offsets and canonical absolute shared vertices across 64-cell borders. LOD and picking must reflect exact edited surface.
@@ -110,7 +110,7 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 - Test boundary cells, negative coords where allowed, repeated edits, undo/redo semantics (if introduced), unload/reload and water transitions.
 
 **V3.5.3 — Crash-resilient world saves**
-- Explicit versioned manifest: \`worldId\`, \`seed\`, schema, checksum, region revisions, entity revisions and sequence. Ordered atomic commit/rollback across regions; per-region file rename alone is **not** a multi-file transaction.
+- Explicit versioned manifest: `worldId`, `seed`, schema, checksum, region revisions, entity revisions and sequence. Ordered atomic commit/rollback across regions; per-region file rename alone is **not** a multi-file transaction.
 - Validate corruption/truncation, wrong seed/world ID, interrupted multi-region save, version upgrade and backup recovery without destroying last accepted save. Define path sandbox H: for development.
 
 **V3.5.4 — Evidence-driven scale ladder**
@@ -124,7 +124,7 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 
 **Dependency:** V3.5 authoritative regions and durable saves.
 
-**V3.6.1:** stable long-lived citizen/entity IDs, position in region/global coords, per-region ownership and cross-border transfer (exactly once), spatial indexes and render batches; no per-citizen \`Node3D\` by default.
+**V3.6.1:** stable long-lived citizen/entity IDs, position in region/global coords, per-region ownership and cross-border transfer (exactly once), spatial indexes and render batches; no per-citizen `Node3D` by default.
 
 **V3.6.2:** deterministic bounded active-area simulation at fixed tick, time budget/backpressure, deferred inactive-region advancement policy, reproducible RNG stream per entity/region. A player editing a remote region cannot accidentally advance the entire world at the wrong rate.
 
@@ -167,7 +167,7 @@ No proprietary WorldBox art, music, code or game data.
 
 | Gate | Required evidence | Failure action |
 | --- | --- | --- |
-| G0 — no destructive default | \`Main.tscn\`, \`project.godot\`, V2 shader/assets unchanged unless explicitly approved | Do not merge |
+| G0 — no destructive default | `Main.tscn`, `project.godot`, V2 shader/assets unchanged unless explicitly approved | Do not merge |
 | G1 — deterministic correctness | .NET tests incl. boundary/seed/edit/cache/state and exact failure-case checks | Fix before PR merge |
 | G2 — engine boot | Official Godot **4.7.2 Mono** imported GLBs, C# compiled, same V2 scene boots headlessly | Fix before PR merge |
 | G3 — visual art parity | Exact-seed matched F8 screenshots (shoreline/forest/summit), user approval | Keep new mode OFF |
@@ -182,21 +182,21 @@ No proprietary WorldBox art, music, code or game data.
 
 Preflight **before modifying source**:
 
-\`\`\`powershell
+```powershell
 Set-Location 'H:\WorldForge-Sim'
 git branch --show-current
 git rev-parse HEAD
 git status --short
 git fetch origin
-\`\`\`
+```
 
-Do not run \`git reset --hard\`, \`git clean\` or overwrite \`project.godot\`. If \`git switch main\` is blocked, stop and reconcile the local change first. To run the accepted V2 screenshot world **after safely updating main**:
+Do not run `git reset --hard`, `git clean` or overwrite `project.godot`. If `git switch main` is blocked, stop and reconcile the local change first. To run the accepted V2 screenshot world **after safely updating main**:
 
-\`\`\`powershell
+```powershell
 git switch main
 git pull --ff-only origin main
 .\scripts\verify-v2-art.ps1 -WorldSeed 1315511732
-\`\`\`
+```
 
 In the running game: **F8** H:-based PNG; **F9** frame-time CSV; **F10** chunk diagnostics; **F4** Eco/Balanced; **F6** slope comparison. The new master acceptance runner named in V3.3 is a **planned deliverable**, not a command users can run today.
 
