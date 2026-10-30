@@ -14,7 +14,7 @@ function Invoke-LoggedStep {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][string]$Exe,
-        [Parameter(Mandatory = $true)][string[]]$Args
+        [Parameter(Mandatory = $true)][string[]]$Arguments
     )
     $stdout = Join-Path $out "$Name.stdout.txt"
     $stderr = Join-Path $out "$Name.stderr.txt"
@@ -24,8 +24,8 @@ function Invoke-LoggedStep {
     Write-Host "RUN: $Name"
     "===== START: $Name =====" | Add-Content -LiteralPath $report
     "Executable: $Exe" | Add-Content -LiteralPath $report
-    "Arguments: $($Args -join ' ')" | Add-Content -LiteralPath $report
-    $process = Start-Process -FilePath $Exe -ArgumentList $Args `
+    "Arguments: $($Arguments -join ' ')" | Add-Content -LiteralPath $report
+    $process = Start-Process -FilePath $Exe -ArgumentList $Arguments `
         -WorkingDirectory $root -PassThru -Wait -NoNewWindow `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr
 
@@ -56,10 +56,10 @@ try {
         throw "Blocked: dotnet on non-H: drive: $sdk. Dot-source scripts/enter-dev.ps1 first."
     }
 
-    Invoke-LoggedStep -Name 'dotnet-info' -Exe $sdkExe -Args @('--info')
-    Invoke-LoggedStep -Name 'core-build' -Exe $sdkExe -Args @('build', '.\src\WorldSim\WorldSim.csproj', '-c', 'Release')
-    Invoke-LoggedStep -Name 'core-smoke' -Exe $sdkExe -Args @('run', '--project', '.\tests\WorldSim.Smoke\WorldSim.Smoke.csproj', '-c', 'Release')
-    Invoke-LoggedStep -Name 'godot-csharp-build' -Exe $sdkExe -Args @('build', '.\WorldForgeSim.csproj', '-c', 'Debug')
+    Invoke-LoggedStep -Name 'dotnet-info' -Exe $sdkExe -Arguments @('--info')
+    Invoke-LoggedStep -Name 'core-build' -Exe $sdkExe -Arguments @('build', '.\src\WorldSim\WorldSim.csproj', '-c', 'Release')
+    Invoke-LoggedStep -Name 'core-smoke' -Exe $sdkExe -Arguments @('run', '--project', '.\tests\WorldSim.Smoke\WorldSim.Smoke.csproj', '-c', 'Release')
+    Invoke-LoggedStep -Name 'godot-csharp-build' -Exe $sdkExe -Arguments @('build', '.\WorldForgeSim.csproj', '-c', 'Debug')
 
     if ($GodotPath) {
         $godotExe = (Resolve-Path -LiteralPath $GodotPath).Path
@@ -69,7 +69,7 @@ try {
         if (-not (Test-Path -LiteralPath (Join-Path (Split-Path $godotExe -Parent) '_sc_'))) {
             throw 'Blocked: self-contained Godot _sc_ marker missing'
         }
-        Invoke-LoggedStep -Name 'godot-headless-import' -Exe $godotExe -Args @('--headless', '--editor', '--path', $root, '--quit')
+        Invoke-LoggedStep -Name 'godot-headless-import' -Exe $godotExe -Arguments @('--headless', '--editor', '--path', $root, '--quit')
     } else {
         'SKIP: Godot headless import (no GodotPath supplied)' | Add-Content -LiteralPath $report
     }
