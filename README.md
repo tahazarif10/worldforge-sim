@@ -27,5 +27,13 @@ If both tools are installed, open `project.godot` with the Godot .NET editor, bu
 
 There are **no** real settlements, combat, food networks, or diplomacy yet.
 
+## Current development track: M1 Visual Foundation
+
+- [Master tracker and seven subissues](https://github.com/tahazarif10/worldforge-sim/issues/2)
+- [Visual foundation implementation plan](docs/M1_VISUAL_FOUNDATION.md)
+- [Original art direction](docs/ART_DIRECTION.md)
+- [Build, visual and performance acceptance checklist](docs/ACCEPTANCE_CHECKLIST.md)
+- M1.0 plan [PR #10](https://github.com/tahazarif10/worldforge-sim/pull/10) and initial M1.1 HUD [PR #11](https://github.com/tahazarif10/worldforge-sim/pull/11) are **Draft**, not accepted/merged.
+
 ## Engineering workflow
 Each milestone goes into a dedicated branch and PR. Do not merge without CI, build, and Windows visual acceptance. See [roadmap](docs/ROADMAP.md) and [project state](docs/PROJECT_STATE.md).
