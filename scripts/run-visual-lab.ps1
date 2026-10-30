@@ -1,5 +1,6 @@
 # Launch opt-in 3D style prototype without changing project.godot or main scene.
 # Uses existing portable Godot/.NET on H: and writes its diagnostic log to H:.
+param([Nullable[int]]$WorldSeed = $null)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
@@ -24,4 +25,10 @@ New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $log = Join-Path $dir 'godot-3d-console.log'
 Write-Host 'Launching stand-alone 3D visual lab, preserving the 2D main scene.'
 Write-Host "Log: $log"
-& $editor.FullName --path $root --scene 'res://Scenes/VisualLab3D.tscn' --rendering-method gl_compatibility --log-file $log
+$godotArgs = @('--path', $root, '--scene', 'res://Scenes/VisualLab3D.tscn',
+    '--rendering-method', 'gl_compatibility', '--log-file', $log)
+if ($null -ne $WorldSeed) {
+    Write-Host "Replaying approved 3D world seed $WorldSeed for mountain QA."
+    $godotArgs += @('--', "--world-seed=$WorldSeed")
+}
+& $editor.FullName @godotArgs
