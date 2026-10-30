@@ -26,7 +26,7 @@ This is **unproven** until the user reviews a real Windows build and measured fr
 
 New files, not overwrites of existing defaults:
 
-\`\`\`text
+```text
 Scenes/CoastalForestSlice.tscn
 Scripts/Camera3D/CameraPose.cs
 Scripts/Camera3D/StrategyCameraRig.cs
@@ -40,7 +40,7 @@ scripts/run-coastal-slice.ps1       (H: only)
 docs/research/SLICE_QA_RESULTS.md (actual evidence; not synthesized)
 tests/Camera3D.Smoke/*
 tests/WorldRegion.Smoke/*
-\`\`\`
+```
 
 Optional imported CC0 asset binaries stay on H: with source/version/license manifest, validated before distribution. No magic downloading into C: and no claim the Standard ZIP contains self-contained GLBs until inspected.
 
@@ -93,19 +93,19 @@ Do not attempt 8192² visual world in this first slice; prove active-window arch
 
 | Artifact | Path | Required |
 |---|---|---|
-| Source branch / CI PR | \`feat/v2-camera-ray-anchored\` + \`feat/v2-world-region-contract\` + \`feat/v2-authored-nature-slice\` or small integration PR | Yes |
-| Camera pure math unit logs | \`artifacts/acceptance/camera-*.txt\` (H: local) | Yes |
-| World region determinism test | \`tests/WorldRegion.Smoke\` | Yes |
-| Three real game screenshots per variant | \`artifacts/visual-review/\` (H: local) | Yes |
-| Authored model license manifest | \`Assets/Nature/SOURCE_NOTES.md\` (H: local) | Yes |
-| 30/60 FPS evidence and p95/p99 | \`artifacts/performance/\` (H: local) | Yes, measured |
-| Error / rendering method log | \`artifacts/visual-lab/\` | Yes |
+| Source branch / CI PR | `feat/v2-camera-ray-anchored` + `feat/v2-world-region-contract` + `feat/v2-authored-nature-slice` or small integration PR | Yes |
+| Camera pure math unit logs | `artifacts/acceptance/camera-*.txt` (H: local) | Yes |
+| World region determinism test | `tests/WorldRegion.Smoke` | Yes |
+| Three real game screenshots per variant | `artifacts/visual-review/` (H: local) | Yes |
+| Authored model license manifest | `Assets/Nature/SOURCE_NOTES.md` (H: local) | Yes |
+| 30/60 FPS evidence and p95/p99 | `artifacts/performance/` (H: local) | Yes, measured |
+| Error / rendering method log | `artifacts/visual-lab/` | Yes |
 | User evaluation | GitHub PR or conversation | Yes |
 | Unreal/Unity comparison | Only if Godot slice fails with specific evidence | Conditional |
 
 ## Risks to call out before implementation
 
-- Quaternius \`glTF\` archive may not be \`*.glb\`; importer should preserve texture/buffer files or convert via H-based Blender. License text must be recorded.
+- Quaternius `glTF` archive may not be `*.glb`; importer should preserve texture/buffer files or convert via H-based Blender. License text must be recorded.
 - Complex glTF models with many surfaces/materials can erase instancing benefits; split/collapse materials or batch by mesh/material type.
 - On Compatibility, excessive dynamic shadows can be expensive; tune cascade/shadowed instance radius and provide toggles.
 - Different levels of detail may change perceived shape of coast or forests; use hysteresis and tests.
