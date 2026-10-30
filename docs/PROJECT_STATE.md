@@ -1,40 +1,107 @@
-# Project state - 2026-10-30
+---
+state_schema: 2
+reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
+last_verified_date: 2026-10-30
+completed_through: V3.2-engineering
+active_milestone: V3.3.0
+active_status: "Planning/docs under review; real H:-Windows baseline measurements and new mountain screenshot acceptance are still pending"
+next_gate: "Golden V2 same-seed/screenshots/F9 p95-p99, identical direct vs RegionMirror input/art behavior on AMD R9 M395X"
+user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
+open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
+---
 
-Repository: tahazarif10/worldforge-sim.
-Local expected path: H:\WorldForge-Sim.
+# WorldForge Sim — factual project state
 
-M0 initial Godot 4.7.2 .NET project + simulation core + CLI smoke checks + Windows H:-based environment scripts proposed.
+**Current as of 2026-10-30.** This file is the factual status ledger, not the entire history and not a promise of future implementation. The prior chronology is preserved verbatim in [PROJECT_HISTORY_2026-10-30.md](PROJECT_HISTORY_2026-10-30.md). The actionable future plan is [ROADMAP.md](ROADMAP.md).
 
-**Verification:** GitHub files and source code added to PR branch, but no local Godot/.NET toolchain exists in this execution environment. Compilation, Godot launch, interactive game behavior and Windows H:-path enforcement have **not been tested**. Do not merge as accepted M0 yet.
+## Product status
 
-Windows evidence from user on 2026-10-30: .NET SDK 10.0.403 independently installed and verified at `H:\WorldForge-Sim\Tools\dotnet\dotnet.exe`. Existing C:-based .NET was not changed. Godot installation and game build still unverified. Standardize on .NET 10 LTS (net10.0) instead of net8.0 nearing end of support. Windows install script is untested.
+WorldForge Sim is an original **3D stylized isometric god-sandbox**. The user explicitly approved the **V2** visual direction, forest/water and camera after previously rejecting 2D pixel-art and then rejecting a standalone region-world V3.0 scene. The accepted *visual baseline* is the live V2 screenshot with world seed **1315511732**, AMD Radeon R9 M395X, Godot 4.7.2 Mono Compatibility/OpenGL and a visible HUD around 60 FPS/16.7ms for a short interval. That screenshot is evidence of a good appearance and a single instantaneous counter, **not 30–60s p95/p99 under pan/zoom stress**.
 
-Next: pull branch on user's H: drive; run scripts/install-godot.ps1; check code signature and _sc_ marker; run scripts/acceptance.ps1 with the H:-based Godot exe and inspect Godot F5 result; fix actual errors, then merge.
+The latest accepted code snapshot before this docs-only milestone is `main` merge **`9dc03c8aa608220971b1da3516074f8fd68508a8`** (PR #51), with prior mountain correction merge PR #50. User has not yet supplied a new F8 screenshot confirming the corrected mountain summit or the direct vs mirrored 3D frame-time comparison. Do **not** mislabel new mountain art as user accepted merely because merged/Godot CI passed.
 
-2026-10-30 user acceptance attempt: H:-based SDK recognized, but original Windows PowerShell 5.1 acceptance script failed immediately after dotnet --info with `System.Management.Automation.RemoteException` (no compile result). Likely stderr redirection `*>>` with `$ErrorActionPreference='Stop'`. Fixed in `scripts/acceptance.ps1` using Start-Process separate stdout/stderr and explicit exit-code checks. The fix has not yet been validated on Windows. Await rerun; check `artifacts/acceptance/*.{stdout,stderr}.txt` and `result.txt`.
+### Code scope in main
 
-2026-10-30 second Windows acceptance: `dotnet-info` PASS; `core-build` PASS with 0 warnings and 0 errors; all 7 `core-smoke` assertions appeared in core-smoke.stdout.txt, stderr empty, but `result.txt` stopped before recording the exit code for core-smoke and no Godot build started. Most likely `Start-Process -Wait` blocked on descendant process; updated script to wait only for the process handle with timeout. Not yet verified; GitHub git pull reported `Empty reply from server` on user machine. If update cannot be fetched, run H:-based dotnet build directly from an H:-configured session.
+| Capability | Actual status | Evidence |
+| --- | --- | --- |
+| 3D terrain/forest/coast/camera/brush/citizens | Implemented, user-approved general V2 visuals; separate editor-hang history | `VisualLab3D`, `VisualTerrain3D`, `StrategyCameraRig`; original screenshot |
+| CPU DDA screen-to-triangle picking, shared-corner slopes | Deterministic source CI-green, Windows high-stress not measured | [PR #38](https://github.com/tahazarif10/worldforge-sim/pull/38), [PR #40](https://github.com/tahazarif10/worldforge-sim/pull/40) |
+| 64x64 sparse height-offset edits, local F7/F11/F12 | Merged/CI green, actual physical save cycle pending | [PR #42](https://github.com/tahazarif10/worldforge-sim/pull/42) |
+| 8192² logical RegionStore prototype | **User-rejected as a playable scene**, logical/codec CI green only | [PR #44](https://github.com/tahazarif10/worldforge-sim/pull/44), [issue #46](https://github.com/tahazarif10/worldforge-sim/issues/46) |
+| Safer default launcher for rejected V3 | Merged, CI success | [PR #47](https://github.com/tahazarif10/worldforge-sim/pull/47) |
+| V2 same scene with optional 64×64 RegionMirror | Merged, CI proven exact biome/shore/height/citizen RNG on 120×88; **does not yet own a large world** | [PR #49](https://github.com/tahazarif10/worldforge-sim/pull/49) |
+| Mountain cap rock removal | Merged, deterministic count 66→9 at seed 1315511732; user Windows screenshot verdict pending | [PR #50](https://github.com/tahazarif10/worldforge-sim/pull/50) |
+| Exact screenshot seed replay via `-WorldSeed 1315511732` | Merged; Godot headless CI proved selected seed and imports 10 GLBs | [PR #51](https://github.com/tahazarif10/worldforge-sim/pull/51) |
+| Persistent independent world-wide authoritative regions | **Not implemented**; RegionMirror still samples `WorldState` | [Architecture](V3_ARCHITECTURE.md) |
+| Completely seamless large map / far LOD / pure background mesh jobs | **Not implemented**; old V3 scene had visible holes | [#46](https://github.com/tahazarif10/worldforge-sim/issues/46) |
+| 8192² active citizens / villages / kingdoms | **Not implemented**; user-facing large-world simulation blocked | [#45](https://github.com/tahazarif10/worldforge-sim/issues/45) |
+| Crash-atomic multi-region save manifest | **Not implemented**; individual checksummed per-region save only | [V3 architecture](V3_ARCHITECTURE.md) |
+| Quaternius hero art | **Not imported**; Kenney 10 GLBs are currently bundled | [Bundled asset provenance](../Assets/Art/KenneyNature/README.md) |
 
-2026-10-30 Windows local user evidence: `H:\WorldForge-Sim\Tools\dotnet\dotnet.exe build .\WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false` returned successful restoration and builds of WorldSim net10.0 and WorldForgeSim net10.0 (15.6s total). Outputs under `H:\WorldForge-Sim\src\WorldSim\bin\Debug\net10.0\` and `H:\WorldForge-Sim\.godot\mono\temp\bin\Debug\`. Core smoke tests previously all reported PASS; full scripted acceptance remains incomplete because Start-Process wait was blocking; revised script exists in repository but has not been pulled/tested locally. Next acceptance item: open H:-portable Godot via `scripts/run-editor.ps1`, F5, inspect rendering/input/errors and verify runtime behavior. Do not merge M0 before visual test.
+## Evidence register (split by proof level)
 
-2026-10-30 Windows visual acceptance evidence (user screenshot): Godot 4.7.2 .NET opened `Scenes/Main.tscn`, F5 launched `WorldForge Sim (DEBUG)`; a rendered seeded island map with sea, sand, grass, forest and mountains and the brush/time-control toolbar was visible. Godot debugger error counter displayed 0 in the screenshot. GPU shown as AMD Radeon R9 M395X with Compatibility/OpenGL renderer. This **confirms launch/rendering only**; interactive painting/spawning/meteor controls, pan/zoom, saving, performance, and full acceptance-script completion have not yet been independently checked. UI controls/text appear very small and crowded; improve layout/scaling in M1. Keep PR draft until functional controls smoke test.
+| Date | PR / head | Verified automatically | Verified on Windows | Still outstanding |
+| --- | --- | --- | --- | --- |
+| 2026-10-30 | PR #40 | 10,096 shared boundaries and 2,975 triangle pick checks reported, Godot Mono boot | V2 visuals described as better in user feedback | Screenshot/quantified p95/p99 of that exact HEAD |
+| 2026-10-30 | PR #42 | 64×64 elevation files, recovery, corrupt file refusal, exact height ray tests, Godot boot | Not independently recorded for elevation save/load | H:-Windows F7/F11/F12 end-to-end |
+| 2026-10-30 | PR #44 | 8192² logical region traversal, LRU, edited biome saves, Godot headless startup | User explicitly rejected both appearance and camera feel | Do NOT promote this scene |
+| 2026-10-30 | PR #47 | Safe V2 default experimental V3 launcher guard | N/A to art quality | Shared art/camera regional-world design |
+| 2026-10-30 | PR #49 | Direct vs RegionMirror every V2 tile, shoreline byte parity, heights, citizen RNG; official Godot both boots | Mirror physical UX/FPS comparison PENDING | Baseline V3.3.0 |
+| 2026-10-30 | PR #50 | Mountain summit law and exact V2 map seed: 66 old boulders -> **9** small accents, **36** top tiles no extra rock; all old core+Godot CI green | Pre-fix screenshot was approved except cap; post-fix screenshot pending | F8/F9 same-seed verification |
+| 2026-10-30 | PR #51 | Same V2 scene boot at exact reference seed 1315511732 in official engine CI; all core tests green | Not explicitly run on user host after merge | One-command host screenshot replay |
 
-2026-10-30 M0 user-confirmed functional checks: Person spawning, Forest painting, Meteor impact and Pause were all reported working in live Godot F5 session. Initial scene and terrain rendering screenshot showed no Godot debugger errors. Other terrain brush variants, New World, all time rates, pan/zoom and the final revised automated acceptance script are not fully documented as passed. Core smoke + manual Windows C# build passed, GitHub Actions simulation CI passed. M0 remains draft pending remaining acceptance/merge decision.
+The above numeric PR50 counts are code/test counts, **not a pixel-level proof of improved art**. The existing V2 HUD screenshot had 60 FPS and 16.7 ms worst in one displayed 1-second interval; this is not an AMD frame-time distribution nor a guaranteed sustained 60 FPS.
 
-M1 plan: tracking issue #2 and scoped subissues #3–#9. [Draft planning PR #10](https://github.com/tahazarif10/worldforge-sim/pull/10) adds art/style/QA standards; [Draft HUD PR #11](https://github.com/tahazarif10/worldforge-sim/pull/11) introduces a native Control-based UI with larger text and buttons, selected tool feedback and event handlers. Game engine simulation logic was not changed. The new HUD and Godot C# CI job have **not yet been validated on user's Windows host**. Next step is to fetch `feat/m1-ui-scale`, build with H:-based SDK, F5 and verify full interactive UI matrix plus screenshots before merge. Do not label untested steps PASS.
+## Current hardware and local rules
 
-2026-10-30 M1.1 user feedback: New HUD appearance and its functions explicitly confirmed, but **severe game/editor stuttering or hanging** reported. This blocks M1.1 acceptance; do not merge PR #11. Cause unknown; no measured FPS, frame duration, debugger trace, or per-process CPU/memory metrics available. New issue #12 and stacked diagnostic draft PR #13 (`fix/m1-hud-stutter-diagnostics` based on `feat/m1-ui-scale`) introduce 4-Hz change-aware HUD updates, one terrain texture upload per process frame for brush events, reused citizen colors, 1-Hz FPS/worst-frame readout, H:-only optional host sampler and standalone game launcher. These changes are hypotheses/low-risk mitigations, **not a proven root-cause fix**; Windows compile and behavior comparison pending. No other visual work should be marked accepted until no severe hangs can be reproduced.
+- User PC: Windows, Godot **4.7.2 Mono**, **.NET 10**, GPU **AMD Radeon R9 M395X**, Compatibility/OpenGL renderer.
+- Canonical project: `H:\WorldForge-Sim`. All intentional project tools, builds, downloads, caches, logs and F8/F9 outputs on H:. Some Windows-managed writes may still exist on C:; do not promise otherwise.
+- Exact user-local file `project.godot` has reported uncommitted modifications previously. **Never** overwrite/reset/clean it. No forced Git branch switch.
+- Default old 2D scene `Scenes/Main.tscn` remains. Playable preferred user experience is opt-in **`Scenes/VisualLab3D.tscn`**, launched via `.\scripts\verify-v2-art.ps1`.
+- Godot **Editor** hang history is not the same as the standalone game performance. Do not conflate them.
 
-2026-10-30 CORRECTION from user: *WorldForge game itself did not freeze; the Godot EDITOR did*. Initial #12 and PR #13 descriptions over-attributed the incident to game runtime. Editor integration/embedded Game mode or separate editor issue are candidates, not established causes. First test disabled **Game > Embed Game on Next Play** on existing HUD branch and reproduce with editor idle/no game. Issue #12 is now scoped to editor unresponsiveness; PR #13 is an optional, unverified game optimization, not a confirmed editor-freeze fix.
+## Blockers and decisions
 
-2026-10-30 user report: After successful Windows H:-based build, the standalone `scripts/run-game.ps1` launched Godot 4.7.2 .NET with AMD R9 M395X Compatibility renderer, and user said the result was good and asked to proceed. This confirms that launch attempt worked to user's satisfaction; does **not** establish that the separate Godot EDITOR hanging issue #12 is resolved. Git reported `M project.godot` before branch switching, indicating a pre-existing local user modification; do not reset or overwrite it.
+1. **#46 OPEN:** failed independent V3 visual and control parity. Only shared V2 renderer/camera path is allowed for new world streaming. A source-only region proof does not close this.
+2. **#34 OPEN:** production terrain LOD, larger regional elevation authority, art asset/picking quality beyond current sparse overlays.
+3. **#45 OPEN / BLOCKED:** regional population until streaming and region terrain source-of-truth accepted.
+4. **Physical gate missing:** matched direct/mirror screenshot and drag/wheel input performance, p50/p95/p99 on R9 M395X. User approvals are a distinct column.
+5. **Actual huge-world save/restore** missing; per-region checksummed files are not yet a durable all-regions transaction.
 
-M1.2 camera implementation in [Draft PR #14](https://github.com/tahazarif10/worldforge-sim/pull/14) stacked on #13: pure .NET zoom/pan math with headless smoke tests, Godot camera adapter, pointer-anchored discrete zoom, clamped camera center and keyboard pan. No edits to `project.godot` and no changes to simulation logic. GitHub CI and local Windows acceptance must be observed independently before merge. Next after M1.2 acceptance: M1.3 terrain/entity rendering separation and then authored biome/texture uplift for significantly stronger graphics.
+## Next action: V3.3.0 — golden host acceptance and camera/art parity
 
-2026-10-30 user explicitly authorized merging accepted PRs and confirmed M1.2 camera behavior as good. Sequential GitHub merges to `main` completed for PR #1 (M0 foundation, commit `998d8e7`), #10 (M1 art direction, `901c61f`), #11 (M1 HUD, `3fca456`), #13 (runtime optimization and diagnostic instrumentation, `03bd72b`), and #14 (camera, `d1af47b`); each head had successful GitHub Actions. Note that optional optimization and editor hang root cause remain distinct: the Godot **editor** hang is not confirmed fixed and remains issue #12.
+**Do not start V3.4 or V3.5 data expansion as the next user-visible action.** First:
 
-M1.3 implementation in draft [PR #15](https://github.com/tahazarif10/worldforge-sim/pull/15) separates terrain CPU/GPU raster from citizen drawing, adds z-ordered empty EffectsLayer and pure .NET dirty-region smoke tests. GPU ImageTexture.Update still uploads full image, while per-tick citizen updates no longer invalidate terrain renderer, and brush CPU writes are bounded to dirty tile rectangle. Test results and Windows run must be recorded after evidence; do not infer FPS improvements. User-local `project.godot` modified and deliberately untouched. Toolchain H: policy retained.
+1. On H:-Windows, safely update main without touching `project.godot`.
+2. Run `.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732`, collect F8 summit/coast screenshot and F9 CSV after controlled pan/zoom.
+3. Run `.\scripts\verify-v2-region-parity.ps1` in same camera/viewport/seed where supported; extend runner with optional seed and pose if needed. Direct vs mirror must look and feel identical.
+4. Implement planned `scripts/run-v3-3-acceptance.ps1` wrapper in a **new implementation PR** (file does **not** exist yet), producing H:-only session result + hashes + matched scenarios. No scene changes required.
+5. Record quantitative baseline and explicit user art/camera verdict; then authorize V3.4 no-hole background/LOD architecture.
 
-2026-10-30 V2 art-direction reset: User explicitly rejected M1.4 8x8 procedural pixel art as very poor and stated they do **not** want pure 2D. We researched Godot 4.7 rendering methods, Compatibility/OpenGL constraints on AMD R9 M395X, orthographic 3D camera, MultiMesh batching, ArrayMesh procedural mesh and CC0 model sources (Quaternius and Kenney). Decision: stylized 3D/isometric diorama-like presentation with real terrain elevation, cliffs, volumetric trees/rocks, an affordable water shader and sun/ambient lighting, eventually authored assets. User has **not yet visually accepted** the new direction. See issue #17, docs/V2_GRAPHICS_RESEARCH.md, and draft PR #18.
+### Existing commands
 
-Branch `feat/v2-stylized-3d-visual-lab` provides standalone alternate `Scenes/VisualLab3D.tscn` with `Scripts/VisualLab/VisualLab3D.cs` and `VisualTerrain3D.cs`; existing 2D `Scenes/Main.tscn` and `project.godot` remain unchanged. Launcher `scripts/run-visual-lab.ps1` targets explicit alternate scene and H:-based log. Optional `scripts/import-nature-pack.ps1` reads a user-provided CC0 .zip on H: and imports tree/rock .glb samples under H:, not automatically downloaded. Additive 3D prototype must be visually checked at 1280x800 / R9 M395X Compatibility renderer. CI compilation is not proof of attractive visuals or runtime shader import. Full artist-quality packs, transitions/LOD and finished terrain textures still follow. Preserve the working legacy scene while testing and comparing.
+```powershell
+Set-Location 'H:\WorldForge-Sim'
+git branch --show-current
+git rev-parse HEAD
+git status --short
+git fetch origin
+# Only if working-tree state permits:
+git switch main
+git pull --ff-only origin main
+.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732
+```
+
+Do not run `git reset --hard`, `git clean`, or auto-delete `.godot`/assets to "repair" import. `F8` screenshot at `artifacts\visual-review`, `F9` frame time at `artifacts\performance`, `F10` chunk counters. If any check is missing, report **PENDING**.
+
+## Documentation pointers
+
+- [Milestone roadmap](ROADMAP.md)
+- [Detailed engineering workflow](ENGINEERING_WORKFLOW.md)
+- [Source/data/renderer architecture](V3_ARCHITECTURE.md)
+- [Godot and art research](V3_TECHNICAL_RESEARCH_2026.md)
+- [Physical acceptance scenarios and evidence template](V3_ACCEPTANCE_MATRIX.md)
+- [Architecture decisions](decisions/README.md)
+- [Original project development chronology](PROJECT_HISTORY_2026-10-30.md)
+
+This document is updated at every milestone acceptance/rollback. Do not invent acceptance and do not silently replace the known rejected V3 user feedback with green CI.
