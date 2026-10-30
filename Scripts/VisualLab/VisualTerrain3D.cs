@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using WorldSim;
+using WorldForge.Streaming;
 
 namespace WorldForge.VisualLab;
 
@@ -30,6 +31,9 @@ public partial class VisualTerrain3D : Node3D
     private PackedScene? _rockPrefab;
     public long FoliageCellsVisited { get; private set; }
     public long FoliageChunksRebuilt { get; private set; }
+    public long TotalTerrainChunkBuilds { get; private set; }
+    public int ActiveTerrainChunks => _chunks.Count;
+    public int ActiveFoliageChunks => _foliageChunks.Count;
 
     private readonly StandardMaterial3D _earthMaterial = new()
     {
@@ -81,11 +85,66 @@ public partial class VisualTerrain3D : Node3D
         _water.Mesh = new PlaneMesh { Size = new Vector2(world.Width, world.Height) };
         _water.Position = new Vector3(world.Width * 0.5f, 0.12f, world.Height * 0.5f);
 
-        for (int y = 0; y < world.Height; y += ChunkSize)
-        for (int x = 0; x < world.Width; x += ChunkSize)
+        // No eager global mesh construction here. Camera projection determines
+        // which chunks should exist after the camera rig is initialized.
+    }
+
+    /// <summary>
+    /// Build and retain only camera-visible terrain and foliage batches.
+    /// Orthographic ray intersections with sea level and mountain maximum
+    /// provide a conservative X/Z footprint; one chunk of safety margin
+    /// prevents edge popping as the camera moves.
+    /// </summary>
+    public void UpdateVisibility(Godot.Camera3D camera)
+    {
+        if (_world is null) return;
+        Vector2 viewport = camera.GetViewport().GetVisibleRect().Size;
+        if (viewport.X <= 0 || viewport.Y <= 0) return;
+
+        float minX = float.PositiveInfinity, minZ = float.PositiveInfinity;
+        float maxX = float.NegativeInfinity, maxZ = float.NegativeInfinity;
+        Span<Vector2> corners =
+        [
+            Vector2.Zero, new Vector2(viewport.X, 0),
+            new Vector2(0, viewport.Y), viewport
+        ];
+        foreach (Vector2 screen in corners)
         {
-            BuildChunk(x / ChunkSize, y / ChunkSize);
-            RebuildVegetationChunk(x / ChunkSize, y / ChunkSize);
+            Vector3 origin = camera.ProjectRayOrigin(screen);
+            Vector3 direction = camera.ProjectRayNormal(screen);
+            if (Mathf.Abs(direction.Y) < 0.00001f) continue;
+            foreach (float elevation in new float[] { 0.12f, 5f })
+            {
+                float t = (elevation - origin.Y) / direction.Y;
+                if (!float.IsFinite(t) || t < 0) continue;
+                Vector3 hit = origin + direction * t;
+                minX = MathF.Min(minX, hit.X);
+                maxX = MathF.Max(maxX, hit.X);
+                minZ = MathF.Min(minZ, hit.Z);
+                maxZ = MathF.Max(maxZ, hit.Z);
+            }
+        }
+        if (!float.IsFinite(minX)) return;
+
+        HashSet<(int X, int Y)> desired = VisibleChunkPlanner.Plan(
+            _world.Width, _world.Height, ChunkSize, minX, minZ, maxX, maxZ);
+
+        foreach (var key in new List<(int X, int Y)>(_chunks.Keys))
+        {
+            if (desired.Contains(key)) continue;
+            _chunks[key].QueueFree();
+            _chunks.Remove(key);
+            if (_foliageChunks.Remove(key, out Node3D? foliage))
+                foliage.QueueFree();
+            if (_propCounts.Remove(key, out int oldCount))
+                LastPropCount -= oldCount;
+        }
+
+        foreach (var key in desired)
+        {
+            if (_chunks.ContainsKey(key)) continue;
+            BuildChunk(key.X, key.Y);
+            RebuildVegetationChunk(key.X, key.Y);
         }
     }
 
@@ -107,6 +166,9 @@ public partial class VisualTerrain3D : Node3D
         if (_changedChunks.Count == 0) return;
         foreach (var (x, y) in _changedChunks)
         {
+            // A hidden region retains edits in the authoritative WorldState;
+            // it is rebuilt from current data the next time the camera arrives.
+            if (!_chunks.ContainsKey((x, y))) continue;
             BuildChunk(x, y);
             RebuildVegetationChunk(x, y);
         }
@@ -132,6 +194,7 @@ public partial class VisualTerrain3D : Node3D
 
     private void BuildChunk(int cx, int cy)
     {
+        TotalTerrainChunkBuilds++;
         var key = (cx, cy);
         if (!_chunks.TryGetValue(key, out MeshInstance3D? instance))
         {
