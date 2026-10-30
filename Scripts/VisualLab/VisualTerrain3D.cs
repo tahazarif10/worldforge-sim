@@ -142,8 +142,9 @@ public partial class VisualTerrain3D : Node3D
             if (tile is Terrain.DeepWater or Terrain.ShallowWater) continue;
             any = true;
             float h = HeightAt(x, y);
-            float variation = ((Hash(x, y, _world.Seed + 57) % 17) - 8) / 95f;
-            Color col = TerrainColors[(int)tile].Lightened(variation);
+            float variation = ((int)(Hash(x, y, _world.Seed + 57) % 17) - 8) / 95f;
+            Color baseColor = TerrainColors[(int)tile];
+            Color col = variation >= 0 ? baseColor.Lightened(variation) : baseColor.Darkened(-variation);
             Vector3 a = new(x, h, y), b = new(x, h, y + 1);
             Vector3 c = new(x + 1, h, y), d = new(x + 1, h, y + 1);
             AddQuad(surface, a, b, c, d, col, Vector3.Up);
