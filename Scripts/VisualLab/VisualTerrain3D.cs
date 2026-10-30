@@ -23,6 +23,8 @@ public partial class VisualTerrain3D : Node3D
 
     private readonly Dictionary<(int X, int Y), MeshInstance3D> _chunks = new();
     private WorldState _world = null!;
+    private ITerrainTileSource _tiles = null!;
+    public string TerrainBackendName => _tiles is RegionMirrorTerrainSource ? "region-mirror" : "direct";
     private ElevationRegionStore _elevation = null!;
     public int ModifiedElevationRegions => _elevation?.ModifiedRegions ?? 0;
     private Node3D _vegetation = null!;
@@ -118,14 +120,14 @@ public partial class VisualTerrain3D : Node3D
     {
         if (!RichTerrainDetails || !SculptedFacets || !_world.Contains(x, y))
             return 0f;
-        return TerrainReliefMath.CenterLift(_world.Tile(x, y), x, y, _world.Seed);
+        return TerrainReliefMath.CenterLift(_tiles.Tile(x, y), x, y, _world.Seed);
     }
 
     public float SurfaceHeightAt(int x, int y, float localX, float localY)
     {
         if (!_world.Contains(x, y)) return 0.12f;
         if (SmoothLandEnabled &&
-            _world.Tile(x,y) is not (Terrain.DeepWater or Terrain.ShallowWater))
+            _tiles.Tile(x,y) is not (Terrain.DeepWater or Terrain.ShallowWater))
             return EditableFan(x,y).Sample(localX,localY);
         return TerrainReliefMath.SurfaceHeight(
             HeightAt(x,y), ReliefAt(x,y), localX,localY);
@@ -198,9 +200,15 @@ public partial class VisualTerrain3D : Node3D
 
     public int LastPropCount { get; private set; }
 
-    public void BindWorld(WorldState world)
+    public void BindWorld(WorldState world, ITerrainTileSource? terrainSource = null)
     {
         _world = world;
+        // Keep the original direct WorldState path as the default. Region
+        // parity mode uses the same shader, water, foliage and camera code.
+        _tiles = terrainSource ?? new DirectWorldTerrainSource(world);
+        if (_tiles.Width != world.Width || _tiles.Height != world.Height ||
+            _tiles.Seed != world.Seed)
+            throw new ArgumentException("Terrain source must exactly match current WorldState.");
         _elevation = new ElevationRegionStore(world.Seed, maxResidentRegions:12);
         foreach (MeshInstance3D mesh in _chunks.Values) mesh.QueueFree();
         _chunks.Clear();
@@ -310,6 +318,9 @@ public partial class VisualTerrain3D : Node3D
     public void MarkChanged(int x, int y, int radius)
     {
         if (_world is null) return;
+        // Apply changed simulation cells to the region mirror BEFORE any
+        // coastline mask, geometry, foliage or picker queries.
+        _tiles.SynchronizeArea(x,y,radius);
         int left = Math.Max(0, x - radius - 1);
         int top = Math.Max(0, y - radius - 1);
         int right = Math.Min(_world.Width - 1, x + radius + 1);
@@ -341,7 +352,7 @@ public partial class VisualTerrain3D : Node3D
         // replacement change the land/water boundary, never on every frame.
         if (_water.MaterialOverride is not ShaderMaterial material) return;
         byte[] rgba = WaterCoastMath.BuildMask(
-            _world.Width, _world.Height, _world.Tile, _world.Seed);
+            _world.Width, _world.Height, _tiles.Tile, _world.Seed);
         Image image = Image.CreateFromData(_world.Width, _world.Height,
             false, Image.Format.Rgba8, rgba);
         if (_coastMaskTexture is null)
@@ -356,7 +367,7 @@ public partial class VisualTerrain3D : Node3D
     public float HeightAt(int x, int y)
     {
         if (!_world.Contains(x, y)) return 0.12f;
-        Terrain tile = _world.Tile(x, y);
+        Terrain tile = _tiles.Tile(x, y);
         return tile switch
         {
             Terrain.DeepWater => 0.12f,
@@ -391,7 +402,7 @@ public partial class VisualTerrain3D : Node3D
         for (int y = cy * ChunkSize; y < yMax; y++)
         for (int x = cx * ChunkSize; x < xMax; x++)
         {
-            Terrain tile = _world.Tile(x, y);
+            Terrain tile = _tiles.Tile(x, y);
             if (tile is Terrain.DeepWater or Terrain.ShallowWater) continue;
             any = true;
             float h = HeightAt(x, y);
@@ -445,24 +456,24 @@ public partial class VisualTerrain3D : Node3D
             if (!SmoothLandEnabled)
             {
                 // Narrow pale tide line on the land side of the coast.
-                if (x > 0 && IsWater(_world.Tile(x - 1, y)))
+                if (x > 0 && IsWater(_tiles.Tile(x - 1, y)))
                     AddQuad(surface,
                         new(x, h + 0.012f, y), new(x, h + 0.012f, y + 1),
                         new(x + 0.12f, h + 0.012f, y), new(x + 0.12f, h + 0.012f, y + 1),
                         new Color("#f5e4b2"), Vector3.Up);
-                if (y > 0 && IsWater(_world.Tile(x, y - 1)))
+                if (y > 0 && IsWater(_tiles.Tile(x, y - 1)))
                     AddQuad(surface,
                         new(x, h + 0.012f, y), new(x, h + 0.012f, y + 0.12f),
                         new(x + 1, h + 0.012f, y), new(x + 1, h + 0.012f, y + 0.12f),
                         new Color("#f5e4b2"), Vector3.Up);
-                if (x + 1 < _world.Width && IsWater(_world.Tile(x + 1, y)))
+                if (x + 1 < _world.Width && IsWater(_tiles.Tile(x + 1, y)))
                     AddQuad(surface,
                         new(x + 0.88f, h + 0.012f, y),
                         new(x + 0.88f, h + 0.012f, y + 1),
                         new(x + 1, h + 0.012f, y),
                         new(x + 1, h + 0.012f, y + 1),
                         new Color("#f5e4b2"), Vector3.Up);
-                if (y + 1 < _world.Height && IsWater(_world.Tile(x, y + 1)))
+                if (y + 1 < _world.Height && IsWater(_tiles.Tile(x, y + 1)))
                     AddQuad(surface,
                         new(x, h + 0.012f, y + 0.88f),
                         new(x, h + 0.012f, y + 1),
@@ -502,26 +513,26 @@ public partial class VisualTerrain3D : Node3D
         SharedCornerHeightfield.Fan f = SharedCornerHeightfield.Tile(
             x,y,_world.Width,_world.Height,HeightAt,ReliefAt(x,y));
         const float sea = .12f;
-        Color bank = _world.Tile(x,y) == Terrain.Sand
+        Color bank = _tiles.Tile(x,y) == Terrain.Sand
             ? new Color("#b89c69") : new Color("#746d5c");
         uint variation = Hash(x,y,_world.Seed+309);
         // Same edge samples for all chunks, with 3 affordable strata layers.
-        if (x == 0 || IsWater(_world.Tile(x-1,y)))
+        if (x == 0 || IsWater(_tiles.Tile(x-1,y)))
             DrawCliff(surface,
                 new(x,sea,y),new(x,sea,y+1),
                 new(x,f.A,y),new(x,f.B,y+1),
                 bank,Vector3.Left,variation);
-        if (x == _world.Width-1 || IsWater(_world.Tile(x+1,y)))
+        if (x == _world.Width-1 || IsWater(_tiles.Tile(x+1,y)))
             DrawCliff(surface,
                 new(x+1,sea,y+1),new(x+1,sea,y),
                 new(x+1,f.D,y+1),new(x+1,f.C,y),
                 bank,Vector3.Right,variation);
-        if (y == 0 || IsWater(_world.Tile(x,y-1)))
+        if (y == 0 || IsWater(_tiles.Tile(x,y-1)))
             DrawCliff(surface,
                 new(x+1,sea,y),new(x,sea,y),
                 new(x+1,f.C,y),new(x,f.A,y),
                 bank,Vector3.Back,variation);
-        if (y == _world.Height-1 || IsWater(_world.Tile(x,y+1)))
+        if (y == _world.Height-1 || IsWater(_tiles.Tile(x,y+1)))
             DrawCliff(surface,
                 new(x,sea,y+1),new(x+1,sea,y+1),
                 new(x,f.B,y+1),new(x+1,f.D,y+1),
@@ -638,7 +649,7 @@ public partial class VisualTerrain3D : Node3D
         for (int x = cx * ChunkSize; x < maxX; x++)
         {
             FoliageCellsVisited++;
-            Terrain kind = _world.Tile(x, y);
+            Terrain kind = _tiles.Tile(x, y);
             uint h = Hash(x, y, _world.Seed + 119);
             float offsetX = ((h >> 10) % 100) / 310f + 0.34f;
             float offsetZ = ((h >> 18) % 100) / 310f + 0.34f;

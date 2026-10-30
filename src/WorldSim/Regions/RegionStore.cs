@@ -99,18 +99,25 @@ public sealed class RegionStore
     private readonly Dictionary<RegionKey, Dictionary<int, byte>> _overrides = new();
     private readonly Dictionary<RegionKey, long> _revision = new();
     private readonly HashSet<RegionKey> _dirty = new();
+    private readonly Func<CellCoord, Terrain> _generator;
 
     public int Seed { get; }
     public int MaxResidentRegions { get; }
     public int ResidentRegions => _resident.Count;
     public int ModifiedRegions => _overrides.Count;
 
-    public RegionStore(int seed, int maxResidentRegions = 32)
+    /// <param name="tileGenerator">Optional baseline terrain sampler.
+    /// Defaults to the original seeded region generator. For V2 parity it
+    /// may sample the authoritative WorldState instead; this prevents
+    /// eviction/recreation from switching to a different terrain algorithm.</param>
+    public RegionStore(int seed, int maxResidentRegions = 32,
+        Func<CellCoord, Terrain>? tileGenerator = null)
     {
         if (maxResidentRegions is < 1 or > 65536)
             throw new ArgumentOutOfRangeException(nameof(maxResidentRegions));
         Seed = seed;
         MaxResidentRegions = maxResidentRegions;
+        _generator = tileGenerator ?? (cell => RegionGenerator.TerrainAt(cell, seed));
     }
 
     public Terrain Tile(CellCoord cell)
@@ -135,7 +142,7 @@ public sealed class RegionStore
             overrides = new Dictionary<int, byte>();
             _overrides[key] = overrides;
         }
-        if (value == (byte)RegionGenerator.TerrainAt(cell, Seed))
+        if (value == (byte)_generator(cell))
         {
             overrides.Remove(index);
             if (overrides.Count == 0) _overrides.Remove(key);
@@ -173,7 +180,7 @@ public sealed class RegionStore
         {
             int index = y * RegionCoordinates.Size + x;
             CellCoord absolute = RegionCoordinates.GlobalOf(key, new LocalCell(x, y));
-            if (tiles[index] != (byte)RegionGenerator.TerrainAt(absolute, Seed))
+            if (tiles[index] != (byte)_generator(absolute))
                 overrides[index] = tiles[index];
         }
         if (overrides.Count == 0) _overrides.Remove(key);
@@ -222,7 +229,7 @@ public sealed class RegionStore
         {
             CellCoord absolute = RegionCoordinates.GlobalOf(key, new LocalCell(x, y));
             tiles[y * RegionCoordinates.Size + x] =
-                (byte)RegionGenerator.TerrainAt(absolute, Seed);
+                (byte)_generator(absolute);
         }
 
         if (_overrides.TryGetValue(key, out Dictionary<int, byte>? changes))
