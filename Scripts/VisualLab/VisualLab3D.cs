@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Godot;
 using WorldSim;
 using WorldForge.UI;
@@ -32,6 +33,7 @@ public partial class VisualLab3D : Node3D
     private double _fpsWindow;
     private double _slowestFrame;
     private int _frames;
+    private readonly WorldForge.Instrumentation.FrameTimeProbe _frameProbe = new();
 
     public override void _Ready()
     {
@@ -134,6 +136,7 @@ public partial class VisualLab3D : Node3D
 
     public override void _Process(double delta)
     {
+        _frameProbe.Record(delta * 1000.0);
         Vector2 keys = Vector2.Zero;
         if (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left)) keys.X -= 1f;
         if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right)) keys.X += 1f;
@@ -243,8 +246,37 @@ public partial class VisualLab3D : Node3D
             if (k.Keycode == Key.Key2) _speed = 2;
             if (k.Keycode == Key.Key3) _speed = 4;
             if (k.Keycode == Key.F2) _sun.ShadowEnabled = !_sun.ShadowEnabled;
+            if (k.Keycode == Key.F9) SaveFrameTimeSamples();
             if (k.Keycode == Key.Escape) GetTree().Quit();
             RefreshHud();
+        }
+    }
+
+    private void SaveFrameTimeSamples()
+    {
+        // Project directory is deliberately H:-based in the user's setup.
+        // Never redirect measurements to the Windows C: profile or temp.
+        string project = ProjectSettings.GlobalizePath("res://");
+        if (!project.StartsWith("H:\\", StringComparison.OrdinalIgnoreCase))
+        {
+            GD.PushError("Performance export refused: project is not running on H:.");
+            return;
+        }
+
+        try
+        {
+            string folder = Path.Combine(project, "artifacts", "performance");
+            Directory.CreateDirectory(folder);
+            string name = "v2-frames-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".csv";
+            string destination = Path.Combine(folder, name);
+            File.WriteAllText(destination, _frameProbe.ExportCsv());
+            var summary = _frameProbe.Summarize();
+            GD.Print($"Saved {summary.Count} frame intervals to {destination}; " +
+                $"p95={summary.P95Ms:F2} ms, p99={summary.P99Ms:F2} ms, max={summary.MaxMs:F2} ms.");
+        }
+        catch (Exception exception)
+        {
+            GD.PushError("Unable to export H:-based performance metrics: " + exception.Message);
         }
     }
 
