@@ -52,5 +52,7 @@ jobs:
         run: dotnet run --project tests/WaterAndStreaming.Smoke/WaterAndStreaming.Smoke.csproj -c Release
       - name: Sculpted terrain facet geometry and exact picker tests
         run: dotnet run --project tests/TerrainRelief.Smoke/TerrainRelief.Smoke.csproj -c Release
+      - name: Continuous shared-corner terrain, brush seams and exact picker tests
+        run: dotnet run --project tests/SharedHeightfield.Smoke/SharedHeightfield.Smoke.csproj -c Release
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false
