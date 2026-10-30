@@ -11,7 +11,7 @@ The approved V2 3D game remains `Scenes/VisualLab3D.tscn`, with the same Kenney 
 | Terrain authority | `WorldState` 120×88 single array | `WorldSim.Regions.RegionStore` 64×64 generated/edited regions |
 | Logical coordinates | 120×88 | 8192×8192 tiles; integer camera origin |
 | Resident data | Whole tile map | **24 max** cached data regions (4096 biome bytes/region), additional sparse edit maps |
-| Rendering | 16×16 camera-visible terrain and GLB batches | 16×16 **visible-only**, cap **90** resident chunk nodes |
+| Rendering | 16×16 camera-visible terrain and GLB batches | 16×16 **visible-only**, cap **48** resident chunk nodes |
 | Loading budget | 2 Eco / 4 Balanced every 50ms | 2 Eco / 4 Balanced every 50ms; 16 at first start |
 | Models | 10 Kenney CC0 GLBs, batched by chunk | same `NatureArtLibrary` per-chunk batched authored models |
 | Water | approved lagoon with 120×88 dynamic coast mask | separate, **simpler** opaque per-visible-chunk sea shader (no 8192² mask) |
@@ -47,7 +47,7 @@ After merging use `git switch main; git pull --ff-only origin main` rather than 
 ### Acceptance sequence
 
 1. At map center, camera, coast/water shader, authored trees and ground chunks should render without missing shader material. Old V2 game should still look exactly the same.
-2. Teleport via Home/End/PageUp/PageDown. With F10 observe that resident biome region count **never exceeds 24** and visible chunk count **never exceeds 90**, even as logical coordinates move thousands of cells.
+2. Teleport via Home/End/PageUp/PageDown. With F10 observe that resident biome region count **never exceeds 24** and visible chunk count **never exceeds 48**, even as logical coordinates move thousands of cells.
 3. Paint Forest near x=8192 limit and another region; pan/teleport away and return — edit must persist in memory after LRU eviction. Edit on a 64-cell border.
 4. F11 save; F12 load; ensure unchanged seed correct and no corrupt edit source is accepted. Try manual corruption only on a **copy of a saved file**, never the original.
 5. F4 Eco and Balanced A/B; F9 frames at the same camera/viewport and actions, F8 screenshots at forest/coast. No universal FPS claim until the actual AMD R9 M395X p95/p99 is measured.
@@ -57,7 +57,7 @@ After merging use `git switch main; git pull --ff-only origin main` rather than 
 
 - An 8192² **logical address space and camera** are functional; this is not an 8192² living-person simulation or fully-featured world. This version has **terrain painting only**, without citizens, disasters, automatic population updates, regional elevation edit integration or save-state for agent simulation. These need a separate sector simulation scheduler, serialization schema and visual LOD.
 - The regional biome generator currently uses deterministic coarse lattice classification; its art direction can look less organic than the approved 120×88 visual lab. This is a systems-proving scene, not a replacement for the good graphics. Old V2 stays intact.
-- A capped render-chunk count is a node count budget, not a measured time/memory guarantee. 90 chunks × 256 cells × several triangles and CC0 model batches still requires **real GPU measurement**. Most cells are water and produce fewer land meshes.
+- A capped render-chunk count is a node count budget, not a measured time/memory guarantee. 48 chunks × 256 cells × several triangles and <=40 authored props per chunk still requires **real GPU measurement**. Most cells are water and produce fewer land meshes.
 - The new global region painter stores sparse overrides in process memory and supports explicit regional file persistence; the disk writer uses same-directory atomic single-file replacement, not a multi-file crash-transaction, journaling or cloud sync. Files must be written on H:.
 - Currently, the camera still uses `float` world coordinates, acceptable for 8192 tiles but **not** a true infinite-precision origin-rebasing engine.
 - On future 8192-wide maps do not rebuild a giant coast mask: keep water/tint inside visible chunks, as this test does. A future visual pass can generate per-region shoreline textures with one-cell halo, not a global atlas.
