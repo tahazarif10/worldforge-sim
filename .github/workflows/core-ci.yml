@@ -19,5 +19,7 @@ jobs:
         run: dotnet run --project tests/CameraMath.Smoke/CameraMath.Smoke.csproj -c Release
       - name: Dirty terrain bounds and coalescing smoke tests
         run: dotnet run --project tests/DirtyTileRegion.Smoke/DirtyTileRegion.Smoke.csproj -c Release
+      - name: Original terrain pixel art and coastline smoke tests
+        run: dotnet run --project tests/TerrainPixelArt.Smoke/TerrainPixelArt.Smoke.csproj -c Release
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false
