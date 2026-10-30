@@ -1,6 +1,9 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Numerics;
+using WorldForge.Camera3D;
+using WorldForge.VisualLab;
 using WorldSim.Regions;
 
 static void Check(bool ok, string message)
@@ -115,4 +118,39 @@ try
     Check(refused,"world seed mismatch refuses loading another world's heights");
 }
 finally { if(Directory.Exists(directory)) Directory.Delete(directory,recursive:true); }
+// The persisted offset belongs to the ABSOLUTE shared vertex, not to
+// either neighboring chunk's private mesh. Both renderers and ray pickers
+// must interpolate the same surface on x=16 (a 16x16 chunk boundary).
+var sculpted = new ElevationRegionStore(77, 2);
+sculpted.SetOffset(new CellCoord(16,20),.5f);
+SharedCornerHeightfield.Fan Editable(int x, int y)
+{
+    var flat = SharedCornerHeightfield.Tile(x,y,80,80,(_,_)=>1f,0f);
+    float a = sculpted.Offset(new CellCoord(x,y));
+    float b = sculpted.Offset(new CellCoord(x,y+1));
+    float cc = sculpted.Offset(new CellCoord(x+1,y));
+    float d = sculpted.Offset(new CellCoord(x+1,y+1));
+    return new SharedCornerHeightfield.Fan(flat.A+a,flat.B+b,flat.C+cc,
+        flat.D+d,flat.Center+(a+b+cc+d)*.25f);
+}
+var west = Editable(15,20);
+var east = Editable(16,20);
+Check(Near(west.C,east.A) && Near(west.D,east.B) &&
+      Near(west.C,1.5f),"edited corner agrees across 16-cell visual chunk boundary");
+for(int v=0;v<=10;v++)
+    Check(Near(west.Sample(1f,v/10f),east.Sample(0f,v/10f)),
+        "entire sculpted edge matches across chunks");
+for(int j=0;j<2;j++)
+{
+    float globalX=j==0?15.90f:16.10f;
+    float localX=j==0?.90f:.10f;
+    float expected=Editable(15+j,20).Sample(localX,.10f);
+    bool hit=TerrainGridPicker.TryPick(new Vector3(globalX,12,20.1f),
+        -Vector3.UnitY,80,80,(_,_)=>1f,out var point,
+        (_,_)=>0f,(x,y,u,v)=>Editable(x,y).Sample(u,v));
+    Check(hit && Near(point.Point.Y,expected) &&
+          point.X==15+j && point.Y==20,
+          "camera ray hits edited terrain triangle on both sides of region boundary");
+}
+
 Console.WriteLine("PASS ALL persistent regional elevation and recovery tests");
