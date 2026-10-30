@@ -1,25 +1,25 @@
 # CAMERA_DIAGNOSIS — corrective design for V2 strategy-god camera
 
-**Evidence base:** \`Scripts/VisualLab/VisualLab3D.cs:59–73,139–149,218–347\` in \`main\` (2026-10-30). User reports camera dragging and movement feel very bad. Precise symptoms (direction, acceleration, click-to-world drift) still require Windows reproduction; the mathematical problems below are independently present in the code.
+**Evidence base:** `Scripts/VisualLab/VisualLab3D.cs:59–73,139–149,218–347` in `main` (2026-10-30). User reports camera dragging and movement feel very bad. Precise symptoms (direction, acceleration, click-to-world drift) still require Windows reproduction; the mathematical problems below are independently present in the code.
 
 ## Diagnosis table
 
 | Observed code | Mathematically implied behavior | Confidence | Replacement |
 |---|---|---|---|
-| \`Camera3D\` is orthographic with \`Size = 79\` and angled vector (1,1.2,1) (\`:59–67,291–298\`) | Vertical screen axis is tilted relative to ground XZ plane | High | Single camera rig with explicit yaw/pitch, pivot and height-aware anchor |
-| Drag takes \`Basis.X\` and \`Basis.Y\`, sets each \`.Y = 0\`, multiplies both by same \`cameraSize/viewportHeight\` (\`:235–241\`) | Screen-up projected onto the ground plane has different length from screen-right. Ignoring the ray-plane Jacobian makes drag asymmetric and scale/tilt-dependent | **High** (source-level mathematical proof) | Project old and new cursor rays onto *the same drag plane*, move pivot by exact difference |
-| Keyboard panning reuses unnormalized horizontal-projected camera axes (\`:274–281\`) | Orthogonal on-screen speed is not uniform across vertical/horizontal directions; movement sensitivity to tilt | High | Build orthonormal planar axes or screen-ray differential; then normalize appropriate vectors |
-| Zoom before/after uses \`ProjectToSeaPlane\` at Y=0.12 (\`:260–308\`) | Works when the pick belongs to sea-level. On cliffs/mountains the object the mouse points to shifts across the screen | High | Pick actual terrain intersection at button/wheel coordinate; preserve world anchor when changing projection |
-| Brush input takes \`t=0; t<420; t+=.22\` (\`:310–331\`) | Up to ceil(420/0.22)=**1,910** sample evaluations per input; step-based misses and sensitivity to fixed far distance | High algorithmic; latency unmeasured | Analytic heightfield stepping + tile DDA or batched terrain collider ray hit; run once per input event, not frame |
-| Camera only clamps focus X to [0,Width] and Z to [0,Height] (\`:284–289\`) | Camera can show lots of blank beyond finite-world edges at wide zoom and rotation | High | Clamp projected view footprint or use soft boundary feedback; for huge/infinite world, don't clamp to whole-world rectangle |
-| \`RefreshCamera()\` calls \`LookAt\` after each motion, no explicit pivot object (\`:291–298\`) | Repeated reconstruction of world basis is harmless at this scale, but complicates transitions/rotation/targeting | Medium | Keep \`CameraRig\` parameters: double/int64 logical pivot, local rendered pivot, yaw, tilt, ortho size |
-| Mouse painting uses repeated \`ApplyAtScreen\` on motion (\`:231–245\`) | Dense pointer events repeatedly cause raymarch and eager UpdateActors plus dirty terrain work | High | Fixed-rate brush stroke sampling with swept path and spatial brush commands |
+| `Camera3D` is orthographic with `Size = 79` and angled vector (1,1.2,1) (`:59–67,291–298`) | Vertical screen axis is tilted relative to ground XZ plane | High | Single camera rig with explicit yaw/pitch, pivot and height-aware anchor |
+| Drag takes `Basis.X` and `Basis.Y`, sets each `.Y = 0`, multiplies both by same `cameraSize/viewportHeight` (`:235–241`) | Screen-up projected onto the ground plane has different length from screen-right. Ignoring the ray-plane Jacobian makes drag asymmetric and scale/tilt-dependent | **High** (source-level mathematical proof) | Project old and new cursor rays onto *the same drag plane*, move pivot by exact difference |
+| Keyboard panning reuses unnormalized horizontal-projected camera axes (`:274–281`) | Orthogonal on-screen speed is not uniform across vertical/horizontal directions; movement sensitivity to tilt | High | Build orthonormal planar axes or screen-ray differential; then normalize appropriate vectors |
+| Zoom before/after uses `ProjectToSeaPlane` at Y=0.12 (`:260–308`) | Works when the pick belongs to sea-level. On cliffs/mountains the object the mouse points to shifts across the screen | High | Pick actual terrain intersection at button/wheel coordinate; preserve world anchor when changing projection |
+| Brush input takes `t=0; t<420; t+=.22` (`:310–331`) | Up to ceil(420/0.22)=**1,910** sample evaluations per input; step-based misses and sensitivity to fixed far distance | High algorithmic; latency unmeasured | Analytic heightfield stepping + tile DDA or batched terrain collider ray hit; run once per input event, not frame |
+| Camera only clamps focus X to [0,Width] and Z to [0,Height] (`:284–289`) | Camera can show lots of blank beyond finite-world edges at wide zoom and rotation | High | Clamp projected view footprint or use soft boundary feedback; for huge/infinite world, don't clamp to whole-world rectangle |
+| `RefreshCamera()` calls `LookAt` after each motion, no explicit pivot object (`:291–298`) | Repeated reconstruction of world basis is harmless at this scale, but complicates transitions/rotation/targeting | Medium | Keep `CameraRig` parameters: double/int64 logical pivot, local rendered pivot, yaw, tilt, ortho size |
+| Mouse painting uses repeated `ApplyAtScreen` on motion (`:231–245`) | Dense pointer events repeatedly cause raymarch and eager UpdateActors plus dirty terrain work | High | Fixed-rate brush stroke sampling with swept path and spatial brush commands |
 
 ## Geometric explanation of the bad drag
 
-For an orthographic camera, the world-space ray origin depends on screen pixel coordinate. Let \`r(s)\` be \`ProjectRayOrigin(s)\` and \`d(s)\` be \`ProjectRayNormal(s)\`. For a fixed horizontal plane \`y = h\`, define
+For an orthographic camera, the world-space ray origin depends on screen pixel coordinate. Let `r(s)` be `ProjectRayOrigin(s)` and `d(s)` be `ProjectRayNormal(s)`. For a fixed horizontal plane `y = h`, define
 
-\`\`\`
+```
 IntersectPlane(s, h):
     origin = ProjectRayOrigin(s)
     dir    = ProjectRayNormal(s)
@@ -27,22 +27,22 @@ IntersectPlane(s, h):
     t = (h - origin.y) / dir.y
     require t >= 0
     return origin + t*dir
-\`\`\`
+```
 
-When the user presses drag at \`s0\`, freeze \`P_anchor=IntersectPlane(s0,h_anchor)\` in world coordinates. On every drag event at \`s\` calculate \`P_now=IntersectPlane(s,h_anchor)\` using **the current camera transform** and update pivot by \`P_anchor - P_now\` (x/z components). This moves the terrain with the mouse and exactly preserves the anchor at the chosen plane, independent of tilt, resolution, zoom or camera yaw. Do not reselect a different terrain height during the same drag; that would cause jumps while crossing cliffs. The starting \`h_anchor\` can be obtained from the first terrain hit or a stable strategic reference plane.
+When the user presses drag at `s0`, freeze `P_anchor=IntersectPlane(s0,h_anchor)` in world coordinates. On every drag event at `s` calculate `P_now=IntersectPlane(s,h_anchor)` using **the current camera transform** and update pivot by `P_anchor - P_now` (x/z components). This moves the terrain with the mouse and exactly preserves the anchor at the chosen plane, independent of tilt, resolution, zoom or camera yaw. Do not reselect a different terrain height during the same drag; that would cause jumps while crossing cliffs. The starting `h_anchor` can be obtained from the first terrain hit or a stable strategic reference plane.
 
 The existing implementation instead takes two camera basis vectors, removes vertical components and reuses a scalar zoom factor. With elevated cameras the screen-up vector's projected XZ magnitude is less than one. It is mathematically **not** equivalent to intersecting camera rays with a ground plane. It can produce different perceived horizontal and vertical sensitivities. Precisely which reported symptom dominates is unknown without interaction capture.
 
 ### Cursor-anchored zoom
 
-1. Obtain a \`TerrainHit\` from the actual terrain/collider at cursor \`s\`: logical tile/region, hit position and surface height. If the cursor is on water/no terrain, use the strategic plane fallback.
-2. Set desired orthographic size \`S_target = clamp(S_current * factor, S_min, S_max)\`; do not change camera FOV when orthographic.
+1. Obtain a `TerrainHit` from the actual terrain/collider at cursor `s`: logical tile/region, hit position and surface height. If the cursor is on water/no terrain, use the strategic plane fallback.
+2. Set desired orthographic size `S_target = clamp(S_current * factor, S_min, S_max)`; do not change camera FOV when orthographic.
 3. Recalculate cursor ray at the **same** coordinate after each projection update.
-4. Intersect that ray with the *same anchor plane* at \`hit.Position.Y\`, or use the same terrain surface with controlled iteration; compute delta \`P_anchor - P_new\`, translate pivot, recompute transform.
+4. Intersect that ray with the *same anchor plane* at `hit.Position.Y`, or use the same terrain surface with controlled iteration; compute delta `P_anchor - P_new`, translate pivot, recompute transform.
 5. If smoothing is enabled, apply zoom and pivot change together at each render frame, maintaining anchor. A camera eased toward a pivot target without adjusting anchor can drift while zooming.
 6. If view-footprint constraints prevent anchor invariance, deliberately prioritize boundaries and surface a subtle edge cue; don't snap repeatedly.
 
-Use a single \`CameraController3D\` with immutable \`CameraPose\` data, not multiple input branches changing \`_focus\` independently.
+Use a single `CameraController3D` with immutable `CameraPose` data, not multiple input branches changing `_focus` independently.
 
 ### Input and interaction policy
 
@@ -61,7 +61,7 @@ No default inertia for brush-heavy world editing. Provide an optional bounded "s
 
 ## 3D world picking: recommended interface
 
-\`\`\`csharp
+```csharp
 public readonly record struct TerrainHit(
     long CellX, long CellY, Vector3 WorldPosition,
     Vector3 Normal, long RegionX, long RegionY);
@@ -69,17 +69,17 @@ public readonly record struct TerrainHit(
 public interface ITerrainPicker {
     bool TryPick(Vector2 screenPx, in CameraPose camera, out TerrainHit hit);
 }
-\`\`\`
+```
 
-For the first vertical slice, use one raycast against **active local chunk collision meshes** (physics \`DirectSpaceState.IntersectRay\` in a safe physics context), or a heightfield grid DDA with direct height sampling and bounded cell traversal. The physics API must be called from an allowed thread/physics phase; do not execute a locked-space query unsafely from \`_Input\`. For a very large world, select candidate chunks through a region BVH / grid and raymarch **only** the narrow candidates near hit. Avoid one collider per decorative prop, and do not rebuild the entire collision world when painting.
+For the first vertical slice, use one raycast against **active local chunk collision meshes** (physics `DirectSpaceState.IntersectRay` in a safe physics context), or a heightfield grid DDA with direct height sampling and bounded cell traversal. The physics API must be called from an allowed thread/physics phase; do not execute a locked-space query unsafely from `_Input`. For a very large world, select candidate chunks through a region BVH / grid and raymarch **only** the narrow candidates near hit. Avoid one collider per decorative prop, and do not rebuild the entire collision world when painting.
 
-When brush radius applies in cells, convert the exact \`TerrainHit.CellX/Y\` to \`WorldSim\` command; sweep samples over mouse path so fast drags do not leave gaps. The cursor should not paint when hovering HUD.
+When brush radius applies in cells, convert the exact `TerrainHit.CellX/Y` to `WorldSim` command; sweep samples over mouse path so fast drags do not leave gaps. The cursor should not paint when hovering HUD.
 
 ## Coordinate contract for giant worlds
 
-- **Logic:** signed 64-bit absolute cell coordinates (\`long\`), region coordinates, integer-local cell offsets; no reliance on \`Godot.Vector3\` for canonical world position.
-- **Rendering:** \`Vector3\` camera-local position within a small active window, relative to a configurable render origin. A scene node at e.g. (1,0,0) represents the same local metre regardless of absolute world location.
-- **Camera:** immutable \`WorldPosition(long regionX, long regionY, double localX, double localZ)\`, transformed to render-local near origin.
+- **Logic:** signed 64-bit absolute cell coordinates (`long`), region coordinates, integer-local cell offsets; no reliance on `Godot.Vector3` for canonical world position.
+- **Rendering:** `Vector3` camera-local position within a small active window, relative to a configurable render origin. A scene node at e.g. (1,0,0) represents the same local metre regardless of absolute world location.
+- **Camera:** immutable `WorldPosition(long regionX, long regionY, double localX, double localZ)`, transformed to render-local near origin.
 - **Rebase:** when the camera leaves a chosen radius from the render origin (threshold **measured**, not guessed), shift view-relative chunk roots on main thread; world coordinates/tick state never change.
 - **Precision:** 8192 world cells with 1-unit cells ordinarily do **not** by themselves require a double-precision Godot build. Revisit for very large unit scale/precision or planet-scale worlds. Godot docs advise caution due performance/build implications.
 
@@ -104,10 +104,10 @@ When brush radius applies in cells, convert the exact \`TerrainHit.CellX/Y\` to 
 
 ## Implementation scope
 
-- New \`Scripts/Camera3D/CameraPose.cs\`, \`CameraDragMath.cs\` (pure .NET), \`TerrainPicker.cs\`, \`StrategyCameraRig.cs\`.
-- \`VisualLab3D\` will only route actions and consume \`TerrainHit\`; no direct \`Basis\` flattening or sea-plane \`ZoomAround\`.
-- Add \`tests/Camera3D.Smoke\` for geometric invariance; add Windows standalone input replay/screenshot harness.
-- Keep 2D \`WorldCameraController.cs\` and the old main scene untouched until V2 is accepted.
+- New `Scripts/Camera3D/CameraPose.cs`, `CameraDragMath.cs` (pure .NET), `TerrainPicker.cs`, `StrategyCameraRig.cs`.
+- `VisualLab3D` will only route actions and consume `TerrainHit`; no direct `Basis` flattening or sea-plane `ZoomAround`.
+- Add `tests/Camera3D.Smoke` for geometric invariance; add Windows standalone input replay/screenshot harness.
+- Keep 2D `WorldCameraController.cs` and the old main scene untouched until V2 is accepted.
 - Gate completion on Windows test + meaningful input feel acceptance, not on green C# CI alone.
 
 ## Source
