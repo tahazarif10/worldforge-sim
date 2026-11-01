@@ -44,7 +44,7 @@ Fixture ID: `v3.3-reference-1`. Same approved `VisualLab3D` scene, 120×88 world
 
 Traces are continuous functions of monotonic elapsed time sampled at actual callbacks, not identical frame counts across machines. The camera CSV makes those sampling differences inspectable. Paint catches up at most four actions per callback; backlog or missing scheduled actions invalidates evidence instead of silently comparing different workloads.
 
-The shader's `review_time` defaults to -1, preserving ordinary engine TIME animation. Only acceptance mode supplies scenario time. Before/after screenshots reset camera and water phase to zero; paint edits remain in the after image. Screenshots and formatting/export occur outside the measured window. Headless CI skips PNG capture and labels itself headless.
+The shader's `review_time` defaults to -1, preserving ordinary engine TIME animation. Only acceptance mode supplies scenario time. Before/after screenshots reset camera and water phase to zero; paint edits remain in the after image. Pending edit rebuilds and coverage for the reset camera are completed after Stop before that image; recorded chunk counters refer to the timed endpoint. Screenshots and formatting/export occur outside the measured window. Headless CI skips PNG capture and labels itself headless.
 
 ## Output and identity
 

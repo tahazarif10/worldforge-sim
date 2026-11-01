@@ -240,8 +240,8 @@ Follow [Engineering Workflow](ENGINEERING_WORKFLOW.md), [Architecture](V3_ARCHIT
 
 | Planning horizon | Ready work | Exit before taking the next item |
 | --- | --- | --- |
-| Immediate | #53 fixture specification + #54 monotonic/scenario core | Meaningful timing/identity tests and documented capture format |
-| Next focused PR | #54 launcher/pose parity and H: evidence runner | Valid complete outputs, failure handling, applicable CI; physical gates still explicit |
+| Implemented foundation | #53 fixture specification + #54 monotonic/scenario core | See PR #60 and the runner guide; physical host acceptance remains open |
+| Implemented automation | #54 launcher/pose parity and H: evidence runner | Core/engine/PowerShell checks recorded on PR #60; next collect actual H: evidence |
 | Host checkpoint | #53 matched direct/mirror runs | Real art/control verdict and valid repeated measurements; #52 can then close |
 | Following architecture | #55 planner/fallback, then bounded jobs/LOD | Coverage and performance acceptance before #56 authority changes |
 | Product checkpoint | #56/#57 at 512²–1024², then V4.0 | A durable, understandable living-world loop before optional maximum scale |

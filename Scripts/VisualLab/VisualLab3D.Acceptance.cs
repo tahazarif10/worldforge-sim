@@ -29,6 +29,7 @@ public partial class VisualLab3D
     private string _reviewOutput = "";
     private bool _reviewHeadless, _reviewInterference, _reviewFocusLost;
     private int _reviewPaintActions;
+    private int _reviewEndActiveChunks, _reviewEndPendingChunks;
     private string? _reviewFailure;
     private object? _reviewFixture;
     private Vector2 _reviewViewport;
@@ -151,6 +152,8 @@ public partial class VisualLab3D
             {
                 // Stop before screenshots, formatting, disk I/O or summary sorting.
                 _acceptanceCapture.Stop();
+                _reviewEndActiveChunks = _terrain.ActiveTerrainChunks;
+                _reviewEndPendingChunks = _terrain.PendingVisibleChunks;
                 _cameraRig.EndDrag();
                 _reviewPhase = ReviewPhase.Finished;
                 FinishAcceptance();
@@ -253,6 +256,10 @@ public partial class VisualLab3D
             _cameraRig.RestoreReviewPose(new CameraReviewPose(AcceptanceOptions.CameraX,
                 AcceptanceOptions.CameraZ, AcceptanceOptions.CameraSize));
             _terrain.SetReviewWaterTime(0);
+            // Drain pending edits and cover the reset camera outside the window.
+            // The image must represent final edits, not a transient stale mesh.
+            _terrain.FlushChanges();
+            _terrain.UpdateVisibility(_camera, maxNewChunks: 64);
             if (!_reviewHeadless)
             {
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
@@ -300,8 +307,8 @@ public partial class VisualLab3D
                 os_version = OS.GetVersion(),
                 gpu = _reviewHeadless ? null : RenderingServer.GetVideoAdapterName(),
                 graphics_api_version = _reviewHeadless ? null : RenderingServer.GetVideoAdapterApiVersion(),
-                active_terrain_chunks = _terrain.ActiveTerrainChunks,
-                pending_visible_chunks = _terrain.PendingVisibleChunks,
+                active_terrain_chunks = _reviewEndActiveChunks,
+                pending_visible_chunks = _reviewEndPendingChunks,
                 screenshot_before = _reviewHeadless ? null : "before.png",
                 screenshot_after = _reviewHeadless ? null : "after.png",
                 notes = "Paused simulation fixture; application callbacks, not GPU or physical input latency. " +

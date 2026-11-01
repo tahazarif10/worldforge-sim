@@ -110,7 +110,7 @@ If user rejects output (like V3.0), immediately restore approved V2 as playable 
 
 ## 7. Milestone review bundle
 
-The proposed *future* V3.3 one-command runner must create on H: a session-scoped directory like:
+The V3.3 review bundle was specified with the following session layout; the implemented layout is linked below:
 
 ```text
 H:\WorldForge-Sim\artifacts\acceptance\v3-3\<session-id>\
