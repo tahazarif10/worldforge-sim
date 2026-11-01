@@ -56,17 +56,9 @@ jobs:
             --rendering-method gl_compatibility
       - name: Build WorldForge C# after import
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false
-      - name: Freeze actual imported Godot sidecar identity
+      - name: Recover the three late C# UIDs before freezing runtime identity
         shell: pwsh
-        run: |
-          . ./scripts/acceptance-worktree.ps1
-          $before = Get-Content ./artifacts/acceptance/ci/worktree-before-import.json -Raw | ConvertFrom-Json
-          $prepared = Get-AcceptanceWorktreeState -Root $env:GITHUB_WORKSPACE
-          Assert-AcceptanceWorktreeStable -Baseline $before -Current $prepared -AllowSidecarRefresh
-          if (@($prepared.godot_sidecars | Where-Object path -CLike '*.glb.import').Count -ne 10) { throw 'Expected actual import metadata for all 10 tracked GLBs.' }
-          $prepared | ConvertTo-Json -Depth 8 | Set-Content ./artifacts/acceptance/ci/worktree-prepared.json
-          Export-AcceptanceSidecars -Root $env:GITHUB_WORKSPACE -State $prepared -Directory ./artifacts/acceptance/ci/godot-sidecars/capture
-          Write-Host "PASS actual Godot import metadata recorded: $($prepared.godot_sidecars.Count) companions"
+        run: ./tests/AcceptanceBundle.Smoke/prepare-engine.ps1 -Executable $env:GODOT -Directory ./artifacts/acceptance/ci
       - name: Start standalone V2 scene without editor
         run: |
           set -euo pipefail
@@ -106,22 +98,9 @@ jobs:
             --scene res://Scenes/RegionalWorldLab3D.tscn --quit-after 24 \
             --rendering-method gl_compatibility
 
-      - name: Capture four monotonic scenarios with both V2 data backends
-        run: |
-          set -euo pipefail
-          for scenario in idle pan zoom paint; do
-            for backend in direct region-mirror; do
-              target="$GITHUB_WORKSPACE/artifacts/acceptance/ci/$scenario-$backend"
-              mkdir -p "$target"
-              timeout 50s "$GODOT" --headless --path "$GITHUB_WORKSPACE" \
-                --scene res://Scenes/VisualLab3D.tscn --rendering-method gl_compatibility \
-                --resolution 1280x800 --max-fps 120 --log-file "$target/godot.log" \
-                -- --world-seed=1315511732 --terrain-backend="$backend" \
-                --acceptance-session="ci-$scenario" --acceptance-scenario="$scenario" \
-                --acceptance-output="$target" --acceptance-duration=1.1 \
-                --acceptance-warmup=0.1 --acceptance-quality=Eco
-            done
-          done
+      - name: Capture four scenarios through the shared process and snapshot helpers
+        shell: pwsh
+        run: ./tests/AcceptanceBundle.Smoke/capture-engine.ps1 -Executable $env:GODOT -Directory ./artifacts/acceptance/ci
       - name: Validate actual frame windows, statistics, camera traces and scenario identity
         shell: pwsh
         run: ./tests/AcceptanceBundle.Smoke/verify-engine.ps1 -Directory ./artifacts/acceptance/ci -WorktreeBaseline ./artifacts/acceptance/ci/worktree-prepared.json

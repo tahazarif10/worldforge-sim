@@ -19,6 +19,7 @@ Set-Location $root
 . (Join-Path $PSScriptRoot 'enter-dev.ps1')
 . (Join-Path $PSScriptRoot 'acceptance-bundle.ps1')
 . (Join-Path $PSScriptRoot 'acceptance-worktree.ps1')
+. (Join-Path $PSScriptRoot 'acceptance-runtime.ps1')
 $selection = Resolve-AcceptanceSelection -Scenario $Scenario -Quality $Quality
 $Scenario = $selection.Scenario
 $Quality = $selection.Quality
@@ -55,8 +56,11 @@ try {
             Out-File -LiteralPath (Join-Path $bundle ($project + '.log')) -Encoding utf8
         if ($LASTEXITCODE -ne 0) { throw "Acceptance correctness test failed: $project" }
     }
-    # Import may legitimately generate/refresh companions. Source/config must stay fixed.
+    # Load the newly built C# assembly before sealing companion identity.
+    Initialize-AcceptanceRuntime -Executable $editor -Root $root -Directory (Join-Path $bundle 'preparation') -WorldSeed $WorldSeed
+    # Preparation may generate/refresh companions. Source/config must stay fixed.
     $captureWorktree = Get-AcceptanceWorktreeState -Root $root
+    Assert-AcceptanceResourcesReady -State $captureWorktree
     Assert-AcceptanceWorktreeStable -Baseline $initialWorktree -Current $captureWorktree -AllowSidecarRefresh
     [IO.File]::WriteAllText((Join-Path $bundle 'worktree-prepared.json'),
         ($captureWorktree | ConvertTo-Json -Depth 8), $utf8)
@@ -75,7 +79,8 @@ try {
         git_status = $captureWorktree.git_status; project_godot_sha256 = $projectHash
         godot_sidecars = $captureWorktree.godot_sidecars
         godot_sidecar_snapshot = 'godot-sidecars/capture'
-        sidecar_policy = 'Tracked-resource companions; preserved before import and frozen after preparation.'
+        sidecar_policy = 'Tracked-resource companions; frozen after post-build import and both runtime boots.'
+        runtime_preparation = @('post-build-import','direct','region-mirror')
         assembly_sha256 = $assemblyHash; dotnet_sdk = $sdkVersion
         powershell_version = $PSVersionTable.PSVersion.ToString()
         requested_seed = $WorldSeed; quality = $Quality; max_fps = $MaxFps
@@ -86,7 +91,8 @@ try {
     [IO.File]::WriteAllText((Join-Path $bundle 'metadata.json'),
         ($metadata | ConvertTo-Json -Depth 10), $utf8)
     function Assert-HostCaptureIdentity {
-        $currentWorktree = Get-AcceptanceWorktreeState -Root $root
+        param($CurrentWorktree = $null)
+        if ($null -eq $CurrentWorktree) { $CurrentWorktree = Get-AcceptanceWorktreeState -Root $root }
         Assert-AcceptanceWorktreeStable -Baseline $captureWorktree -Current $currentWorktree
         if ((Get-FileHash -LiteralPath $assembly -Algorithm SHA256).Hash -cne $assemblyHash) {
             throw 'Build identity changed during capture.'
@@ -112,12 +118,13 @@ try {
                     "--acceptance-session=$runId", "--acceptance-scenario=$name",
                     "--acceptance-output=$directory", "--acceptance-duration=$seconds",
                     '--acceptance-warmup=10', "--acceptance-quality=$Quality")
-                Write-Host "Capturing $name / $backend / pass $repeat. Leave the window focused; Esc cancels."
-                Invoke-AcceptanceProcess -Executable $editor -Arguments $arguments `
+                Write-Host "AUTOMATED TEST: $name / $backend / pass $repeat. Controls are paused. Wait for automatic close (10s warm-up + ${seconds}s capture); Esc cancels."
+                $afterCapture = Invoke-AcceptanceObservedProcess -Executable $editor -Arguments $arguments `
                     -WorkingDirectory $root -OutputDirectory $directory -TimeoutSeconds ($seconds + 130)
-                Assert-HostCaptureIdentity
+                # Missing output is reported before identity drift; the post-run manifest is already saved.
                 $capture = Read-AcceptanceCapture -Directory $directory -ExpectedSession $runId `
                     -ExpectedScenario $name -ExpectedBackend $backend -ExpectedSeed $WorldSeed
+                Assert-HostCaptureIdentity -CurrentWorktree $afterCapture
                 $captures[$backend] = $capture
                 $s = $capture.statistics
                 $rows.Add("| $name | $repeat | $backend | $($s.count) | $($s.p50_ms) | $($s.p95_ms) | $($s.p99_ms) | $($s.max_ms) |")

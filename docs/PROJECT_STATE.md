@@ -8,13 +8,13 @@ baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
 baseline_engine_ci_run: 41105302717
 windows_verified_commit: null
-windows_attempted_commit: 6e73e3db555ed7f49768daee0c6db0a898f91ea3
-windows_attempt_status: "Runner reached preflight; blocked by untracked Godot import/UID companions before any capture"
+windows_attempted_commit: 2d1dd5ed8cff3f9ab1c9214ccb2bed6f69ea6ea9
+windows_attempt_status: "Import/build and direct startup reached; three late C# UIDs detected; capture.json absent; run incomplete"
 user_accepted_visual_commit: null
 completed_through: V3.2-engineering
 active_milestone: V3.3.1
 measurement_implementation_pr: 60
-active_status: "Capture runner implemented; local Godot sidecar handling corrected after host preflight failure; target rerun and user acceptance pending"
+active_status: "Post-build runtime preparation and incomplete-run diagnostics implemented after confirmed late UID generation; target rerun pending"
 next_gate: "Run H: acceptance runner on reference seed; review valid direct/mirror captures and complete #53 manual visual/input gates"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
@@ -91,6 +91,20 @@ The user's PowerShell transcript confirms a successful fast-forward from `9dc03c
 The corrected [worktree helper](../scripts/acceptance-worktree.ps1) recognizes companions only for tracked resources, preserves original/prepared copies and hashes, allows preparation-time generation, and freezes configuration before/after every measured process. Source edits and orphan/unrelated files remain blocked. Windows tests reproduce the actual Git state; engine CI checks actual Godot-generated metadata. Exact CI evidence belongs to the correction's PR.
 
 Next host command after safely obtaining the fix: `.\scripts\run-v3-3-acceptance.ps1 -Scenario idle -Repeats 1`. See [sidecar policy and output layout](V3_3_ACCEPTANCE_RUNNER.md#existing-local-godot-import-and-uid-files). The target-host rerun remains PENDING.
+
+### Host runtime preparation observation — 2026-11-01
+
+At candidate `2d1dd5ed8cff3f9ab1c9214ccb2bed6f69ea6ea9`, the supplied transcript confirms 60 existing companions recognized, successful import/build, and entry into the direct idle run. Comparing the saved prepared manifest to the host afterward showed exactly three added companions:
+
+- `Scripts/Instrumentation/AcceptanceOptions.cs.uid`
+- `Scripts/Instrumentation/FrameCapture.cs.uid`
+- `Scripts/VisualLab/VisualLab3D.Acceptance.cs.uid`
+
+The bundle `artifacts/acceptance/v3-3/20261101-174534-733f465f` had no `idle-1-direct/capture.json`. **Result: INCOMPLETE**, not performance or visual acceptance. The late UID generation is observed; the reason for the missing completed capture is not yet established. Disabled input in this explicit idle fixture is intentional and does not describe normal gameplay.
+
+The [shared runtime preparation](../scripts/acceptance-runtime.ps1) now performs post-build import and bounded direct/mirror boots before requiring all companions and freezing identity. Each measured process preserves its ending worktree state. Missing output and exact changed paths receive distinct diagnostics. The test window title explains paused controls and automatic completion; normal play remains `.\scripts\run-visual-lab.ps1 -WorldSeed 1315511732`.
+
+CI reproduces the exact three missing UIDs in its own disposable checkout and uses the same preparation/observed-process helpers for actual Godot captures. Exact-head evidence is recorded in the fix PR and #54. **H:-Windows rerun remains PENDING.**
 
 ## Current hardware and local rules
 

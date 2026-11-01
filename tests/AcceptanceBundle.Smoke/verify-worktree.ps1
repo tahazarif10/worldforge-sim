@@ -3,6 +3,8 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $root 'scripts/acceptance-worktree.ps1')
+. (Join-Path $root 'scripts/acceptance-bundle.ps1')
+. (Join-Path $root 'scripts/acceptance-runtime.ps1')
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('acceptance-worktree-' + [Guid]::NewGuid().ToString('N'))
 $fixtureRoot = Join-Path $tempRoot 'repo with spaces'
 [IO.Directory]::CreateDirectory($fixtureRoot) | Out-Null
@@ -46,6 +48,7 @@ try {
     Write-FixtureFile 'Assets/water.gdshader.uid' 'uid://water'
     Write-FixtureFile 'Assets/tree model.glb.import' '[remap] before import'
     $before = Get-AcceptanceWorktreeState -Root $fixtureRoot
+    Reject { Assert-AcceptanceResourcesReady -State $before } 'missing UID blocks sealing the prepared baseline'
     Check ($before.godot_sidecars.Count -eq 4 -and $before.tracked_status.Count -eq 1) 'actual dirty project plus untracked GLB/CS/shader companions allowed'
     Check (@($before.godot_sidecars | Where-Object path -CEQ 'Assets/tree model.glb.import').Count -eq 1) 'NUL Git records preserve paths with spaces'
     $beforeDir = Join-Path $fixtureRoot 'artifacts/sidecars/before-import'
@@ -55,6 +58,7 @@ try {
     Write-FixtureFile 'Assets/tree model.glb.import' '[remap] after import'
     $prepared = Get-AcceptanceWorktreeState -Root $fixtureRoot
     Assert-AcceptanceWorktreeStable -Baseline $before -Current $prepared -AllowSidecarRefresh
+    Assert-AcceptanceResourcesReady -State $prepared
     Check ($prepared.godot_sidecars.Count -eq 5) 'new and refreshed sidecars accepted only at preparation boundary'
     Reject { Assert-AcceptanceWorktreeStable -Baseline $before -Current $prepared } 'capture rejects preparation-only identity refresh'
     $captureDir = Join-Path $fixtureRoot 'artifacts/sidecars/capture'
@@ -64,6 +68,36 @@ try {
     $roundtrip = $prepared | ConvertTo-Json -Depth 8 | ConvertFrom-Json
     Assert-AcceptanceWorktreeStable -Baseline $roundtrip -Current (Get-AcceptanceWorktreeState -Root $fixtureRoot)
     Write-Host 'PASS serialized manifest can be revalidated against actual Git/filesystem'
+
+    # A real native child reproduces a late UID and an exit-zero without capture.json.
+    Remove-Item -LiteralPath (Join-Path $fixtureRoot 'Scripts/New.cs.uid')
+    $beforeChild = Get-AcceptanceWorktreeState -Root $fixtureRoot
+    $childPath = Join-Path $fixtureRoot 'artifacts/child.ps1'
+    Write-FixtureFile 'artifacts/child.ps1' 'param([string]$Root); [IO.File]::WriteAllText((Join-Path $Root "Scripts/New.cs.uid"),"uid://new"); exit 0'
+    $childOutput = Join-Path $fixtureRoot 'artifacts/child-output'
+    [IO.Directory]::CreateDirectory($childOutput) | Out-Null
+    $processArgs = @{
+        Executable = (Join-Path $PSHOME 'powershell.exe')
+        Arguments = @('-NoProfile','-NonInteractive','-File',$childPath,'-Root',$fixtureRoot)
+        WorkingDirectory = $fixtureRoot; OutputDirectory = $childOutput; TimeoutSeconds = 15
+    }
+    $afterChild = Invoke-AcceptanceObservedProcess @processArgs
+    Check (Test-Path -LiteralPath (Join-Path $childOutput 'worktree-after.json')) 'post-run manifest saved for an incomplete native child'
+    $details = @(Get-AcceptanceSidecarDifferences -Baseline $beforeChild -Current $afterChild)
+    Check ($details -ccontains 'Added companion: Scripts/New.cs.uid') 'diagnostic names the exact late-generated UID'
+    $message = ''
+    try {
+        Read-AcceptanceCapture -Directory $childOutput -ExpectedSession test -ExpectedScenario idle -ExpectedBackend direct -ExpectedSeed 1 -AllowHeadless | Out-Null
+    } catch { $message = $_.Exception.Message }
+    Check ($message.Contains('capture.json') -and $message.Contains('automatic completion')) 'exit zero without capture output is explicitly incomplete'
+    Assert-AcceptanceWorktreeStable -Baseline $prepared -Current $afterChild
+    Write-FixtureFile 'artifacts/child.ps1' 'exit 7'
+    $processArgs.OutputDirectory = Join-Path $fixtureRoot 'artifacts/failed-child'
+    [IO.Directory]::CreateDirectory($processArgs.OutputDirectory) | Out-Null
+    $message = ''
+    try { Invoke-AcceptanceObservedProcess @processArgs | Out-Null } catch { $message = $_.Exception.Message }
+    Check ($message.Contains('exited 7')) 'snapshot handling preserves the native failure reason'
+    Check (Test-Path -LiteralPath (Join-Path $processArgs.OutputDirectory 'worktree-after.json')) 'post-run manifest retained after native failure'
 
     Write-FixtureFile 'Scripts/Camera.cs.uid' 'uid://camerab'
     $changed = Get-AcceptanceWorktreeState -Root $fixtureRoot
