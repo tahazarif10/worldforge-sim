@@ -41,6 +41,14 @@ jobs:
           chmod +x "$GODOT"
           echo "GODOT=$GODOT" >> "$GITHUB_ENV"
           "$GODOT" --version
+      - name: Record worktree before Godot import
+        shell: pwsh
+        run: |
+          . ./scripts/acceptance-worktree.ps1
+          $state = Get-AcceptanceWorktreeState -Root $env:GITHUB_WORKSPACE
+          New-Item -ItemType Directory -Path ./artifacts/acceptance/ci -Force | Out-Null
+          $state | ConvertTo-Json -Depth 8 | Set-Content ./artifacts/acceptance/ci/worktree-before-import.json
+          Export-AcceptanceSidecars -Root $env:GITHUB_WORKSPACE -State $state -Directory ./artifacts/acceptance/ci/godot-sidecars/before-import
       - name: Import bundled CC0 models and compile scene assets
         run: |
           set -euo pipefail
@@ -48,6 +56,17 @@ jobs:
             --rendering-method gl_compatibility
       - name: Build WorldForge C# after import
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false
+      - name: Freeze actual imported Godot sidecar identity
+        shell: pwsh
+        run: |
+          . ./scripts/acceptance-worktree.ps1
+          $before = Get-Content ./artifacts/acceptance/ci/worktree-before-import.json -Raw | ConvertFrom-Json
+          $prepared = Get-AcceptanceWorktreeState -Root $env:GITHUB_WORKSPACE
+          Assert-AcceptanceWorktreeStable -Baseline $before -Current $prepared -AllowSidecarRefresh
+          if (@($prepared.godot_sidecars | Where-Object path -CLike '*.glb.import').Count -ne 10) { throw 'Expected actual import metadata for all 10 tracked GLBs.' }
+          $prepared | ConvertTo-Json -Depth 8 | Set-Content ./artifacts/acceptance/ci/worktree-prepared.json
+          Export-AcceptanceSidecars -Root $env:GITHUB_WORKSPACE -State $prepared -Directory ./artifacts/acceptance/ci/godot-sidecars/capture
+          Write-Host "PASS actual Godot import metadata recorded: $($prepared.godot_sidecars.Count) companions"
       - name: Start standalone V2 scene without editor
         run: |
           set -euo pipefail
@@ -105,4 +124,4 @@ jobs:
           done
       - name: Validate actual frame windows, statistics, camera traces and scenario identity
         shell: pwsh
-        run: ./tests/AcceptanceBundle.Smoke/verify-engine.ps1 -Directory ./artifacts/acceptance/ci
+        run: ./tests/AcceptanceBundle.Smoke/verify-engine.ps1 -Directory ./artifacts/acceptance/ci -WorktreeBaseline ./artifacts/acceptance/ci/worktree-prepared.json

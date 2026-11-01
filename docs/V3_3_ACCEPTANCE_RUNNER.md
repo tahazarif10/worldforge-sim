@@ -27,9 +27,25 @@ git status --short
 
 Default seed: `1315511732`. Default FPS cap: 60; change with `-MaxFps` and preserve the same value for comparisons. `-WorldSeed` and `-Scenario idle|pan|zoom|paint|all` are supported. The full three-pass matrix contains 24 launches, approximately 19 minutes of warm-up/capture plus import/build/startup time; the short idle command is the recommended first check.
 
-The runner rebuilds using existing H: tooling and runs timing/parity correctness tests. Missing tools fail with their path; nothing is downloaded automatically. It preserves local `project.godot` and records its hash. Other working-tree changes require reconciliation before a reproducible capture; it does not erase them.
+The runner rebuilds using existing H: tooling and runs timing/parity correctness tests. Missing tools fail with their path; nothing is downloaded automatically. It preserves local `project.godot` and records its hash. Recognized Godot companions are preserved and fingerprinted as described below. Other working-tree changes require reconciliation before a reproducible capture; the runner does not erase them.
 
 Keep each test window focused and leave controls alone. Esc cancels. Interaction, focus loss, resizing, clock anomalies, overflow, missing outputs, mismatched identity or incomplete workload prevents valid comparison. An error creates a FAIL report for the bundle where possible and exits unsuccessfully.
+
+## Existing local Godot import and UID files
+
+The first host attempt at `6e73e3db555ed7f49768daee0c6db0a898f91ea3` stopped before capture because the old preflight rejected ordinary untracked Godot companions. The corrected policy recognizes:
+
+- `<tracked .glb>.import`: model import configuration.
+- `<tracked .cs>.uid` and `<tracked .gdshader>.uid`: script/shader resource identity.
+- An existing local modification of `project.godot`, whose content is separately hashed.
+
+Every companion must belong to an existing tracked source/resource. Untracked code, orphan companions, changed tracked source and changed tracked companions still stop acceptance. The helper inspects expected companions even when a local Git exclusion hides them.
+
+Before import, save a manifest and byte-for-byte copies of the existing companions. Godot's preparation step may generate companions for newly merged resources or refresh import metadata. After import/build, save the prepared manifest/copies and freeze that identity. Verify source/project configuration, companion contents and the assembly **before and after every child capture**, including the last one. Changed contents invalidate a run even if Git still prints the same `??` status.
+
+These files are not disposable caches. Godot recommends versioning [import settings](https://docs.godotengine.org/en/stable/tutorials/assets_pipeline/import_process.html#files-generated) and [UID files](https://godotengine.org/article/uid-changes-coming-to-godot-4-4/). This compatibility policy preserves existing host metadata in each evidence bundle; it does not automatically commit, ignore, replace or delete the user's files. Reviewing canonical companions for version control remains separate from acceptance. Two bundles with different sidecar manifests must not be assumed equivalent.
+
+A `Unreviewed working-tree change` for any other path still requires inspection. Do not use reset/clean or a blanket `*.uid` / `*.import` Git exclusion to bypass the check.
 
 ## Fixture and scenarios
 
@@ -53,6 +69,10 @@ All host output is under:
 ```text
 H:\WorldForge-Sim\artifacts\acceptance\v3-3\<session>\
   metadata.json
+  worktree-before-import.json
+  worktree-prepared.json
+  godot-sidecars/before-import/<original relative paths>
+  godot-sidecars/capture/<prepared relative paths>
   result.md
   SHA256SUMS.txt
   preflight.log
@@ -69,7 +89,7 @@ H:\WorldForge-Sim\artifacts\acceptance\v3-3\<session>\
     stderr.log
 ```
 
-The outer metadata records candidate SHA, Git status, project configuration hash, rebuilt assembly hash, SDK/PowerShell and available GPU driver information. Each capture records actual fixture, backend, engine/runtime/render settings, window/viewport, FPS cap, VSync, clock, completeness and raw statistics. Unknown hardware fields remain null. The runner verifies source/configuration/assembly identity between launches.
+The outer metadata records candidate SHA, Git status, project configuration hash, rebuilt assembly hash, SDK/PowerShell and available GPU driver information. Each capture records actual fixture, backend, engine/runtime/render settings, window/viewport, FPS cap, VSync, clock, completeness and raw statistics. Unknown hardware fields remain null. The runner also records companion paths, source paths, byte lengths and SHA-256 hashes, and verifies source/configuration/companion/assembly identity at both boundaries of every launch.
 
 `frames.csv` columns: `session_id, scenario_id, sequence, elapsed_us, interval_us, engine_delta_ms`. A callback interval comes from `Time.GetTicksUsec`. Engine delta is separately retained and may differ. First callback establishes the origin; Stop freezes the final full interval.
 
@@ -87,7 +107,8 @@ The automation exercises existing camera/brush methods, not physical input-devic
 
 - Pure C# tests: first callback, a 500ms stall despite 133.333ms engine delta, reset, stop/export exclusion, ring overflow, bad clocks/deltas, invariant formatting, option bounds and deterministic trace points.
 - Windows PowerShell 5.1 CI: actual parser, positive and deliberately broken bundles, mismatched fixtures, missing/reordered data, altered statistics, headless masquerading as host data, native argument quoting, child failure and timeout.
-- Official Godot CI: direct/mirror boot plus actual short idle/pan/zoom/paint captures on both backends, validated by the shared bundle checker. These are integration checks, not GPU benchmarks.
+- Real Git worktree tests on Windows PowerShell 5.1: local project changes plus import/UID files, spaces in paths, import-time additions/refreshes, byte-preserved snapshots, same-status content drift, locally ignored companions, orphan files and actual source edits.
+- Official Godot CI: capture the actual import-generated companion manifest, verify its stability after all scenes/captures, and run direct/mirror boot plus actual short idle/pan/zoom/paint captures on both backends, validated by the shared bundle checker. These are integration checks, not GPU benchmarks.
 - H: host screenshots, physical interaction and full-duration performance: PENDING until actually run.
 
 Related: [state](PROJECT_STATE.md), [roadmap](ROADMAP.md), [#53](https://github.com/tahazarif10/worldforge-sim/issues/53), [#54](https://github.com/tahazarif10/worldforge-sim/issues/54).
