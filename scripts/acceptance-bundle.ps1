@@ -14,7 +14,7 @@ function Read-AcceptanceCapture {
     $invariant = [Globalization.CultureInfo]::InvariantCulture
     foreach ($name in @('capture.json','frames.csv','camera.csv')) {
         if (-not (Test-Path -LiteralPath (Join-Path $Directory $name) -PathType Leaf)) {
-            throw "Incomplete capture: missing $name in $Directory"
+            throw "Incomplete capture: missing $name in $Directory. The run did not reach automatic completion; early window closure is one possible cause. Inspect godot.log, stdout.log and stderr.log."
         }
     }
     $m = Get-Content -LiteralPath (Join-Path $Directory 'capture.json') -Raw | ConvertFrom-Json

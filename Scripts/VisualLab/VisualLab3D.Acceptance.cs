@@ -86,11 +86,19 @@ public partial class VisualLab3D
             _reviewViewport = GetViewport().GetVisibleRect().Size;
             _reviewWarmupStart = Time.GetTicksUsec();
             _reviewPhase = ReviewPhase.Warmup;
+            SetAcceptanceTitle($"Preparing {_acceptanceOptions.WarmupSeconds.ToString(CultureInfo.InvariantCulture)} s");
             RefreshHud();
             GD.Print("Acceptance fixture " + AcceptanceOptions.FixtureVersion +
                 ": " + _acceptanceOptions.Scenario + " / " + _terrain.TerrainBackendName);
         }
         catch (Exception ex) { FailAcceptance(ex); }
+    }
+
+    private void SetAcceptanceTitle(string phase)
+    {
+        // Only phase boundaries change the native title; viewport PNGs and normal play are unaffected.
+        if (_reviewHeadless || _acceptanceOptions is null) return;
+        GetWindow().Title = $"AUTOMATED {_acceptanceOptions.Scenario.ToUpperInvariant()} TEST | Controls paused | {phase} | Esc cancels";
     }
 
     public override void _Input(InputEvent input)
@@ -127,6 +135,7 @@ public partial class VisualLab3D
                 _reviewFixture = FixtureMetadata();
                 if (_acceptanceOptions.Scenario == "pan")
                     _cameraRig.BeginDrag(_reviewViewport / 2);
+                SetAcceptanceTitle($"Recording {_acceptanceOptions.DurationSeconds.ToString(CultureInfo.InvariantCulture)} s; closes automatically");
                 _acceptanceCapture.Begin(_acceptanceOptions.Session, _acceptanceOptions.Scenario);
                 nowUs = Time.GetTicksUsec(); // Metadata/setup are outside the window.
                 _acceptanceCapture.Record(nowUs, delta * 1000); // Origin, not a sample.
@@ -252,6 +261,7 @@ public partial class VisualLab3D
         try
         {
             if (_acceptanceOptions is null) return;
+            SetAcceptanceTitle("Saving results; closes automatically");
             // Reset presentation for a comparable after-image; paint edits remain.
             _cameraRig.RestoreReviewPose(new CameraReviewPose(AcceptanceOptions.CameraX,
                 AcceptanceOptions.CameraZ, AcceptanceOptions.CameraSize));

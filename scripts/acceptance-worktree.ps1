@@ -40,12 +40,13 @@ function Get-AcceptanceWorktreeState {
         throw "Unreviewed working-tree change: $entry. Preserve/reconcile it before acceptance."
     }
     $sidecars = New-Object 'System.Collections.Generic.List[object]'
+    $missing = New-Object 'System.Collections.Generic.List[string]'
     [string[]]$paths = @($expected.Keys)
     [Array]::Sort($paths, [StringComparer]::Ordinal)
     # Inspect every expected companion, including those hidden by a local Git exclude.
     foreach ($path in $paths) {
         $fullPath = Join-Path $Root $path
-        if (-not (Test-Path -LiteralPath $fullPath)) { continue }
+        if (-not (Test-Path -LiteralPath $fullPath)) { $missing.Add($path); continue }
         $item = Get-Item -LiteralPath $fullPath -Force
         $source = Get-Item -LiteralPath (Join-Path $Root $expected[$path]) -Force
         foreach ($file in @($item, $source)) {
@@ -63,7 +64,35 @@ function Get-AcceptanceWorktreeState {
         git_status = @($status); tracked_status = @($trackedChanges.ToArray())
         project_godot_sha256 = (Get-FileHash -LiteralPath (Join-Path $Root 'project.godot') -Algorithm SHA256).Hash
         godot_sidecars = @($sidecars.ToArray())
+        missing_godot_sidecars = @($missing.ToArray())
     }
+}
+
+function Assert-AcceptanceResourcesReady {
+    param([Parameter(Mandatory = $true)]$State)
+    if (@($State.missing_godot_sidecars).Count -gt 0) {
+        throw ('Runtime preparation incomplete; missing companions: ' +
+            ($State.missing_godot_sidecars -join ', '))
+    }
+}
+
+function Get-AcceptanceSidecarDifferences {
+    param([Parameter(Mandatory = $true)]$Baseline, [Parameter(Mandatory = $true)]$Current)
+    $old = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([StringComparer]::Ordinal)
+    foreach ($item in $Baseline.godot_sidecars) { $old.Add($item.path, $item) }
+    foreach ($item in $Current.godot_sidecars) {
+        if (-not $old.ContainsKey($item.path)) {
+            "Added companion: $($item.path)"
+            continue
+        }
+        $previous = $old[$item.path]
+        if ($previous.sha256 -cne $item.sha256 -or $previous.bytes -ne $item.bytes -or
+            $previous.source_path -cne $item.source_path) {
+            "Changed companion: $($item.path)"
+        }
+        [void]$old.Remove($item.path)
+    }
+    foreach ($path in $old.Keys) { "Removed companion: $path" }
 }
 
 function Assert-AcceptanceWorktreeStable {
@@ -87,7 +116,9 @@ function Assert-AcceptanceWorktreeStable {
         ($Current.git_status | ConvertTo-Json -Compress) -or
         (ConvertTo-Json -InputObject @($Baseline.godot_sidecars) -Depth 5 -Compress) -cne
         (ConvertTo-Json -InputObject @($Current.godot_sidecars) -Depth 5 -Compress))) {
-        throw 'Godot sidecar/configuration identity changed during capture.'
+        $details = @(Get-AcceptanceSidecarDifferences -Baseline $Baseline -Current $Current)
+        if ($details.Count -eq 0) { $details = @('Git status changed; compare the saved before/after manifests.') }
+        throw ('Godot sidecar/configuration identity changed during capture. ' + ($details -join '; '))
     }
 }
 
