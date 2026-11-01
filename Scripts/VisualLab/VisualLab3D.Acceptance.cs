@@ -323,7 +323,7 @@ public partial class VisualLab3D
     private void WriteNew(string filename, string text)
     {
         using var stream = new FileStream(Path.Combine(_reviewOutput, filename),
-            FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            FileMode.CreateNew, System.IO.FileAccess.Write, FileShare.None);
         using var writer = new StreamWriter(stream, new UTF8Encoding(false));
         writer.Write(text);
     }
