@@ -12,6 +12,7 @@ uniform vec4 blue_lagoon : source_color = vec4(0.115, 0.46, 0.53, 1.0);
 uniform vec4 shore_turquoise : source_color = vec4(0.27, 0.69, 0.63, 1.0);
 uniform vec4 foam_tint : source_color = vec4(0.84, 0.94, 0.83, 1.0);
 uniform float wave_speed = 0.39;
+uniform float review_time = -1.0; // Opt-in reproducible phase; negative uses TIME.
 uniform float water_detail = 1.0; // 0 Eco; 1 Balanced; uniform branch
 
 varying vec2 world_cells;
@@ -26,7 +27,7 @@ void fragment() {
     vec2 uv = clamp(world_cells / max(map_size, vec2(1.0)),
                     vec2(0.0005), vec2(0.9995));
     vec4 shore = texture(shore_mask, uv);
-    float t = TIME * wave_speed;
+    float t = (review_time < 0.0 ? TIME : review_time) * wave_speed;
     vec2 p = world_cells;
 
     // Two broad crossing swell waves: slow, calm motion with no geometry work.

@@ -2,7 +2,7 @@
 
 **Original stylized 3D living-world god sandbox** — island terrain, coastal water, forests, mountains, authored CC0 nature, human agents and god powers, with an orthographic/isometric camera. Inspired by the sandbox-simulation **genre**, not WorldBox proprietary art/source/UI.
 
-**Development state — reviewed 2026-11-01:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. Next is **V3.3 fixture → valid measurement/parity harness → Windows baseline acceptance**, then no-hole streaming and authoritative region simulation. A complete small-world gameplay loop precedes optional maximum-map expansion. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
+**Development state — reviewed 2026-11-01:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. The **V3.3 measurement/parity runner is implemented**; next is actual Windows baseline acceptance, then no-hole streaming and authoritative region simulation. A complete small-world gameplay loop precedes optional maximum-map expansion. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
 
 ## Start the approved 3D game (Windows, H: drive)
 
@@ -34,7 +34,7 @@ Set-Location 'H:\WorldForge-Sim'
 .\scripts\verify-v2-region-parity.ps1
 ```
 
-**Current limitation:** this wrapper does not yet accept `-WorldSeed`; its default run is not automatically a matched comparison with the reference mountain world. Seed/pose support is planned in #54. Current F9 captures a rolling engine-delta diagnostic, not a final monotonic scenario benchmark; see [ADR 0007](docs/decisions/0007-measurement-evidence-and-scenario-identity.md).
+The mirror wrapper now accepts `-WorldSeed 1315511732`. For matched camera, phase, timing windows and a validated direct/mirror bundle, use the [V3.3 acceptance runner](docs/V3_3_ACCEPTANCE_RUNNER.md). F9 now records monotonic intervals with a diagnostic JSON sidecar; its rolling mixed session is still not an isolated acceptance scenario.
 
 This **still runs the approved V2 renderer and camera** but accesses the existing 120×88 WorldState tiles through a bounded 64×64 `RegionStore` cache. It is not a playable 8192×8192 world. Do not run the user-rejected `RegionalWorldLab3D.tscn` for gameplay. Its engineering-only scripts require `-ExperimentalV3`.
 
@@ -52,6 +52,7 @@ This **still runs the approved V2 renderer and camera** but accesses the existin
 
 | Document | Why to read it |
 | --- | --- |
+| [V3.3 measurement runner](docs/V3_3_ACCEPTANCE_RUNNER.md) | One-command H: captures, exact fixture, output schema and remaining manual gates |
 | [Documentation guide](docs/README.md) | Current vs historical documents and where each kind of evidence belongs |
 | [نقشهٔ راه فارسی](docs/ROADMAP_FA.md) | توضیح مراحل، وابستگی‌ها، معیار پایان و اقدام بعدی |
 | [Repository audit](docs/REPOSITORY_AUDIT_2026-11-01.md) | Source findings, risks, current evidence and concrete follow-up |

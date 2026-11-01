@@ -86,7 +86,7 @@ operator_approved: null
 deviations: []
 ```
 
-All fields `null` mean **unknown or not measured**, not zero. This is the target schema; the current F9 exporter does not produce it. Candidate and baseline captures must have matching scenario identity. A truncated or mismatched capture has `capture_valid: false` and cannot produce a performance PASS. If automated script cannot sample GPU/VRAM, report "unavailable" explicitly rather than guessing. If `git status` shows user-modified `project.godot`, record it but DO NOT reset it.
+All fields `null` mean **unknown or not measured**, not zero. This is the target schema; the standalone F9 diagnostic does not produce the full host bundle; the [scenario runner](V3_3_ACCEPTANCE_RUNNER.md) supplies nested fixture/statistics metadata and raw capture files. Candidate and baseline captures must have matching scenario identity. A truncated or mismatched capture has `capture_valid: false` and cannot produce a performance PASS. If automated script cannot sample GPU/VRAM, report "unavailable" explicitly rather than guessing. If `git status` shows user-modified `project.godot`, record it but DO NOT reset it.
 
 ## B. Exact user interaction scenarios
 
@@ -113,7 +113,7 @@ The currently merged V2 scene only supports portions of this matrix. **Do not ma
 
 1. Close the editor if it hangs; use **standalone** `run-visual-lab.ps1` or `verify-v2-art.ps1`, not an embedded Godot editor session.
 2. Collect `git rev-parse HEAD`, `git status --short`, Godot console version/render driver and selected seed before each run.
-3. Warm up 10 seconds after first visible terrain; run separate 30s idle, 60s right-drag, 30s zoom and 30s paint scenarios. The current F9 rolling CSV has no timestamps/reset and cannot be reliably time-filtered retrospectively. Implement explicit scenario boundaries/reset and monotonic samples in #54 before numerical acceptance. Do not treat a retained 7,200-sample tail as the entire session.
+3. Warm up 10 seconds after first visible terrain; run separate 30s idle, 60s right-drag, 30s zoom and 30s paint scenarios. Legacy F9 CSVs have no timestamps/reset and cannot be time-filtered retrospectively. New F9 is a mixed rolling monotonic diagnostic; use the implemented scenario runner for reset/stop and complete-window validation. Do not treat a retained 7,200-sample tail as the entire session.
 4. Match seed, dimensions, backend except the tested variable, camera pose/actions, viewport, quality/slope mode, tick/speed, render phase, build configuration, VSync/FPS cap and engine/driver. Aim for 3 passes per scenario and report every pass/run count; deviations remain explicit. Images need matching visual phase, not just the same seed.
 5. Derive p50/p95/p99/max from monotonic callback intervals using the documented nearest-rank convention; report >50/>100ms counts, sample loss and actual duration. Mean FPS = sample count divided by summed valid interval seconds, not average instantaneous FPS. Keep engine delta and managed/native stage timings separately named; none alone is a GPU execution timer.
 6. An input-handler timestamp to camera-transform update measures an application interval; it excludes hardware/OS/presentation delay. Record physical input-to-display latency only with an appropriate measurement method. Use coverage/queue counters for missing terrain; a stationary 60-FPS screenshot proves neither responsive motion nor continuous coverage.
@@ -158,9 +158,9 @@ git status --short
 
 **Existing hotkeys:** F4 quality, F5 facet relief, F6 smooth/legacy slope, F7 sculpt mode, F8 screenshot PNG, F9 frame CSV, F10 diagnostic counters, F11/F12 elevation save/load, right mouse drag and wheel zoom. Actual available features depend on selected scene.
 
-**Current mirror-wrapper limitation:** it does not yet accept `-WorldSeed`; running the two commands above does not by itself guarantee a matched reference-seed comparison. Seed/pose forwarding belongs to #54. Reference-seed CPU parity and combined headless boot coverage are included in this repository revision.
+**Current implementation:** the mirror wrapper accepts `-WorldSeed 1315511732`. The [scenario runner](V3_3_ACCEPTANCE_RUNNER.md) supplies camera/phase parity, monotonic capture and validated bundles. Its paused scripted tests do not replace manual input/live-simulation/visual gates.
 
-**Planned command, not yet implemented:** `scripts/run-v3-3-acceptance.ps1`; its goal is one reproducible test command with SHA/state and CSV/PNG evidence bundle, Windows PowerShell 5.1 syntax validation, PASS/FAIL summary and cleanup.
+**Implemented command:** `scripts/run-v3-3-acceptance.ps1 -Scenario idle -Repeats 1` for an initial matched bundle. The report distinguishes VALID capture integrity from PENDING physical/product acceptance; failed/partial outputs are retained.
 
 ## F. Release summary template
 

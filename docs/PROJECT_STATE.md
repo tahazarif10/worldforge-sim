@@ -10,9 +10,9 @@ baseline_engine_ci_run: 41105302717
 windows_verified_commit: null
 user_accepted_visual_commit: null
 completed_through: V3.2-engineering
-active_milestone: V3.3.0
-active_status: "Source audit and roadmap updated; fixture and measurement harness next; real Windows performance and corrected summit acceptance pending"
-next_gate: "Define #53 fixture, implement #54 monotonic scenario/seed harness, then complete #53 Windows direct/mirror acceptance"
+active_milestone: V3.3.1
+active_status: "Monotonic capture, fixed scenario fixture and H: runner implemented; actual Windows and user acceptance pending"
+next_gate: "Run H: acceptance runner on reference seed; review valid direct/mirror captures and complete #53 manual visual/input gates"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
@@ -64,10 +64,20 @@ The above numeric PR50 counts are code/test counts, **not a pixel-level proof of
 - Existing core baseline: [run 41109317518](https://github.com/tahazarif10/worldforge-sim/actions/runs/41109317518), head `bf70b825528dda2f2bf8fee16e9f7245ec016c15`, success.
 - Existing engine baseline: [run 41105302717](https://github.com/tahazarif10/worldforge-sim/actions/runs/41105302717), head `41eaaba01e9a6678583c376f7f841751ae4506e6`, success. This is an earlier PR #51 head, not a fresh engine run on audited main.
 - This revision adds the documentation index, [Persian roadmap](ROADMAP_FA.md), [source audit](REPOSITORY_AUDIT_2026-11-01.md), [ADR 0007](decisions/0007-measurement-evidence-and-scenario-identity.md), contributor templates, broader engine triggers and reference-seed direct/mirror regression coverage. Its own CI evidence is recorded on its PR; do not substitute the baseline runs above.
-- Runtime measurement/streaming/save/entity mechanisms remain planned. Current F9 captures engine delta in a 7,200-sample rolling buffer without scenario timestamps. Final numerical acceptance requires the #54 monotonic/scenario implementation.
+- At that audit, measurement/streaming/save/entity mechanisms were planned and F9 used rolling engine delta. The V3.3.1 implementation below supersedes the measurement status; streaming, transactional world saves and regional entities remain planned.
 - Windows candidate SHA, corrected-summit approval and sustained GPU/input measurements are still **PENDING**. No automated run fills those fields.
 
 The detailed audit also identifies main-thread edit/upload work, three-cell foam halo requirements, unbounded retained edit metadata, direct WorldState terrain reads, and simulation/RNG/save contracts required before scaling.
+
+### V3.3.1 capture implementation
+
+| Deliverable | Status |
+| --- | --- |
+| Monotonic callback capture, engine delta separate, reset/stop/overflow and timestamps | Implemented; meaningful correctness tests added |
+| Fixed seed/camera/quality/phase and idle/pan/zoom/paint traces | Implemented, opt-in; simulation paused |
+| H: PowerShell runner, metadata/raw frames/pose traces/images/hashes | Implemented; shared validator fails incomplete or mismatched captures |
+| F9 monotonic rolling diagnostic and mirror -WorldSeed | Implemented |
+| Real target-host run, image/control verdict and live simulation/input scenarios | PENDING |
 
 ## Current hardware and local rules
 
@@ -85,18 +95,15 @@ The detailed audit also identifies main-thread edit/upload work, three-cell foam
 4. **Physical gate missing:** matched direct/mirror screenshot and drag/wheel input performance, p50/p95/p99 on R9 M395X. User approvals are a distinct column.
 5. **Actual huge-world save/restore** missing; per-region checksummed files are not yet a durable all-regions transaction.
 
-## Next action: V3.3.0 — golden host acceptance and camera/art parity
+## Next action: V3.3.1 implementation → V3.3.0 host acceptance
 
 **Live tracker:** [#52](https://github.com/tahazarif10/worldforge-sim/issues/52); implementation/evidence slices [#53](https://github.com/tahazarif10/worldforge-sim/issues/53), [#54](https://github.com/tahazarif10/worldforge-sim/issues/54).
 
-**Next engineering order:**
+**V3.3.1 measurement foundation is implemented.** The [runner guide](V3_3_ACCEPTANCE_RUNNER.md) specifies the fixed camera/seed/phase fixture, four scripted scenarios, monotonic timestamps, bounded capture, raw-statistics validation, H: output layout and limitations. The mirror verifier now forwards `-WorldSeed`.
 
-1. #53 fixes the reference seeds, camera/actions, viewport/quality and image fixture. Existing H: launch can collect the corrected-summit screenshot now.
-2. #54 adds monotonic timestamps, scenario start/end/reset, completeness/overflow reporting, matched mirror seed/pose and the H: acceptance runner. The planned `scripts/run-v3-3-acceptance.ps1` does **not** exist yet.
-3. #53 completes real matched direct/mirror runs and p50/p95/p99/stall reporting from valid windows; user reviews the art/camera.
-4. #52 closes only with that evidence. V3.4 user-facing advancement remains blocked by the baseline; later world-size tiers do not bypass the gate.
+Next: run `.\scripts\run-v3-3-acceptance.ps1 -Scenario idle -Repeats 1` on the target host, inspect the bundle, then collect the full repeated matrix and the remaining manual #53 scenarios. The runner deliberately pauses simulation and invokes camera/brush methods; physical input latency, live simulation, art approval and save/load remain separate.
 
-Existing `verify-v2-region-parity.ps1` does not accept `-WorldSeed`. Do not describe its default run as an exact comparison with the mountain reference until forwarding/fixture support exists. Current F9 is useful diagnostics, not final wall-clock acceptance. See [ADR 0007](decisions/0007-measurement-evidence-and-scenario-identity.md).
+The implementation's exact-head core, PowerShell and official-engine CI results are recorded in its PR. No Linux/headless or hosted Windows script test establishes R9 M395X GPU acceptance. #52/#53/#54 stay open for remaining evidence; V3.4 promotion remains blocked.
 
 ### Existing commands
 

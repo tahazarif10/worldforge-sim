@@ -168,6 +168,15 @@ public partial class VisualTerrain3D : Node3D
             ApplyShadowTier(foliage);
     }
 
+    // Negative value preserves the ordinary engine TIME animation.
+    public void SetReviewWaterTime(float seconds)
+    {
+        if (!float.IsFinite(seconds) || seconds < -1)
+            throw new ArgumentOutOfRangeException(nameof(seconds));
+        if (_water?.MaterialOverride is ShaderMaterial water)
+            water.SetShaderParameter("review_time", seconds);
+    }
+
     private void ApplyShadowTier(Node3D chunk)
     {
         foreach (Node node in chunk.GetChildren())

@@ -49,6 +49,22 @@ public sealed class StrategyCameraRig
         RefreshCamera();
     }
 
+    // Opt-in review fixtures use the same rig without changing normal input.
+    public CameraReviewPose ReviewPose => new(_pivot.X, _pivot.Z, _size);
+
+    public void RestoreReviewPose(CameraReviewPose pose)
+    {
+        if (!float.IsFinite(pose.PivotX) || !float.IsFinite(pose.PivotZ) ||
+            !float.IsFinite(pose.Size) || pose.PivotX < 0 || pose.PivotX > _width ||
+            pose.PivotZ < 0 || pose.PivotZ > _height ||
+            pose.Size < MinimumSize || pose.Size > MaximumSize)
+            throw new ArgumentOutOfRangeException(nameof(pose));
+        _dragging = false;
+        _pivot = new Vector3(pose.PivotX, 0, pose.PivotZ);
+        _size = pose.Size;
+        RefreshCamera();
+    }
+
     public void BeginDrag(Vector2 screen)
     {
         float elevation = TryPickTerrain(screen, out var hit) ? hit.Point.Y : 0.12f;
@@ -147,3 +163,5 @@ public sealed class StrategyCameraRig
 
     private static Num3 ToNum(Vector3 v) => new(v.X, v.Y, v.Z);
 }
+
+public readonly record struct CameraReviewPose(float PivotX, float PivotZ, float Size);

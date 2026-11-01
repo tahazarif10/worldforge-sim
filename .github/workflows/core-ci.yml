@@ -71,3 +71,12 @@ jobs:
         run: dotnet run --project tests/TerrainBackendParity.Smoke/TerrainBackendParity.Smoke.csproj -c Release
       - name: Build Godot C# project (compilation only)
         run: dotnet build WorldForgeSim.csproj -c Debug --disable-build-servers -p:UseSharedCompilation=false
+
+  acceptance-powershell:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Windows PowerShell 5.1 parsing and evidence failure cases
+        shell: powershell
+        run: .\tests\AcceptanceBundle.Smoke\verify.ps1

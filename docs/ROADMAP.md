@@ -65,12 +65,14 @@ Do not require a completed numerical baseline to begin the harness needed to mea
 **V3.3.0 — Lock the reference scene and art contract**
 - Fix representative world seeds: `1315511732` (user's mountain ridge) and `20261030` (default), plus one new randomized seed recorded verbatim. State that `20261030` may contain **zero mountains**.
 - Lock 1280×800 window screenshot/camera pose, orthographic size, Eco/Balanced mode and fixed camera interaction script; H:-only screenshot and frame exports.
-- Capture the user's actual V2 reference scene and corrected summit. Screenshots can establish the art fixture now. Finish quantitative acceptance only after V3.3.1 supplies valid clock/scenario samples; current F9 is a rolling engine-delta diagnostic, not that final evidence.
+- Capture the user's actual V2 reference scene and corrected summit. Screenshots can establish the art fixture now. Finish quantitative acceptance only after V3.3.1 supplies valid clock/scenario samples; legacy F9 was a rolling engine-delta diagnostic, not that final evidence.
 - After instrumentation: measure monotonic callback intervals, p50/p95/p99/max, count of stalls, mesh/upload/edit cost and GC; RAM/VRAM only where observable. Label handler-to-camera timing separately from physical input-to-display latency.
 - Fix reference record: Windows build, Godot/.NET version, branch SHA, GPU driver, viewport, zoom, seed, quality flag, elapsed warm-up, exact test commands.
 
 **V3.3.1 — Instrumentation / parity harness**
-- Add **one-command PowerShell 5.1-compatible, H:-only** acceptance runner (future file `scripts/run-v3-3-acceptance.ps1`, **not yet present**); avoid modifying `project.godot`.
+
+**Implementation update:** the first capture/fixture/runner foundation is now present; [guide and limitations](V3_3_ACCEPTANCE_RUNNER.md). The requirements below remain the full acceptance contract; real input latency, live simulation and user-host verification are still pending.
+- Add **one-command PowerShell 5.1-compatible, H:-only** acceptance runner (implemented file `scripts/run-v3-3-acceptance.ps1`; see [runner guide](V3_3_ACCEPTANCE_RUNNER.md)); avoid modifying `project.godot`.
 - Compare direct `WorldState` and opt-in `RegionMirrorTerrainSource` in the SAME V2 renderer/camera at the SAME seed; F8 image and F9 frame samples. No separate V3 scene.
 - Replace acceptance use of `_Process delta` with monotonic intervals (`Time.GetTicksUsec` or consistently used `Stopwatch`); keep engine delta separately. Add session/scenario/elapsed timestamps, warm-up/start/end/reset, explicit sample overflow and p50/p95/p99 conventions.
 - Forward the same optional seed through the mirror launcher; capture/replay camera pivot/size/actions, simulation tick/speed and animated render phase. Record build configuration, VSync/FPS cap, slope mode, renderer/driver and local configuration differences.
@@ -203,7 +205,7 @@ No proprietary WorldBox art, music, code or game data.
 | G6 — persistence | Crash/corrupt/wrong-seed save recovery across region boundaries | Do not call save production-ready |
 | G7 — provenance/release | Original/CC0 license, no external proprietary assets, release SHA and docs | Block public release |
 
-**Provisional performance objectives (not achieved claims):** Eco mode aims for sustained ≳30 FPS at 1280×800 on the R9 M395X. For perspective, 33.33 ms/frame corresponds to 30 FPS and 16.67 ms to 60 FPS. A stronger p95 objective is <=33.3 ms with no recurring >100 ms stalls during pan/zoom; thresholds must be compared with physical V2 baseline and adjusted only by recorded decision. FPS HUD averages and the current rolling engine-delta CSV **cannot substitute for complete monotonic scenario captures**. A lower detail/LOD tier must not produce missing geometry or destroy near-field art.
+**Provisional performance objectives (not achieved claims):** Eco mode aims for sustained ≳30 FPS at 1280×800 on the R9 M395X. For perspective, 33.33 ms/frame corresponds to 30 FPS and 16.67 ms to 60 FPS. A stronger p95 objective is <=33.3 ms with no recurring >100 ms stalls during pan/zoom; thresholds must be compared with physical V2 baseline and adjusted only by recorded decision. FPS HUD averages and an unlabeled legacy engine-delta CSV **cannot substitute for complete monotonic scenario captures**. A lower detail/LOD tier must not produce missing geometry or destroy near-field art.
 
 ## 5. Repeatable local commands and required evidence
 
@@ -225,7 +227,7 @@ git pull --ff-only origin main
 .\scripts\verify-v2-art.ps1 -WorldSeed 1315511732
 ```
 
-In the running game: **F8** H:-based PNG; **F9** frame-time CSV; **F10** chunk diagnostics; **F4** Eco/Balanced; **F6** slope comparison. The new master acceptance runner named in V3.3 is a **planned deliverable**, not a command users can run today.
+In the running game: **F8** H:-based PNG; **F9** frame-time CSV; **F10** chunk diagnostics; **F4** Eco/Balanced; **F6** slope comparison. The [V3.3 acceptance runner](V3_3_ACCEPTANCE_RUNNER.md) is now implemented. Run `scripts/run-v3-3-acceptance.ps1 -Scenario idle -Repeats 1` for the first host bundle; physical approval remains pending.
 
 Each milestone evidence bundle shall record: Git branch/SHA, seed, camera angle/size, 1280×800 (or actual recorded viewport), Eco/Balanced, Windows/GPU/driver, Godot/.NET, 30–60s matched action trace, p50/p95/p99/max, RAM/VRAM if observable, counts of active/pending chunks, screenshot paths, CI run IDs, result FAIL/PASS/PENDING for **each** gate, known limitations and the user's art/UX verdict.
 

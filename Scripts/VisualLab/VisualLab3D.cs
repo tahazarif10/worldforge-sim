@@ -39,7 +39,7 @@ public partial class VisualLab3D : Node3D
     private int _frames;
     private bool _ecoMode;
     private bool _heightSculptMode;
-    private readonly WorldForge.Instrumentation.FrameTimeProbe _frameProbe = new();
+    private readonly WorldForge.Instrumentation.FrameCapture _frameProbe = new(7200);
 
     public override void _Ready()
     {
@@ -94,6 +94,8 @@ public partial class VisualLab3D : Node3D
             (x,y,u,v) => _terrain.SurfaceHeightAt(x,y,u,v));
         _terrain.UpdateVisibility(_camera, maxNewChunks: 64);
         SetupHud();
+        _frameProbe.Begin("interactive-" + Guid.NewGuid().ToString("N"), "mixed");
+        InitializeAcceptance();
     }
 
     private static int InitialSeed()
@@ -184,13 +186,15 @@ public partial class VisualLab3D : Node3D
 
     public override void _Process(double delta)
     {
-        _frameProbe.Record(delta * 1000.0);
+        ulong nowUs = Time.GetTicksUsec();
+        _frameProbe.Record(nowUs, delta * 1000.0);
+        ProcessAcceptance(nowUs, delta);
         Vector2 keys = Vector2.Zero;
         if (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left)) keys.X -= 1f;
         if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right)) keys.X += 1f;
         if (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up)) keys.Y += 1f;
         if (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down)) keys.Y -= 1f;
-        if (keys.LengthSquared() > 0.01f)
+        if (_acceptanceOptions is null && keys.LengthSquared() > 0.01f)
         {
             _cameraRig.PanByKeyboard(keys, delta);
         }
@@ -274,6 +278,7 @@ public partial class VisualLab3D : Node3D
 
     public override void _UnhandledInput(InputEvent input)
     {
+        if (_acceptanceOptions is not null) return;
         if (input is InputEventMouseButton mb)
         {
             if (mb.ButtonIndex == MouseButton.WheelUp && mb.Pressed)
@@ -317,15 +322,7 @@ public partial class VisualLab3D : Node3D
             }
             if (k.Keycode == Key.F4)
             {
-                _ecoMode = !_ecoMode;
-                _terrain.SetEcoMode(_ecoMode);
-                _sun.ShadowEnabled = !_ecoMode;
-                _citizens.CastShadow = _ecoMode
-                    ? GeometryInstance3D.ShadowCastingSetting.Off
-                    : GeometryInstance3D.ShadowCastingSetting.On;
-                GD.Print("V2 quality tier: " +
-                    (_ecoMode ? "ECO (no dynamic shadows, reduced water math, 2 chunks/pass)" :
-                                "BALANCED (full authored art, shadows and detailed water)"));
+                SetQualityTier(!_ecoMode);
             }
             if (k.Keycode == Key.F7)
             {
@@ -433,6 +430,14 @@ public partial class VisualLab3D : Node3D
             string name = "v2-frames-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".csv";
             string destination = Path.Combine(folder, name);
             File.WriteAllText(destination, _frameProbe.ExportCsv());
+            File.WriteAllText(Path.ChangeExtension(destination, ".json"),
+                System.Text.Json.JsonSerializer.Serialize(new {
+                    evidence_schema = 2,
+                    kind = "mixed-interactive-diagnostic",
+                    clock_source = "Godot.Time.GetTicksUsec",
+                    capture_valid = false, // No isolated scenario or completed window.
+                    statistics = _frameProbe.Summarize()
+                }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
             var summary = _frameProbe.Summarize();
             GD.Print($"Saved {summary.Count} frame intervals to {destination}; " +
                 $"p95={summary.P95Ms:F2} ms, p99={summary.P99Ms:F2} ms, max={summary.MaxMs:F2} ms.");

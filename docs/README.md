@@ -43,8 +43,8 @@ Do not delete or silently rewrite historical verdicts. When a current contract c
 5. Use generic technical questions for public research. Never place project identifiers, source excerpts or user evidence in public search queries.
 6. Repository documentation and contributor templates are checked by [Documentation.Smoke](../tests/Documentation.Smoke/verify.py). Automated checks validate structure and links, not the truth of a physical performance claim.
 
-## Immediate execution order
+## Current execution order
 
 `#53 reference fixture` → `#54 valid measurement/parity harness` → `#53 numerical Windows acceptance` → `#52 V3.3 gate`.
 
-Reference screenshots can be collected now. Numeric acceptance requires a monotonic clock and identifiable scenario samples; the current F9 rolling engine-delta CSV is diagnostic only. See [ADR 0007](decisions/0007-measurement-evidence-and-scenario-identity.md).
+The [V3.3 runner](V3_3_ACCEPTANCE_RUNNER.md) now provides monotonic scenario captures, seed/pose/phase fixtures and validation. Next: run the H: host bundle and complete manual #53 gates. F9 is a rolling monotonic diagnostic; old engine-delta files remain historical.
