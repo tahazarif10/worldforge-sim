@@ -1,15 +1,14 @@
-# Engineering workflow — WorldForge Sim (Local Copilot-grade)
+# Engineering workflow — WorldForge Sim
 
-**2026-10-30.** Based on the established small-milestone, ADR, tests, physical acceptance and evidence discipline used in the user's local-ai-desktop-copilot project. WorldForge has its own unique **visual / low-end GPU gate**; do not transplant the copilot's privacy requirements as game architecture requirements.
+**Reviewed 2026-11-01.** Small milestones, explicit decisions, focused verification and recorded evidence govern delivery. The project has a distinct physical visual/input/performance gate on the target Windows GPU.
 
 ## 1. Order of authority
 
-1. User's latest approved actual gameplay/art screenshot and explicit feedback; **do not overrule with CI**.
-2. [PROJECT_STATE](PROJECT_STATE.md) — factual code/evidence state (not the wish list).
-3. Accepted [ADRs](decisions/README.md) — architecture commitments and reasons.
-4. [ROADMAP](ROADMAP.md) — planned milestone dependencies and exit gates.
-5. [V3 Architecture](V3_ARCHITECTURE.md), [Research](V3_TECHNICAL_RESEARCH_2026.md), [Acceptance Matrix](V3_ACCEPTANCE_MATRIX.md).
-6. Existing implementation and tests; resolve differences explicitly instead of silently overwriting docs.
+**Normative decisions:** current user instructions, accepted visual feedback, repository policy and accepted ADRs define constraints. The roadmap defines planned dependencies; it cannot override an explicit user decision.
+
+**Factual evidence:** exact source, tests and actual run artifacts establish what exists and was exercised. PROJECT_STATE summarizes that evidence; documentation never outranks observed source about whether a feature is implemented. If they disagree, record the discrepancy and correct the state/plan rather than silently changing runtime behavior to match a stale sentence.
+
+Read the [documentation guide](README.md), [state](PROJECT_STATE.md), [ADRs](decisions/README.md), [roadmap](ROADMAP.md), [architecture](V3_ARCHITECTURE.md), [research](V3_TECHNICAL_RESEARCH_2026.md) and [acceptance](V3_ACCEPTANCE_MATRIX.md) for their respective roles.
 
 Before any proposal or code change, check `README.md`, `AGENTS.md`, target files, current Git branch/tree state, open blockers, last merge and most recent real Windows evidence. Differentiate old 2D prototype, approved V2 and user-rejected V3.
 
@@ -23,17 +22,17 @@ Every slice must be small enough to review in one PR and contain:
 - **Architecture contract**: authoritative data owner, cache, region/chunk scope, thread/resource ownership, world-seed/epoch, stale-work cancellation, save/version.
 - **Budget**: memory, region/chunk caps and per-frame upload/p95 objectives (as measured or explicitly provisional).
 - **Failure modes**: missing GLB, stale region, corrupt save, wrong seed, rapid pan/zoom, large viewport, shutdown while work pending, negative/global coordinates.
-- **Pure deterministic tests** with exact `dotnet` commands, expected PASS/FAIL; changed files and API compatibility.
+- **Relevant deterministic tests** for changed behavior/failure cases, with exact commands and results. Use existing documentation/link checks for document changes; do not add tautological tests or require irrelevant runtime tests for prose edits.
 - **Godot import/compile/start** with exact engine version and screenshot reference seed.
 - **Physical Windows manual scenario** with exact world seed, camera, viewport, movement, F8/F9/F10 paths, user verdict.
 - **Rollback**: flag OFF or restore previous accepted main; never delete local user files or reset `project.godot`.
-- **Evidence**: CI run link, exact HEAD, screenshot CSV, quantitative result and known untested work.
+- **Evidence**: CI run link and its actual head, runtime reference SHA, Windows candidate SHA, raw scenario samples/images, quantitative results and unknowns. Distinguish commit identity from the user's aesthetic approval.
 
 One issue per small slice; parent issue tracks stage with checklist and acceptance blocking dependencies. Avoid large branches that conflate art redesign, streaming, AI, UI, and save redesign.
 
 ## 3. Safe local H: preflight
 
-All intentional SDK, Godot, H:-portable `_sc_`, project build/cache/NuGet/TEMP/logs/asset downloads remain on **H:\\WorldForge-Sim**. This rule cannot control third-party Windows OS-managed C: writes; do not make untestable guarantees.
+On the user's Windows machine, intentional SDK/Godot, portable `_sc_`, project builds/caches/NuGet/TEMP/logs and asset downloads remain under **H:\WorldForge-Sim**. GitHub-hosted Linux CI uses its isolated runner workspace and temporary paths. This rule cannot control third-party Windows OS-managed C: writes; do not make untestable guarantees.
 
 PowerShell **5.1 compatible** commands preferred. Never intentionally reset user-local modified `project.godot`:
 
@@ -58,9 +57,9 @@ For each new architectural change:
 2. Browse up-to-date **official Godot** documentation and relevant license/art sources; record publication/version and links. Compare at least two feasible approaches and explicit rejection of attractive but unsupported ones.
 3. State one falsifiable implementation hypothesis; e.g. "native main-thread upload, not pure C# vertex generation, dominates p99 stalls" with counters to isolate both durations.
 4. Add/update ADR for renderer/camera, tile authority, threading, queue/drop policy, world save format or dependency order, **before** a new incompatible architecture.
-5. Add Godot-independent C# tests first where possible; do not instantiate GPU scene just to test region arithmetic or stale tokens.
+5. For behavior changes, add focused Godot-independent checks where useful; avoid GPU scene setup for pure region arithmetic or stale-result policy. Document-only edits use the documentation guard.
 6. Implement a narrow adapter behind explicit opt-in; do not replace approved art/camera or make unrequested gameplay changes.
-7. Run *focused* tests and then *full* core + engine CI. Diagnose failures rather than modifying unrelated subsystems to achieve a green badge.
+7. Run relevant focused checks and applicable CI. Runtime changes require core plus engine coverage; documentation changes use their required gates. Broaden testing only to resolve a concrete risk. Diagnose failures rather than weakening safety guards.
 8. If the feature changes what the user sees or touches, obtain **actual Windows F8/F9 and user verdict before promoting to default**.
 
 Do not assume that building successfully on Linux proves R9 M395X Compatibility features, performance, or exact screenshot quality.
@@ -91,16 +90,12 @@ A PR summary must contain:
 
 ## 6. Diagnostic loop and rollback
 
-```text
-Observed failure (seed / screenshot / frame CSV / camera action)
-    -> exact reproducible case
-    -> one bounded hypothesis + required counters
-    -> smallest code/test change behind opt-in
-    -> core tests + official Godot CI
-    -> H: Windows exact-seed runtime A/B
-    -> PASS / FAIL / UNKNOWN with evidence
-    -> keep, adjust, or revert; update state and issue
-```
+1. Record exact failure, source SHA, seed, scenario and raw evidence.
+2. Form one falsifiable hypothesis and identify the counters needed.
+3. Make the smallest reversible change and run relevant correctness/engine checks.
+4. Repeat the matched H: Windows scenario with valid monotonic capture.
+5. Keep, revise or revert based on evidence; update state, issue and any affected ADR.
+
 
 Do not:
 - "optimize" by discarding visible chunks without fallback;
@@ -151,7 +146,7 @@ Next exact command:
 
 ## 8. Documentation hygiene
 
-- `PROJECT_STATE.md` is **current factual status**, with frontmatter `state_schema`, `reference_code_commit`, `last_verified_date`, `completed_through`, `active_milestone`, `active_status`, `next_gate`, `open_blockers`.
+- `PROJECT_STATE.md` is the factual ledger. Its schema distinguishes last runtime reference, audited repository commit, baseline core/engine CI heads/runs and unknown Windows/visual SHA. Dates record evidence review, not fictitious new test execution.
 - `ROADMAP.md` defines future ordering and exit gates. A proposal is not an implementation record.
 - ADRs record stable *choices*, not all low-level code detail.
 - `V3_TECHNICAL_RESEARCH_2026.md` records current sources, hypotheses and rejected options; update if new Godot feature or GPU evidence changes the decision.
@@ -162,3 +157,18 @@ Next exact command:
 ## 9. Long-run priorities
 
 **Engineering invariants:** gameplay fidelity and player trust > correctness/determinism > observable stability > bounded performance > polish. The user wants a premium art style **and** playable older-machine performance. No tradeoff is allowed silently; expose it as a measured choice and ask for aesthetic approval only at a real checkpoint.
+
+
+## 10. Project-scoped handling and research
+
+Authorized destinations are this repository and the active project conversation. Do not copy project identifiers, source, screenshots or plans into unrelated chats, persistent personal memory, other assistants' tasks, external notes or public search queries. Public research uses generic technical questions and official documentation. Do not change repository visibility or licensing merely from a confidentiality preference.
+
+Do not initiate ChatGPT Work/Codex tasks without later explicit authorization. Direct repository operations and GitHub Actions are the current workflow; do not promise a particular account-credit outcome. These rules govern contributor actions, not platform-level retention, which a repository document cannot control.
+
+## 11. Review and milestone completion
+
+Before marking a slice complete, verify the diff against its stated scope, relative links and current milestone dependencies. CI evidence must identify the tested head and applicable workflows. Preserve historical evidence separately instead of replacing it with a newer unrun claim.
+
+For #52–#54, follow the fixture → instrumentation → numeric host acceptance order in ADR 0007. The current F9 output is a rolling engine-delta diagnostic. A merged documentation or instrumentation PR may complete its own deliverables while the physical acceptance issue remains open.
+
+The active implementer may make routine reversible engineering choices within the authorized task. A human checkpoint is for a concrete visual/product acceptance decision or missing access/evidence, not repeated permission for already-authorized repository maintenance.

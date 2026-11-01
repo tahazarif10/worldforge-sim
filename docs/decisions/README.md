@@ -15,10 +15,11 @@ ADRs explain **why** technical choices were made, how they are verified and whic
 | --- | --- | --- |
 | [0001](0001-preserve-v2-renderer-and-compatibility.md) | Accepted (codifies prior source and user direction) | Preserve one approved V2 art/camera pipeline, Compatibility baseline, human visual gate; independent V3 scene is not the user-facing target |
 | 0002 | Planned | Deterministic authoritative seeded biome/height region contract |
-| 0003 | Planned | Bounded latest-camera-wins worker pipeline and main-thread upload |
+| 0003 | Planned | Bounded demand-prioritized workers, data-validity checks and main-thread upload |
 | 0004 | Planned | LOD seam stitching, nonempty fallback visual coverage and coast halo |
-| 0005 | Planned | Crash-atomic multi-region save manifest and replay |
-| 0006 | Planned | Deterministic region/entity scheduling and inactive-area semantics |
+| 0005 | Planned | Transactional whole-world save: compare immutable files/manifest vs SQLite |
+| 0006 | Planned | Deterministic region/entity scheduling, versioned RNG and inactive-area semantics |
+| [0007](0007-measurement-evidence-and-scenario-identity.md) | Accepted contract; implementation pending | Monotonic measurement, exact scenario identity and fixture/harness/host acceptance order |
 
 Add an ADR when changing: visual backend, camera interaction contract, Godot render mode, data authority, region boundaries, thread/queue/cancellation semantics, save format, world generator or accepted milestone order.
 

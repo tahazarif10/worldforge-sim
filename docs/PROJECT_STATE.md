@@ -1,24 +1,31 @@
 ---
-state_schema: 2
+state_schema: 3
 reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
-last_verified_date: 2026-10-30
+last_verified_date: 2026-11-01
+audited_repository_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
+baseline_core_ci_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
+baseline_core_ci_run: 41109317518
+baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
+baseline_engine_ci_run: 41105302717
+windows_verified_commit: null
+user_accepted_visual_commit: null
 completed_through: V3.2-engineering
 active_milestone: V3.3.0
-active_status: "Planning/docs under review; real H:-Windows baseline measurements and new mountain screenshot acceptance are still pending"
-next_gate: "Golden V2 same-seed/screenshots/F9 p95-p99, identical direct vs RegionMirror input/art behavior on AMD R9 M395X"
+active_status: "Source audit and roadmap updated; fixture and measurement harness next; real Windows performance and corrected summit acceptance pending"
+next_gate: "Define #53 fixture, implement #54 monotonic scenario/seed harness, then complete #53 Windows direct/mirror acceptance"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
 
 # WorldForge Sim — factual project state
 
-**Current as of 2026-10-30.** This file is the factual status ledger, not the entire history and not a promise of future implementation. The prior chronology is preserved verbatim in [PROJECT_HISTORY_2026-10-30.md](PROJECT_HISTORY_2026-10-30.md). The actionable future plan is [ROADMAP.md](ROADMAP.md).
+**Source audit updated 2026-11-01.** This file is the factual status ledger, not the entire history and not a promise of future implementation. The prior chronology is preserved verbatim in [PROJECT_HISTORY_2026-10-30.md](PROJECT_HISTORY_2026-10-30.md). The actionable future plan is [ROADMAP.md](ROADMAP.md).
 
 ## Product status
 
 WorldForge Sim is an original **3D stylized isometric god-sandbox**. The user explicitly approved the **V2** visual direction, forest/water and camera after previously rejecting 2D pixel-art and then rejecting a standalone region-world V3.0 scene. The accepted *visual baseline* is the live V2 screenshot with world seed **1315511732**, AMD Radeon R9 M395X, Godot 4.7.2 Mono Compatibility/OpenGL and a visible HUD around 60 FPS/16.7ms for a short interval. That screenshot is evidence of a good appearance and a single instantaneous counter, **not 30–60s p95/p99 under pan/zoom stress**.
 
-The latest accepted code snapshot before this docs-only milestone is `main` merge **`9dc03c8aa608220971b1da3516074f8fd68508a8`** (PR #51), with prior mountain correction merge PR #50. User has not yet supplied a new F8 screenshot confirming the corrected mountain summit or the direct vs mirrored 3D frame-time comparison. Do **not** mislabel new mountain art as user accepted merely because merged/Godot CI passed.
+The last runtime-code merge before this audit was **`9dc03c8aa608220971b1da3516074f8fd68508a8`** (PR #51), with prior mountain correction PR #50. Audited main was **`bf70b825528dda2f2bf8fee16e9f7245ec016c15`** after documentation PR #58. Neither reference establishes an exact user-accepted visual commit; that field remains unknown. User has not yet supplied a new F8 screenshot confirming the corrected mountain summit or the direct vs mirrored 3D frame-time comparison. Do **not** mislabel new mountain art as user accepted merely because merged/Godot CI passed.
 
 ### Code scope in main
 
@@ -52,6 +59,16 @@ The latest accepted code snapshot before this docs-only milestone is `main` merg
 
 The above numeric PR50 counts are code/test counts, **not a pixel-level proof of improved art**. The existing V2 HUD screenshot had 60 FPS and 16.7 ms worst in one displayed 1-second interval; this is not an AMD frame-time distribution nor a guaranteed sustained 60 FPS.
 
+### Audit and repository engineering update — 2026-11-01
+
+- Existing core baseline: [run 41109317518](https://github.com/tahazarif10/worldforge-sim/actions/runs/41109317518), head `bf70b825528dda2f2bf8fee16e9f7245ec016c15`, success.
+- Existing engine baseline: [run 41105302717](https://github.com/tahazarif10/worldforge-sim/actions/runs/41105302717), head `41eaaba01e9a6678583c376f7f841751ae4506e6`, success. This is an earlier PR #51 head, not a fresh engine run on audited main.
+- This revision adds the documentation index, [Persian roadmap](ROADMAP_FA.md), [source audit](REPOSITORY_AUDIT_2026-11-01.md), [ADR 0007](decisions/0007-measurement-evidence-and-scenario-identity.md), contributor templates, broader engine triggers and reference-seed direct/mirror regression coverage. Its own CI evidence is recorded on its PR; do not substitute the baseline runs above.
+- Runtime measurement/streaming/save/entity mechanisms remain planned. Current F9 captures engine delta in a 7,200-sample rolling buffer without scenario timestamps. Final numerical acceptance requires the #54 monotonic/scenario implementation.
+- Windows candidate SHA, corrected-summit approval and sustained GPU/input measurements are still **PENDING**. No automated run fills those fields.
+
+The detailed audit also identifies main-thread edit/upload work, three-cell foam halo requirements, unbounded retained edit metadata, direct WorldState terrain reads, and simulation/RNG/save contracts required before scaling.
+
 ## Current hardware and local rules
 
 - User PC: Windows, Godot **4.7.2 Mono**, **.NET 10**, GPU **AMD Radeon R9 M395X**, Compatibility/OpenGL renderer.
@@ -72,13 +89,14 @@ The above numeric PR50 counts are code/test counts, **not a pixel-level proof of
 
 **Live tracker:** [#52](https://github.com/tahazarif10/worldforge-sim/issues/52); implementation/evidence slices [#53](https://github.com/tahazarif10/worldforge-sim/issues/53), [#54](https://github.com/tahazarif10/worldforge-sim/issues/54).
 
-**Do not start V3.4 or V3.5 data expansion as the next user-visible action.** First:
+**Next engineering order:**
 
-1. On H:-Windows, safely update main without touching `project.godot`.
-2. Run `.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732`, collect F8 summit/coast screenshot and F9 CSV after controlled pan/zoom.
-3. Run `.\scripts\verify-v2-region-parity.ps1` in same camera/viewport/seed where supported; extend runner with optional seed and pose if needed. Direct vs mirror must look and feel identical.
-4. Implement planned `scripts/run-v3-3-acceptance.ps1` wrapper in a **new implementation PR** (file does **not** exist yet), producing H:-only session result + hashes + matched scenarios. No scene changes required.
-5. Record quantitative baseline and explicit user art/camera verdict; then authorize V3.4 no-hole background/LOD architecture.
+1. #53 fixes the reference seeds, camera/actions, viewport/quality and image fixture. Existing H: launch can collect the corrected-summit screenshot now.
+2. #54 adds monotonic timestamps, scenario start/end/reset, completeness/overflow reporting, matched mirror seed/pose and the H: acceptance runner. The planned `scripts/run-v3-3-acceptance.ps1` does **not** exist yet.
+3. #53 completes real matched direct/mirror runs and p50/p95/p99/stall reporting from valid windows; user reviews the art/camera.
+4. #52 closes only with that evidence. V3.4 user-facing advancement remains blocked by the baseline; later world-size tiers do not bypass the gate.
+
+Existing `verify-v2-region-parity.ps1` does not accept `-WorldSeed`. Do not describe its default run as an exact comparison with the mountain reference until forwarding/fixture support exists. Current F9 is useful diagnostics, not final wall-clock acceptance. See [ADR 0007](decisions/0007-measurement-evidence-and-scenario-identity.md).
 
 ### Existing commands
 
@@ -98,6 +116,9 @@ Do not run `git reset --hard`, `git clean`, or auto-delete `.godot`/assets to "r
 
 ## Documentation pointers
 
+- [Documentation guide](README.md)
+- [نقشهٔ راه فارسی](ROADMAP_FA.md)
+- [Source audit](REPOSITORY_AUDIT_2026-11-01.md)
 - [Milestone roadmap](ROADMAP.md)
 - [Detailed engineering workflow](ENGINEERING_WORKFLOW.md)
 - [Source/data/renderer architecture](V3_ARCHITECTURE.md)

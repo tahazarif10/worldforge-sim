@@ -74,7 +74,8 @@ static void VisualData(ITerrainTileSource direct, ITerrainTileSource mirror)
     Check(true, "shared-corner heightfields and pick heights identical");
 }
 
-foreach(int seed in new[]{20261030, 99, -123456})
+// Include the user's mountain reference, not only the default world.
+foreach(int seed in new[]{20261030, 1315511732, 99, -123456})
 {
     var world=new WorldState(120,88,seed);
     var direct=new DirectWorldTerrainSource(world);

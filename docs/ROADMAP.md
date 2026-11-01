@@ -1,6 +1,6 @@
 # WorldForge Sim — engineering master roadmap
 
-> Source of truth for **future milestone order and release gates**, 2026-10-30.
+> Source of truth for **future milestone order and release gates**, reviewed 2026-11-01.
 > This replaces the obsolete 2D/pixel-art-first roadmap. For what is **actually
 > implemented**, see [PROJECT_STATE.md](PROJECT_STATE.md). Proposed numbers,
 > features and budgets below are targets, not claims that the game has them.
@@ -43,7 +43,18 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 
 ## 3. Dependency-ordered milestone plan
 
-**No milestone skips.** An engineering slice can merge behind an OFF-by-default flag after CI; user-facing promotion requires the appropriate Windows visual/input/performance gate. Each numbered sub-slice should have one issue, branch, focused tests, evidence bundle, reviewer-ready PR and state update.
+**Respect dependencies and evidence gates.** An engineering slice can merge behind an OFF-by-default flag after applicable CI; user-facing promotion requires the relevant Windows visual/input/performance gate. Each sub-slice has one issue, focused tests, a reviewable PR, evidence and a state update. Optional large-map tiers are not prerequisites for a complete small-world gameplay loop.
+
+The [2026-11-01 audit](REPOSITORY_AUDIT_2026-11-01.md) explains current code gaps. [ADR 0007](decisions/0007-measurement-evidence-and-scenario-identity.md) resolves measurement ordering:
+
+| Order | Deliverable | Completion evidence |
+| --- | --- | --- |
+| 1 — #53 fixture | Fix seeds, camera start/actions, viewport/quality; capture reference art | Reproducible fixture and images; numerical performance may remain pending |
+| 2 — #54 instrumentation | Monotonic clock, scenario boundaries, seed/pose parity, H: runner | Long-stall/reset/overflow tests, applicable engine CI, complete raw capture |
+| 3 — #53 host acceptance | Matched direct/mirror runs on R9 M395X | Valid isolated distributions, screenshots and user camera/art verdict |
+| 4 — #52 closure | Record baseline, deviations and accepted tolerances | All V3.3 physical gates satisfied; no inference from headless CI |
+
+Do not require a completed numerical baseline to begin the harness needed to measure it. Screenshot review can proceed immediately.
 
 ### ▶ V3.3 — Freeze / measure the approved 3D baseline (NEXT)
 
@@ -54,14 +65,17 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 **V3.3.0 — Lock the reference scene and art contract**
 - Fix representative world seeds: `1315511732` (user's mountain ridge) and `20261030` (default), plus one new randomized seed recorded verbatim. State that `20261030` may contain **zero mountains**.
 - Lock 1280×800 window screenshot/camera pose, orthographic size, Eco/Balanced mode and fixed camera interaction script; H:-only screenshot and frame exports.
-- Capture official user's *actual* V2 approved scene and new mountain fix. F8 screenshots and F9 CSV; do not claim automated pixel matching until reference images and matching camera poses exist.
-- Characterize baseline: CPU frame time, wall-clock frame intervals, p50/p95/p99/max, RAM/VRAM where available, terrain/foliage rebuild and GC, click->camera response.
+- Capture the user's actual V2 reference scene and corrected summit. Screenshots can establish the art fixture now. Finish quantitative acceptance only after V3.3.1 supplies valid clock/scenario samples; current F9 is a rolling engine-delta diagnostic, not that final evidence.
+- After instrumentation: measure monotonic callback intervals, p50/p95/p99/max, count of stalls, mesh/upload/edit cost and GC; RAM/VRAM only where observable. Label handler-to-camera timing separately from physical input-to-display latency.
 - Fix reference record: Windows build, Godot/.NET version, branch SHA, GPU driver, viewport, zoom, seed, quality flag, elapsed warm-up, exact test commands.
 
 **V3.3.1 — Instrumentation / parity harness**
 - Add **one-command PowerShell 5.1-compatible, H:-only** acceptance runner (future file `scripts/run-v3-3-acceptance.ps1`, **not yet present**); avoid modifying `project.godot`.
 - Compare direct `WorldState` and opt-in `RegionMirrorTerrainSource` in the SAME V2 renderer/camera at the SAME seed; F8 image and F9 frame samples. No separate V3 scene.
-- Record input-latency samples (right-drag, mouse-anchored wheel, brush screen-to-ground), missing geometry counts, artifact hashes and an explicit operator **accept/reject** field.
+- Replace acceptance use of `_Process delta` with monotonic intervals (`Time.GetTicksUsec` or consistently used `Stopwatch`); keep engine delta separately. Add session/scenario/elapsed timestamps, warm-up/start/end/reset, explicit sample overflow and p50/p95/p99 conventions.
+- Forward the same optional seed through the mirror launcher; capture/replay camera pivot/size/actions, simulation tick/speed and animated render phase. Record build configuration, VSync/FPS cap, slope mode, renderer/driver and local configuration differences.
+- Record application input-handler-to-camera intervals, missing geometry counts, artifact hashes and an explicit operator **accept/reject** field. Do not call application timing physical mouse-to-photon latency.
+- Validate with a fake-clock long stall, scenario reset, ring wrap/overflow, mismatched metadata and missing output cases. Capture screenshots/export outside timed intervals or mark their overhead. Keep sample memory bounded and reject incomplete windows.
 - Verify F2–F12 shortcuts, painting, citizen spawn and meteor, mid-frame camera edits, repeated new-world and failure recovery.
 
 **V3.3.2 — Triage any measured regression**
@@ -80,7 +94,7 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 **V3.4.1 — Pure viewport planner and residency contract**
 - Extract exact shared visible-footprint planner from current `VisualTerrain3D.UpdateVisibility` and `StrategyCameraRig`. Camera can move or zoom; border margin and elevation bounds conservatively cover screen.
 - Define `TileKey`, `ChunkCoord` (16×16 display), `RegionKey` (64×64 data), `ChunkGeneration`, explicit `Unloaded/Queued/Generating/Ready/Stale/Disposed`.
-- Bounded nearest-first / latest-camera-wins queue. A superseded request cannot publish after zoom/seed change. No per-frame unbounded work. Record count of **uncovered visible pixels/cells**.
+- Bound the queue by desired footprint plus margin and prioritize current camera demand. Hard-reject world/data/LOD-format mismatches; a camera move reprioritizes or cancels irrelevant work but must not discard a still-wanted valid chunk solely because CameraEpoch advanced. Test continuous pan without starvation. Record **uncovered visible pixels/cells**.
 
 **V3.4.2 — Guaranteed distant fallback**
 - *Before* removing previous geometry, present low-detail terrain+opaque ocean proxy covering every in-view region. Detailed chunk replaces matching proxy only when ready. No arbitrary 48-chunk cap without fallback.
@@ -89,12 +103,12 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 
 **V3.4.3 — Immutable worker mesh-data snapshots**
 - Off-main-thread compute only **pure C# arrays** from immutable versioned region snapshots: vertices, indices, colors, normals, foliage placements. NO Godot `SceneTree`, `MeshInstance3D`, `SurfaceTool` or GPU texture operations in workers.
-- Main thread owns Godot mesh/material/nodes and uploads a bounded number/bytes or measured milliseconds per frame. Cancel/discard stale generations.
+- Main thread owns Godot mesh/material/nodes and controls uploads with count, bytes and measured time budgets. Dirty paint/sculpt rebuilds and coast updates enter the same bounded pipeline; the current count-only visibility budget does not cover all edit work. Cancel/discard invalid world/data generations.
 - Buffer capacity, world-seed generation identity, bounded memory accounting, teardown/join and background worker failure handling must be tested.
 
 **V3.4.4 — LOD, seams and coast parity**
 - Start with LOD0 (approved near 16×16), LOD1 (moderate distant geometry), LOD2 (low-detail fallback). **Prototype and benchmark thresholds**, do not hardcode arbitrary GPU assumptions.
-- Ensure coincident shared edge heights, LOD seam stitching/skirting, exact pointer pick of visible near geometry and coast mask computed from bounded region halos, not an 8192² RGBA texture.
+- Ensure shared edge heights, LOD seam stitching/skirting and exact near-geometry picking. Current foam requires at least a three-cell input halo, absolute-coordinate noise and separate consideration of texture filtering borders. Compare patch/global masks at boundaries. A whole 8192² BuildMask would use 384 MiB of array payload including 256 MiB output RGBA, before native/GPU copies.
 - Keep opaque V2 shader style, water motion/foam colors and Kenney per-chunk MultiMesh. No old flat-shader V3 fallback.
 
 **V3.4 exit:** never a blank visible tile at normal gameplay zoom; bounded queue/residency and uploads under worst-case camera movement; no material visual degradation; Windows p95/p99 and subjective drag/zoom gate within approved V3.3 baseline tolerance.
@@ -106,9 +120,9 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 **Dependency:** V3.4 seamless streaming and physical acceptance.
 
 **V3.5.1 — Generator art parity and immutable region contract**
-- Build a new **deterministic V2-compatible regional generator** from shared seed/absolute coordinates, independent of region arrival/eviction/edit order. Do not point the live game at the unrelated V3.0 `RegionGenerator`.
+- Extract a **deterministic V2-compatible regional generator** from seed, absolute coordinates, explicit world bounds and generator version. The current island falloff uses width/height; preserve it at reference dimensions before approving a new large-world composition. Region visitation/eviction order must not affect values. Do not substitute the unrelated V3.0 generator.
 - `RegionStore` becomes terrain authority only after generated tiles, coastline, shared-corner elevation and scatter are identical to the approved baseline on the reference worlds, or have an explicitly approved art migration.
-- Define regional revision, world-generation ID, immutable read snapshot, negative/global coords and halo ownership. No direct mutable `WorldState` reference in production regional baseline.
+- Define revisions, world identity, immutable snapshots, supported coordinate bounds and halo ownership. Remove direct WorldState tile/color reads from the renderer when switching authority. Bound resident snapshots, edited overrides, revision metadata, dirty queues and pending arrays; LRU resident count alone is insufficient. Dirty eviction requires durable write-back or explicit backpressure.
 
 **V3.5.2 — Height and tool integration**
 - Integrate existing sparse elevation offsets and canonical absolute shared vertices across 64-cell borders. LOD and picking must reflect exact edited surface.
@@ -116,15 +130,15 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 - Test boundary cells, negative coords where allowed, repeated edits, undo/redo semantics (if introduced), unload/reload and water transitions.
 
 **V3.5.3 — Crash-resilient world saves**
-- Explicit versioned manifest: `worldId`, `seed`, schema, checksum, region revisions, entity revisions and sequence. Ordered atomic commit/rollback across regions; per-region file rename alone is **not** a multi-file transaction.
+- Accept ADR 0005 after comparing versioned immutable files + root manifest with SQLite transactions. Record dependency/I/O/backup tradeoffs and Windows filesystem durability assumptions. Required save metadata includes world ID, seed, bounds, generator/schema/RNG versions, region/entity revisions and simulation clock. Per-region rename alone is not a multi-region transaction.
 - Validate corruption/truncation, wrong seed/world ID, interrupted multi-region save, version upgrade and backup recovery without destroying last accepted save. Define path sandbox H: for development.
 
 **V3.5.4 — Evidence-driven scale ladder**
-- 120×88 → 256² → 512² → 1024² → 2048² → 4096² → 8192² *logical and actively playable* only when streaming, visual fidelity, save/load and actual AMD performance gates pass each scale.
+- Initial acceptance ladder: 120×88 → 256² → 512², then 1024² when the host passes. V3.6 and a V4.0 gameplay loop may proceed on an accepted 512²–1024² world. Treat 2048² → 4096² → 8192² as optional later scale experiments, each requiring visual, save/load, simulation and AMD evidence; they are not prerequisites for villages or a useful game.
 - Never allocate full terrain height/biome/water arrays for 8192². Measure peak resident regions, chunks, physical RAM/VRAM, startup time, active agent tick and disk footprint at each step.
 - If a scale fails, STOP and profile; do not mask the failure by shrinking the near field, replacing sea art or limiting draw distance into visible holes.
 
-**V3.5 exit:** region source becomes the actual source of truth for terrain/tools/save; user has approved camera/coast/forest/mountain parity at progressively larger sizes. No claim of full living 8192² simulation yet.
+**V3.5 exit:** regions own terrain/tools/save, complete-generation recovery works and a 512²–1024² tier has actual camera/coast/forest/mountain acceptance. Record the largest accepted size separately from logical addressability. Do not wait for 8192² to start V3.6.
 
 ### ◻ V3.6 — Region-scoped living world
 
@@ -134,9 +148,11 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 
 **V3.6.1:** stable long-lived citizen/entity IDs, position in region/global coords, per-region ownership and cross-border transfer (exactly once), spatial indexes and render batches; no per-citizen `Node3D` by default.
 
-**V3.6.2:** deterministic bounded active-area simulation at fixed tick, time budget/backpressure, deferred inactive-region advancement policy, reproducible RNG stream per entity/region. A player editing a remote region cannot accidentally advance the entire world at the wrong rate.
+**V3.6.2:** deterministic fixed-tick simulation with stable update/event ordering, bounded work and explicit catch-up/backpressure. Specify offscreen advancement; save tick, RNG algorithm/version/state and event sequence. System.Random seed alone is not a cross-runtime replay contract. Separate render interpolation from custom simulation ticks; reset interpolation on spawn, teleport and New World. A camera move must not silently redefine simulation time.
 
 **V3.6.3:** save citizen/animal AI, needs and movement across unload/reload; verify no duplicate/lost entities at borders, storms/meteor events apply once, and cross-region events replay deterministically.
+
+**V3.6.4 — Navigation and jobs:** begin with a bounded logical tile/region graph using terrain snapshots. Stagger path requests, cache by terrain revision, handle unreachable targets and cross-region transfers, and avoid rebuilding navigation from detailed visual meshes on every edit. Compare hierarchical routing only when measured path cost requires it. Keep Godot navigation as an evaluated adapter option, not a mandatory core dependency.
 
 **V3.6 exit:** existing V2 person spawn/meteor/time controls behave the same on a tested 512²–1024² region world; bounded tick cost, no entity loss, Windows measurements. [Existing entity issue #45](https://github.com/tahazarif10/worldforge-sim/issues/45) remains blocked until V3.4–V3.5 gates.
 
@@ -153,11 +169,14 @@ Do not mark a feature Accepted merely because the Godot scene starts headlessly.
 
 | Slice | User-visible world behavior | Minimum deterministic proof |
 | --- | --- | --- |
+| V4.0 First complete loop | Spawn a small population, gather one resource/food, build shelter, survive, respond to one power, save/reload and continue | Repeatable small-world scenario; no lost jobs/resources/entities; readable feedback and user fun/clarity review |
 | V4.1 Ecology | Animals, food, trees/resources, weather/biome effects, needs/aging | Bounded population, resource conservation and repeatable ticks |
 | V4.2 Settlement | Gathering/building jobs, homes, village founding, roads/ownership | No double-spend, bounded job scheduler, cross-region transfer |
 | V4.3 Kingdoms | Borders, leaders, diplomacy, conflict and alliances | Reproducible state transitions, pathfinding at region borders |
 | V4.4 Powers | Distinct original god powers, disaster aftermath, ecology reactions | Single-application events, visual and simulation parity |
 | V4.5 Presentation | Distinct architectural assets, animated interactions, notifications | Camera/selection and visual readability at scale |
+
+V4.0 runs on the accepted small-world tier. Defer multiplayer, complex diplomacy/economy, huge population claims and new rendering backends until the core loop is coherent. Expand one interacting system at a time; save migrations and performance budgets accompany each addition.
 
 No proprietary WorldBox art, music, code or game data.
 
@@ -184,7 +203,7 @@ No proprietary WorldBox art, music, code or game data.
 | G6 — persistence | Crash/corrupt/wrong-seed save recovery across region boundaries | Do not call save production-ready |
 | G7 — provenance/release | Original/CC0 license, no external proprietary assets, release SHA and docs | Block public release |
 
-**Provisional performance objectives (not achieved claims):** Eco mode aims for sustained ≳30 FPS at 1280×800 on the R9 M395X. For perspective, 33.33 ms/frame corresponds to 30 FPS and 16.67 ms to 60 FPS. A stronger p95 objective is <=33.3 ms with no recurring >100 ms stalls during pan/zoom; thresholds must be compared with physical V2 baseline and adjusted only by recorded decision. FPS HUD 1-second averages **cannot substitute for p95/p99 CSV**. A lower detail/LOD tier must not produce missing geometry or destroy near-field art.
+**Provisional performance objectives (not achieved claims):** Eco mode aims for sustained ≳30 FPS at 1280×800 on the R9 M395X. For perspective, 33.33 ms/frame corresponds to 30 FPS and 16.67 ms to 60 FPS. A stronger p95 objective is <=33.3 ms with no recurring >100 ms stalls during pan/zoom; thresholds must be compared with physical V2 baseline and adjusted only by recorded decision. FPS HUD averages and the current rolling engine-delta CSV **cannot substitute for complete monotonic scenario captures**. A lower detail/LOD tier must not produce missing geometry or destroy near-field art.
 
 ## 5. Repeatable local commands and required evidence
 
@@ -213,3 +232,16 @@ Each milestone evidence bundle shall record: Git branch/SHA, seed, camera angle/
 ## 6. Process
 
 Follow [Engineering Workflow](ENGINEERING_WORKFLOW.md), [Architecture](V3_ARCHITECTURE.md), [Research](V3_TECHNICAL_RESEARCH_2026.md), [Acceptance](V3_ACCEPTANCE_MATRIX.md) and [ADRs](decisions/README.md). Every scope change that affects GPU pipeline, data authority, threading, save format, queue/residency semantics or milestone order requires an ADR. Keep issue #46 open until direct/mirror parity and new streaming behavior are accepted on real Windows.
+
+
+## 7. Delivery control
+
+| Planning horizon | Ready work | Exit before taking the next item |
+| --- | --- | --- |
+| Immediate | #53 fixture specification + #54 monotonic/scenario core | Meaningful timing/identity tests and documented capture format |
+| Next focused PR | #54 launcher/pose parity and H: evidence runner | Valid complete outputs, failure handling, applicable CI; physical gates still explicit |
+| Host checkpoint | #53 matched direct/mirror runs | Real art/control verdict and valid repeated measurements; #52 can then close |
+| Following architecture | #55 planner/fallback, then bounded jobs/LOD | Coverage and performance acceptance before #56 authority changes |
+| Product checkpoint | #56/#57 at 512²–1024², then V4.0 | A durable, understandable living-world loop before optional maximum scale |
+
+Assign an implementer and evidence reviewer in each issue; do not invent assignees or delivery dates. Estimate the next small slice after its source audit, then revise from observed throughput. Scope changes must record their impact on dependencies and acceptance. The active stage is not complete while its physical gate is pending.
