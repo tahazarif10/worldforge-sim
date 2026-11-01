@@ -61,6 +61,8 @@ function Read-Fixture([string]$directory, [string]$backend = 'direct') {
         -ExpectedBackend $backend -ExpectedSeed 1315511732 -AllowHeadless
 }
 try {
+    $selection = Resolve-AcceptanceSelection -Scenario PAN -Quality eco
+    Check ($selection.Scenario -ceq 'pan' -and $selection.Quality -ceq 'Eco') 'PowerShell choices canonicalized for engine protocol'
     $directDir = Join-Path $tempRoot 'direct'
     $mirrorDir = Join-Path $tempRoot 'mirror'
     Save-Fixture (Fixture 'direct') $directDir

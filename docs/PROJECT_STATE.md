@@ -11,6 +11,7 @@ windows_verified_commit: null
 user_accepted_visual_commit: null
 completed_through: V3.2-engineering
 active_milestone: V3.3.1
+measurement_implementation_pr: 60
 active_status: "Monotonic capture, fixed scenario fixture and H: runner implemented; actual Windows and user acceptance pending"
 next_gate: "Run H: acceptance runner on reference seed; review valid direct/mirror captures and complete #53 manual visual/input gates"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
@@ -103,7 +104,7 @@ The detailed audit also identifies main-thread edit/upload work, three-cell foam
 
 Next: run `.\scripts\run-v3-3-acceptance.ps1 -Scenario idle -Repeats 1` on the target host, inspect the bundle, then collect the full repeated matrix and the remaining manual #53 scenarios. The runner deliberately pauses simulation and invokes camera/brush methods; physical input latency, live simulation, art approval and save/load remain separate.
 
-The implementation's exact-head core, PowerShell and official-engine CI results are recorded in its PR. No Linux/headless or hosted Windows script test establishes R9 M395X GPU acceptance. #52/#53/#54 stay open for remaining evidence; V3.4 promotion remains blocked.
+The implementation's exact-head core, PowerShell and official-engine CI results are recorded in [PR #60](https://github.com/tahazarif10/worldforge-sim/pull/60). No Linux/headless or hosted Windows script test establishes R9 M395X GPU acceptance. #52/#53/#54 stay open for remaining evidence; V3.4 promotion remains blocked.
 
 ### Existing commands
 

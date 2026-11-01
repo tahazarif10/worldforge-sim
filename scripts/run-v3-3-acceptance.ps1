@@ -18,6 +18,10 @@ if ($env:OS -ne 'Windows_NT' -or
 Set-Location $root
 . (Join-Path $PSScriptRoot 'enter-dev.ps1')
 . (Join-Path $PSScriptRoot 'acceptance-bundle.ps1')
+$selection = Resolve-AcceptanceSelection -Scenario $Scenario -Quality $Quality
+$Scenario = $selection.Scenario
+$Quality = $selection.Quality
+$seedText = $WorldSeed.ToString([Globalization.CultureInfo]::InvariantCulture)
 $sdk = Join-Path $root 'Tools\dotnet\dotnet.exe'
 $editor = Join-Path $root 'Tools\Godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64.exe'
 foreach ($tool in @($sdk, $editor)) {
@@ -98,7 +102,7 @@ try {
                     '--rendering-method','gl_compatibility','--resolution','1280x800','--windowed',
                     '--max-fps', $MaxFps.ToString([Globalization.CultureInfo]::InvariantCulture),
                     '--log-file',(Join-Path $directory 'godot.log'),'--',
-                    "--world-seed=$WorldSeed", "--terrain-backend=$backend",
+                    "--world-seed=$seedText", "--terrain-backend=$backend",
                     "--acceptance-session=$runId", "--acceptance-scenario=$name",
                     "--acceptance-output=$directory", "--acceptance-duration=$seconds",
                     '--acceptance-warmup=10', "--acceptance-quality=$Quality")

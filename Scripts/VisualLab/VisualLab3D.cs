@@ -434,10 +434,15 @@ public partial class VisualLab3D : Node3D
                 System.Text.Json.JsonSerializer.Serialize(new {
                     evidence_schema = 2,
                     kind = "mixed-interactive-diagnostic",
+                    session_id = _frameProbe.SessionId,
+                    scenario_id = _frameProbe.ScenarioId,
+                    seed = _world.Seed,
+                    backend = _terrain.TerrainBackendName,
+                    camera = _cameraRig.ReviewPose,
                     clock_source = "Godot.Time.GetTicksUsec",
                     capture_valid = false, // No isolated scenario or completed window.
                     statistics = _frameProbe.Summarize()
-                }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+                }, ReviewJson));
             var summary = _frameProbe.Summarize();
             GD.Print($"Saved {summary.Count} frame intervals to {destination}; " +
                 $"p95={summary.P95Ms:F2} ms, p99={summary.P99Ms:F2} ms, max={summary.MaxMs:F2} ms.");

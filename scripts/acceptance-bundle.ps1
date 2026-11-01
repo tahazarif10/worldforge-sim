@@ -180,3 +180,15 @@ function Invoke-AcceptanceProcess {
     }
     finally { $process.Dispose() }
 }
+
+function Resolve-AcceptanceSelection {
+    param(
+        [ValidateSet('all','idle','pan','zoom','paint')][string]$Scenario,
+        [ValidateSet('Eco','Balanced')][string]$Quality
+    )
+    # PowerShell ValidateSet is case-insensitive; the engine protocol is exact.
+    return [pscustomobject]@{
+        Scenario = $Scenario.ToLowerInvariant()
+        Quality = $(if ($Quality -ieq 'Eco') { 'Eco' } else { 'Balanced' })
+    }
+}
