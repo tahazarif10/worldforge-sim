@@ -137,7 +137,7 @@ For SQLite, use explicit transactions and an intentional writer/timeout policy; 
 
 ## 8. Profiling and complexity budget
 
-Do not use a one-second FPS HUD or the current rolling engine-delta CSV as final performance proof. Follow ADR 0007: monotonic callback intervals, scenario timestamps and valid windows, plus separately measured stage durations/GC. Compare p50/p95/p99/max and stall counts. Godot's built-in script profiler does not profile C# scripts; use targeted managed counters and only then a compatible external profiler if needed. The Godot Mono Linux headless runner is a correctness/import gate, **not** a GPU benchmark for the old Windows AMD.
+Do not use a one-second FPS HUD or mixed rolling diagnostics as final performance proof. The [implemented V3.3 runner](V3_3_ACCEPTANCE_RUNNER.md) captures isolated monotonic windows; F9 is now a rolling monotonic diagnostic, while old pre-runner CSVs contained engine delta. Follow ADR 0007: monotonic callback intervals, scenario timestamps and valid windows, plus separately measured stage durations/GC. Compare p50/p95/p99/max and stall counts. Godot's built-in script profiler does not profile C# scripts; use targeted managed counters and only then a compatible external profiler if needed. The Godot Mono Linux headless runner is a correctness/import gate, **not** a GPU benchmark for the old Windows AMD.
 
 Suggested counters per frame: active regions, active detailed/fallback chunks, uncovered screen tiles, queued/stale/discarded meshes, bytes waiting upload, upload ms, chunk-build CPU ms, shader draw calls/triangles if measurable, people simulated vs drawn, per tick ms, heap/VRAM estimate. Preserve performance logs only on H:.
 
@@ -151,7 +151,7 @@ Suggested counters per frame: active regions, active detailed/fallback chunks, u
 - Planned ADR 0004: cross-region canonical height + LOD seam strategy.
 - Planned ADR 0005: transactional whole-world save, choosing immutable files/manifest vs SQLite after prototype evidence.
 - Planned ADR 0006: regional population clock, versioned RNG, stable event order, interpolation and inactive-world semantics.
-- [ADR 0007](decisions/0007-measurement-evidence-and-scenario-identity.md): accepted measurement/scenario contract; runtime instrumentation still pending.
+- [ADR 0007](decisions/0007-measurement-evidence-and-scenario-identity.md): accepted measurement/scenario contract; capture/fixture foundation implemented, physical acceptance pending.
 
 ## 10. Technical research
 

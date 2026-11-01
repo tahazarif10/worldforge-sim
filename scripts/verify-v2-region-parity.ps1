@@ -1,7 +1,7 @@
 # Opt-in parity mode only: SAME V2 VisualLab3D scene and camera, but
 # terrain tiles read from a lazy 64x64 WorldState-backed region cache.
 # Never launch RegionalWorldLab3D here. All project tools and logs on H:.
-param([switch]$NoLaunch)
+param([switch]$NoLaunch, [Nullable[int]]$WorldSeed = $null)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
@@ -32,5 +32,9 @@ New-Item -ItemType Directory -Force -Path $folder | Out-Null
 $log = Join-Path $folder 'godot-v2-region-parity.log'
 Write-Host 'Running APPROVED V2 scene with experimental REGION DATA only. Right-drag and water visuals must look identical.'
 Write-Host "Engine log: $log"
-& $editor.FullName --path $root --scene 'res://Scenes/VisualLab3D.tscn' --rendering-method gl_compatibility --log-file $log -- --terrain-backend=region-mirror
+$godotArgs = @('--path', $root, '--scene', 'res://Scenes/VisualLab3D.tscn',
+    '--rendering-method', 'gl_compatibility', '--log-file', $log,
+    '--', '--terrain-backend=region-mirror')
+if ($null -ne $WorldSeed) { $godotArgs += "--world-seed=$WorldSeed" }
+& $editor.FullName @godotArgs
 if ($LASTEXITCODE -ne 0) { throw "Godot V2 region parity scene failed; see H:-based log" }

@@ -19,7 +19,7 @@ ADRs explain **why** technical choices were made, how they are verified and whic
 | 0004 | Planned | LOD seam stitching, nonempty fallback visual coverage and coast halo |
 | 0005 | Planned | Transactional whole-world save: compare immutable files/manifest vs SQLite |
 | 0006 | Planned | Deterministic region/entity scheduling, versioned RNG and inactive-area semantics |
-| [0007](0007-measurement-evidence-and-scenario-identity.md) | Accepted contract; implementation pending | Monotonic measurement, exact scenario identity and fixture/harness/host acceptance order |
+| [0007](0007-measurement-evidence-and-scenario-identity.md) | Accepted; capture foundation implemented, host gate pending | Monotonic measurement, exact scenario identity and fixture/harness/host acceptance order |
 
 Add an ADR when changing: visual backend, camera interaction contract, Godot render mode, data authority, region boundaries, thread/queue/cancellation semantics, save format, world generator or accepted milestone order.
 

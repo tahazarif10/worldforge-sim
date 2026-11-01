@@ -1,7 +1,7 @@
 # ADR 0007 — Measurement evidence and scenario identity
 
 - Status: **Accepted** as an engineering/acceptance contract
-- Implementation: **Pending** in V3.3.1 / issue #54; this ADR does not implement the probe or runner
+- Implementation: V3.3.1 capture/fixture/runner foundation implemented; see [runner guide](../V3_3_ACCEPTANCE_RUNNER.md). Physical host acceptance remains pending in #53/#54.
 - Date: 2026-11-01
 - Supersedes: V3.3 ordering that attempted numerical acceptance before a valid scenario harness
 - Related: [ADR 0001](0001-preserve-v2-renderer-and-compatibility.md), [audit](../REPOSITORY_AUDIT_2026-11-01.md), [acceptance matrix](../V3_ACCEPTANCE_MATRIX.md)
@@ -43,7 +43,7 @@ Select the third approach for the baseline. External profiling is a targeted fol
 
 ## Consequences
 
-Current F9 files remain useful diagnostics and must be labeled engine-delta rolling captures. They cannot establish the new numerical acceptance gate retrospectively. V3.4 promotion remains blocked until real V3.3 evidence exists. No FPS improvement is claimed by this decision.
+Pre-V3.3.1 F9 files remain engine-delta diagnostics. The new F9 exporter records monotonic rolling diagnostics with a sidecar; isolated acceptance uses the explicit scenario runner. They cannot establish the new numerical acceptance gate retrospectively. V3.4 promotion remains blocked until real V3.3 evidence exists. No FPS improvement is claimed by this decision.
 
 ## Sources
 

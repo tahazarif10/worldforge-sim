@@ -8,5 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../Scripts/Instrumentation/FrameTimeProbe.cs" Link="FrameTimeProbe.cs" />
+    <Compile Include="../../Scripts/Instrumentation/FrameCapture.cs" Link="FrameCapture.cs" />
+    <Compile Include="../../Scripts/Instrumentation/AcceptanceOptions.cs" Link="AcceptanceOptions.cs" />
   </ItemGroup>
 </Project>

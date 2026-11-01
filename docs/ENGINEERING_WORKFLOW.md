@@ -110,7 +110,7 @@ If user rejects output (like V3.0), immediately restore approved V2 as playable 
 
 ## 7. Milestone review bundle
 
-The proposed *future* V3.3 one-command runner must create on H: a session-scoped directory like:
+The V3.3 review bundle was specified with the following session layout; the implemented layout is linked below:
 
 ```text
 H:\WorldForge-Sim\artifacts\acceptance\v3-3\<session-id>\
@@ -129,7 +129,7 @@ H:\WorldForge-Sim\artifacts\acceptance\v3-3\<session-id>\
   SHA256SUMS.txt
 ```
 
-This directory layout and runner are **planned**, not currently present. Future runner must report metadata without inventing GPU/latency values; it must never publish a PASS when manual image approval is missing. Capturing user screenshots is only allowed in the project's intended H: diagnostic folder, not third-party upload by default.
+The [implemented runner](V3_3_ACCEPTANCE_RUNNER.md) uses per-scenario/backend subdirectories and validated files; that guide defines the actual layout. The sketch above is the earlier review-bundle plan. Future runner must report metadata without inventing GPU/latency values; it must never publish a PASS when manual image approval is missing. Capturing user screenshots is only allowed in the project's intended H: diagnostic folder, not third-party upload by default.
 
 For every PR's final short user report use:
 
@@ -169,6 +169,6 @@ Do not initiate ChatGPT Work/Codex tasks without later explicit authorization. D
 
 Before marking a slice complete, verify the diff against its stated scope, relative links and current milestone dependencies. CI evidence must identify the tested head and applicable workflows. Preserve historical evidence separately instead of replacing it with a newer unrun claim.
 
-For #52–#54, follow the fixture → instrumentation → numeric host acceptance order in ADR 0007. The current F9 output is a rolling engine-delta diagnostic. A merged documentation or instrumentation PR may complete its own deliverables while the physical acceptance issue remains open.
+For #52–#54, follow the fixture → instrumentation → numeric host acceptance order in ADR 0007. F9 now provides a rolling monotonic diagnostic; use the explicit scenario runner for complete windows. A merged documentation or instrumentation PR may complete its own deliverables while the physical acceptance issue remains open.
 
 The active implementer may make routine reversible engineering choices within the authorized task. A human checkpoint is for a concrete visual/product acceptance decision or missing access/evidence, not repeated permission for already-authorized repository maintenance.

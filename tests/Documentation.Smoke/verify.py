@@ -14,6 +14,7 @@ documents = [
     ".github/PULL_REQUEST_TEMPLATE.md",
     ".github/ISSUE_TEMPLATE/engineering-task.md",
     "docs/README.md",
+    "docs/V3_3_ACCEPTANCE_RUNNER.md",
     "docs/ROADMAP_FA.md",
     "docs/REPOSITORY_AUDIT_2026-11-01.md",
     "docs/decisions/0007-measurement-evidence-and-scenario-identity.md",
