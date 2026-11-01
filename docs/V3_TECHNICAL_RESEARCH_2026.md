@@ -1,6 +1,6 @@
 # V3 engineering research — Godot, streaming, compatibility and original art
 
-**Research date:** 2026-10-30. **Purpose:** choose architecture based on published technical documentation and what WorldForge Sim's source/failed V3 prototype actually demonstrated. This is a research/decision aid; it does not claim new features have been implemented or benchmarked on AMD.
+**Research dates:** initial 2026-10-30; source audit and expanded research 2026-11-01. **Purpose:** choose architecture based on published technical documentation and what WorldForge Sim's source/failed V3 prototype actually demonstrated. This is a research/decision aid; it does not claim new features have been implemented or benchmarked on AMD.
 
 ## 1. Research question
 
@@ -28,7 +28,7 @@ The rejected V3 scene demonstrated that **optimizing the map architecture while 
 ### A. Maintain one giant whole-world tile/mesh array
 
 **Upsides:** simple, uniform pixel coordinates, easy deterministic iteration.  
-**Downsides:** memory/time scale with total 8192² logical map, all-regions water mask already raw **256 MiB** at 8192² RGBA (before GPU texture allocations), save rebuild cost and unavoidable world-wide update passes.
+**Downsides:** memory/time scale with total 8192² logical map, hypothetical 8192² mask would require **384 MiB** of distance/type/RGBA array payload, including **256 MiB** output RGBA (before native/GPU copies), save rebuild cost and unavoidable world-wide update passes.
 
 **Decision:** REJECT for large playable worlds; retain WorldState at 120×88 as baseline until region authority is ready.
 
@@ -63,29 +63,29 @@ The rejected V3 scene demonstrated that **optimizing the map architecture while 
 ### F. One global shoreline mask for the large map
 
 **Upsides:** preserves exact V2 shader/sampling quickly; central logic simple.  
-**Downsides:** 8192² ×4 bytes=256 MiB raw CPU, full upload, dependency on all tiles, huge edit invalidation.
+**Downsides:** 8192² RGBA output is 256 MiB; the current distance/type scratch arrays add 128 MiB, totaling 384 MiB before native/GPU copies. Full uploads and broad edit invalidation would scale poorly.
 
-**Decision:** REJECT. Create bounded coast mask patches with 1–3 tile halos matching old `WaterCoastMath` and `EnvironmentArtMath` semantics, and compare edge/mask parity byte-for-byte.
+**Decision:** REJECT. Create bounded patches with at least a three-cell input halo for current nonzero foam, absolute-coordinate noise and explicit sampling borders. Derive other kernels' halos separately. Compare mask bytes and boundaries against the reference.
 
 ## 4. Specific implementation research before each milestone
 
 **V3.3 baseline research**
-- Instrument existing F9 frame CSV to separate CPU frame from GPU stall if Godot profiling supports it; track short slow frames rather than just 1s FPS display.
+- Implement monotonic callback intervals and scenario identity before numerical acceptance; retain engine delta as separate diagnostics. Measure managed build/edit and main-thread upload durations independently. Callback intervals alone do not isolate CPU from GPU stalls.
 - Test both V2 direct and opt-in RegionMirror with same seed, camera pose, window size and quality, before any additional GPU modifications. If gameplay redraw differs, first inspect change synchronization path in `MarkChanged`.
 - Use F8 image comparison with fixed camera/seed. The viewer's subjective good/bad is a required manual acceptance field, not a claim that a quantitative image metric alone measures aesthetics.
 
 **V3.4 streaming design research**
 - Prototype a pure managed `VisibleCoveragePlanner` that outputs detailed + fallback footprints. Test **zero uncovered cells** for screen corners and elevation envelopes at several aspect ratios and zoom levels.
-- Choose queue policies with measured camera motion. Cap pending items to current screen region plus margin; superseded camera generations canceled and results discarded. Test 500 rapid pan/zoom changes without uncontrolled growth.
+- Choose queue policies from measured camera motion; bound pending work to desired footprint plus margin. World/data/format mismatch invalidates a result; camera movement changes priority and cancels irrelevant requests. Keep valid still-wanted jobs to avoid starvation. Test sustained motion, rapid reversals and world replacement.
 - Compare one pure C# array worker vs main thread all-in-one. Record `MeshBuildCpuMs` / `UploadMainThreadMs` and frame percentiles. Only add workers if actual main-thread savings justify complexity.
 
 **V3.5 source-of-truth / saves research**
 - Build a characterization test for V2's world generator across seeds, borders and known player edits before choosing an equivalent procedural generator.
-- Model persistent region **manifest** and atomic root commit; crash-injection cases after every step. Do not treat per-region checksum as full transaction guarantee.
+- Compare immutable region files + root manifest with SQLite transactions before accepting the save ADR. Fault-inject at write/flush/commit boundaries, retain prior valid state and record durability assumptions. Per-region checksum is not a transaction.
 - Keep region/data/visual granularity separate, with canonical 64×64 cells and 16×16 chunk fan. Design coast/elevation halo cache based on exact math.
 
 **V3.6 life simulation research**
-- Define active-world time stepping vs unloaded regions with deterministic replay semantics, before adding thousands of entities. Options: coarse aggregate advance; background scheduled active sets; event-driven updates. Benchmark and record ADR. Do not silently freeze whole world when user pans away.
+- Define active-world time stepping, stable event order and versioned RNG state vs unloaded regions before adding thousands of entities. Options: coarse aggregate advance; background scheduled active sets; event-driven updates. Benchmark and record ADR. Do not silently freeze whole world when user pans away.
 - Require cross-border ID uniqueness, reproducible RNG and no double-application of meteor/disaster events.
 
 **V3.7 art quality research**
@@ -122,3 +122,101 @@ The rejected V3 scene demonstrated that **optimizing the map architecture while 
 - `src/WorldSim/Regions/RegionStore.cs`, `src/WorldSim/TerrainSources.cs`
 - [PR #44](https://github.com/tahazarif10/worldforge-sim/pull/44), [PR #47](https://github.com/tahazarif10/worldforge-sim/pull/47), [PR #49](https://github.com/tahazarif10/worldforge-sim/pull/49), [PR #50](https://github.com/tahazarif10/worldforge-sim/pull/50), [PR #51](https://github.com/tahazarif10/worldforge-sim/pull/51)
 - [docs/V3_REJECTION_POSTMORTEM.md](V3_REJECTION_POSTMORTEM.md), [V3_1_RENDERER_SOURCE_PARITY.md](V3_1_RENDERER_SOURCE_PARITY.md), [V3_2_MOUNTAIN_SUMMIT_QA.md](V3_2_MOUNTAIN_SUMMIT_QA.md)
+
+
+## 7. Research update — 2026-11-01
+
+This section separates **published behavior**, **repository observation**, and **project inference**. Published engine behavior informs a design; it is not a benchmark on the user's machine. The [audit](REPOSITORY_AUDIT_2026-11-01.md) fixes source observations to `bf70b825528dda2f2bf8fee16e9f7245ec016c15`.
+
+### 7.1 Timing and scenario validity
+
+**Published:** Godot's Node reference documents capped/smoothed process delta and fixed delta under fixed-FPS modes. Time's tick methods are monotonic; system-clock methods can change with clock adjustments. The built-in profiler does not profile C# scripts.
+
+**Observed:** the existing probe receives engine delta, keeps a rolling 7,200 samples and has no scenario timestamps/reset.
+
+**Decision:** [ADR 0007](decisions/0007-measurement-evidence-and-scenario-identity.md) requires monotonic callback intervals and matched scenario metadata. Instrument managed build/edit/upload stages separately. Use an external profiler only for a concrete unresolved bottleneck. No claim that F9 is a GPU timer or physical input-latency measurement.
+
+### 7.2 Batching, LOD and the budget that matters
+
+**Published:** MultiMesh visibility/culling operates on the batch; imported model LOD does not supply a runtime terrain seam algorithm. Rendering load also depends on material/fragment/shadow work.
+
+**Observed:** local foliage batches already exist; chunk creation and dirty edits still include main-thread native operations.
+
+**Inference:** preserve spatial batching and approved assets, measure generation versus upload cost, and apply budgets to edited as well as newly visible chunks. Avoid a global forest batch, per-agent nodes by default, or an untested worker rewrite. Choose chunk/LOD thresholds from host results, not from maximum logical map dimensions.
+
+### 7.3 Coordinate precision
+
+**Published:** Godot's large-world guidance explains float precision tradeoffs and additional costs of double precision; origin shifting has its own integration complexity.
+
+**Inference:** an 8192-cell logical map does not by itself require a custom double-precision engine. First test centered/local render coordinates, surface picking and camera stability at the intended tile scale. Keep simulation coordinates separate and introduce origin shifting only after demonstrated precision failure. Store coordinate bounds/version in world metadata.
+
+### 7.4 Regional clocks and randomness
+
+**Published:** Microsoft explicitly does not guarantee the same System.Random sequence across major .NET versions. Godot interpolation guidance separates fixed simulation updates from rendered positions.
+
+**Observed:** current citizens use custom 0.18-second ticks and seeded System.Random; catch-up is limited.
+
+**Inference:** choose a versioned RNG algorithm with serializable state, stable entity/event order and an explicit overload/offscreen policy. Retain legacy behavior as a versioned compatibility fixture. Interpolate presentation without changing authoritative outcomes; validate pause, speed change, spawn, teleport and world reset. This remains V3.6 design work.
+
+### 7.5 Pathfinding and jobs
+
+**Published:** Godot recommends avoiding all-agent path requests in the same frame and unnecessary repeated queries. Detailed visual mesh parsing can synchronize with the rendering backend; unreachable destinations can expose expensive searches.
+
+**Inference:** begin with the authoritative logical grid/region graph, stagger requests, invalidate by terrain revision and test unreachable/border cases. For large distances, compare hierarchical regional routing against plain bounded local search. NavigationServer is an adapter candidate, not a reason to couple the pure WorldSim core to scene nodes. No navigation performance numbers have been measured yet.
+
+### 7.6 Save architecture: select by failure behavior
+
+| Option | Advantage | Cost / verification requirement |
+| --- | --- | --- |
+| Immutable region generations + root manifest | Reuses region codecs; inspectable files; unchanged regions can be reused | Custom commit, flush, garbage collection, backups and migration logic; fault-inject every boundary |
+| SQLite via Microsoft.Data.Sqlite | Mature transaction mechanism for related state; explicit rollback | Additional deployment/native dependency, single pending writer, contention/timeout and serialization design |
+| Independent overwrite/rename per region | Simple existing pattern | Does not atomically commit the complete world; insufficient for production multi-region state |
+
+**Published:** SQLite's atomic commit design depends on storage/OS behavior and correct flush semantics. Microsoft.Data.Sqlite groups statements into a transaction and documents writer concurrency limits.
+
+**Decision still open:** ADR 0005 must select after a small save/load/interruption prototype with representative edited-region/entity data. Measure save stall, file growth and recovery, not just serialization throughput. Do not claim resilience to arbitrary power loss from process-kill tests or checksums. Backups retain the last validated complete generation.
+
+### 7.7 Repository automation
+
+**Published:** GitHub workflow path filters determine which changed paths trigger a workflow; explicit token permissions limit workflow access.
+
+**Observed:** the old engine workflow omitted camera/instrumentation/streaming and configuration surfaces.
+
+**Implemented in this revision:** broader runtime/script/configuration filters, read-only contents permission in both workflows, and reference-seed parity regression coverage. The corresponding GitHub Actions runs validate source integration. User-host GPU/art acceptance remains a separate gate.
+
+### 7.8 Asset choice and product scope
+
+The Quaternius publisher page identifies CC0 licensing, formats and distinct free/extra/source offerings; it does not establish which exact files are present in a downloaded free archive. Keep the bundled Kenney provenance ledger. The Kenney page could not be fetched in this update, so its live contents were **not re-verified**; the existing repository ledger and prior research remain the source for bundled-model provenance.
+
+A future art experiment must inspect the actual archive and imported materials, verify rights, and compare one small biome on the target GPU. No new pack was downloaded or imported here. First deliver a complete small-world loop before making optional huge maps or a wholesale art replacement prerequisites.
+
+### 7.9 Open research questions and decision triggers
+
+| Unknown | Experiment that answers it | Decision owner / stage |
+| --- | --- | --- |
+| What dominates real pan/paint stalls? | Monotonic capture + separate build/upload/edit/GC counters | Implementer and host reviewer, V3.3 |
+| Which worker/LOD budget preserves responsiveness? | Matched continuous pan, reversal and wide-zoom with coverage/queue measurements | V3.4 / ADRs 0003–0004 |
+| Can current generator preserve art at larger bounds? | Reference-dimension parity, then explicitly reviewed scale fixtures | V3.5 / ADR 0002 |
+| Which save backend is simpler and more robust here? | Same dataset, injected interruptions, recovery and save-stall measurements | V3.5 / ADR 0005 |
+| How does offscreen life advance affordably? | Same event history under different camera paths, overload and save/reload | V3.6 / ADR 0006 |
+| Does the first settlement loop read well and feel useful? | Small population/resource/shelter/power loop with user review | V4.0 |
+
+A recommendation becomes a final architecture choice only when its recorded trigger is met. Do not add calendar promises or hardware throughput figures without evidence.
+
+## 8. Additional primary references
+
+Checked 2026-11-01; stable documentation is guidance, while exact installed 4.7.2 C# API compatibility is checked by the repository's engine build.
+
+12. Process delta semantics: https://docs.godotengine.org/en/stable/classes/class_node.html
+13. Monotonic clock: https://docs.godotengine.org/en/stable/classes/class_time.html
+14. C# profiler limitation: https://docs.godotengine.org/en/stable/tutorials/scripting/debug/the_profiler.html
+15. Large-world coordinate tradeoffs: https://docs.godotengine.org/en/stable/tutorials/physics/large_world_coordinates.html
+16. Interpolation concepts: https://docs.godotengine.org/en/stable/tutorials/physics/interpolation/physics_interpolation_introduction.html
+17. RNG compatibility: https://learn.microsoft.com/en-us/dotnet/api/system.random?view=net-10.0
+18. Navigation performance: https://docs.godotengine.org/en/stable/tutorials/navigation/navigation_optimizing_performance.html
+19. SQLite atomic commit and storage assumptions: https://www.sqlite.org/atomiccommit.html
+20. .NET SQLite transactions/concurrency: https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/transactions
+21. GitHub workflow triggering: https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow
+22. GitHub workflow permissions: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
+
+Primary references 1–7 and 9 were also consulted in this review. Sources describe capabilities and constraints; the proposed algorithms, priorities and product milestones are project-specific engineering judgments.

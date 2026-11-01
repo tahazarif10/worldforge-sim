@@ -2,7 +2,7 @@
 
 **Original stylized 3D living-world god sandbox** — island terrain, coastal water, forests, mountains, authored CC0 nature, human agents and god powers, with an orthographic/isometric camera. Inspired by the sandbox-simulation **genre**, not WorldBox proprietary art/source/UI.
 
-**Development state — 2026-10-30:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. We are planning **V3.3 physical baseline acceptance**, then no-hole streaming and authoritative region simulation. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
+**Development state — reviewed 2026-11-01:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. Next is **V3.3 fixture → valid measurement/parity harness → Windows baseline acceptance**, then no-hole streaming and authoritative region simulation. A complete small-world gameplay loop precedes optional maximum-map expansion. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
 
 ## Start the approved 3D game (Windows, H: drive)
 
@@ -34,6 +34,8 @@ Set-Location 'H:\WorldForge-Sim'
 .\scripts\verify-v2-region-parity.ps1
 ```
 
+**Current limitation:** this wrapper does not yet accept `-WorldSeed`; its default run is not automatically a matched comparison with the reference mountain world. Seed/pose support is planned in #54. Current F9 captures a rolling engine-delta diagnostic, not a final monotonic scenario benchmark; see [ADR 0007](docs/decisions/0007-measurement-evidence-and-scenario-identity.md).
+
 This **still runs the approved V2 renderer and camera** but accesses the existing 120×88 WorldState tiles through a bounded 64×64 `RegionStore` cache. It is not a playable 8192×8192 world. Do not run the user-rejected `RegionalWorldLab3D.tscn` for gameplay. Its engineering-only scripts require `-ExperimentalV3`.
 
 ## Current code capabilities and limitations
@@ -46,11 +48,14 @@ This **still runs the approved V2 renderer and camera** but accesses the existin
 | Signed 64×64 biome and elevation region stores, checksummed per-region file codecs | Full crash-atomic multi-region manifest/backup/world saves |
 | V2 direct/RegionMirror data parity and mountain rock cap reduction, merged + CI passed | Final user Windows screenshot review of corrected summit; direct/mirror p95/p99 at matching camera |
 
-## Source-of-truth documents — same milestone discipline as Local AI Desktop Copilot
+## Documentation and execution plan
 
 | Document | Why to read it |
 | --- | --- |
-| [Project State](docs/PROJECT_STATE.md) | Factual implemented/verified status, exact accepted SHA, blockers and next gate |
+| [Documentation guide](docs/README.md) | Current vs historical documents and where each kind of evidence belongs |
+| [نقشهٔ راه فارسی](docs/ROADMAP_FA.md) | توضیح مراحل، وابستگی‌ها، معیار پایان و اقدام بعدی |
+| [Repository audit](docs/REPOSITORY_AUDIT_2026-11-01.md) | Source findings, risks, current evidence and concrete follow-up |
+| [Project State](docs/PROJECT_STATE.md) | Implemented/verified state; source, CI and physical acceptance identities; blockers |
 | [Master Roadmap](docs/ROADMAP.md) | Detailed V3.3 through V5 dependency-ordered slices, scope, goals and exit criteria |
 | [Engineering Workflow](docs/ENGINEERING_WORKFLOW.md) | Branch/issue/PR, CI, H:-Windows acceptance, evidence, rollback process |
 | [V3 Architecture](docs/V3_ARCHITECTURE.md) | Data/scene ownership, region streaming, worker safety, LOD/coast, save schemas |
@@ -66,19 +71,12 @@ Review [AGENTS.md](AGENTS.md) before modifying code. The project's [critical V3 
 
 ## Architecture summary
 
-```text
-WorldSim (pure C#, authoritative small-world gameplay today)
-          |
-          +--> DirectWorldTerrainSource [default]
-          +--> RegionMirrorTerrainSource [experimental, source parity]
-                        |
-                        v
-VisualTerrain3D + approved stylized ocean/coast + Kenney MultiMesh
-                        |
-                 StrategyCameraRig
-                        |
-              VisualLab3D / GameHud
-```
+| Layer | Current responsibility |
+| --- | --- |
+| WorldSim / WorldState | Pure C# small-world simulation and authoritative terrain |
+| DirectWorldTerrainSource / RegionMirrorTerrainSource | Direct access or optional cache of the same terrain |
+| VisualTerrain3D / ocean / local MultiMesh batches | Approved terrain, water, nature and people presentation |
+| StrategyCameraRig / VisualLab3D / GameHud | Camera, picking, interaction and scene coordination |
 
 Future bounded regional world: make 64×64 data regions authoritative behind this **same** art/camera path, introduce far-LOD fallback with no blank visible cells, then persistent region/entity simulation and crash-safe saves. No destructive replacement of the V2 visual scene.
 
@@ -95,3 +93,4 @@ Future bounded regional world: make 64×64 data regions authoritative behind thi
 All art/code must be original or use verified licensing. Bundled Kenney Nature Kit models are CC0; track hashes and source [here](Assets/Art/KenneyNature/README.md). Do not copy WorldBox assets or proprietary game logic.
 
 GitHub core smoke and Godot Mono headless scene tests are **engineering gates**, not performance measurements. Real Windows **AMD R9 M395X** FPS, p95/p99, camera responsiveness and user visual acceptance are distinct required release gates. No new feature is promoted when the screen looks worse, the camera lags or visible land disappears.
+Contributor entry point: [CONTRIBUTING.md](CONTRIBUTING.md). Research and repository maintenance stay within the authorized project scope; do not copy project material into unrelated chats, persistent personal memory or public technical search queries.
