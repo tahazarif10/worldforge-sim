@@ -80,3 +80,6 @@ jobs:
       - name: Windows PowerShell 5.1 parsing and evidence failure cases
         shell: powershell
         run: .\tests\AcceptanceBundle.Smoke\verify.ps1
+      - name: Windows PowerShell real Git worktree and sidecar evidence
+        shell: powershell
+        run: .\tests\AcceptanceBundle.Smoke\verify-worktree.ps1

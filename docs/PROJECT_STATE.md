@@ -8,11 +8,13 @@ baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
 baseline_engine_ci_run: 41105302717
 windows_verified_commit: null
+windows_attempted_commit: 6e73e3db555ed7f49768daee0c6db0a898f91ea3
+windows_attempt_status: "Runner reached preflight; blocked by untracked Godot import/UID companions before any capture"
 user_accepted_visual_commit: null
 completed_through: V3.2-engineering
 active_milestone: V3.3.1
 measurement_implementation_pr: 60
-active_status: "Monotonic capture, fixed scenario fixture and H: runner implemented; actual Windows and user acceptance pending"
+active_status: "Capture runner implemented; local Godot sidecar handling corrected after host preflight failure; target rerun and user acceptance pending"
 next_gate: "Run H: acceptance runner on reference seed; review valid direct/mirror captures and complete #53 manual visual/input gates"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
@@ -66,7 +68,7 @@ The above numeric PR50 counts are code/test counts, **not a pixel-level proof of
 - Existing engine baseline: [run 41105302717](https://github.com/tahazarif10/worldforge-sim/actions/runs/41105302717), head `41eaaba01e9a6678583c376f7f841751ae4506e6`, success. This is an earlier PR #51 head, not a fresh engine run on audited main.
 - This revision adds the documentation index, [Persian roadmap](ROADMAP_FA.md), [source audit](REPOSITORY_AUDIT_2026-11-01.md), [ADR 0007](decisions/0007-measurement-evidence-and-scenario-identity.md), contributor templates, broader engine triggers and reference-seed direct/mirror regression coverage. Its own CI evidence is recorded on its PR; do not substitute the baseline runs above.
 - At that audit, measurement/streaming/save/entity mechanisms were planned and F9 used rolling engine delta. The V3.3.1 implementation below supersedes the measurement status; streaming, transactional world saves and regional entities remain planned.
-- Windows candidate SHA, corrected-summit approval and sustained GPU/input measurements are still **PENDING**. No automated run fills those fields.
+- At the audit, the Windows candidate SHA was unknown. A later host attempt identified `6e73e3db555ed7f49768daee0c6db0a898f91ea3` but stopped in preflight, as recorded below. Corrected-summit approval and sustained GPU/input measurements remain **PENDING**.
 
 The detailed audit also identifies main-thread edit/upload work, three-cell foam halo requirements, unbounded retained edit metadata, direct WorldState terrain reads, and simulation/RNG/save contracts required before scaling.
 
@@ -79,6 +81,16 @@ The detailed audit also identifies main-thread edit/upload work, three-cell foam
 | H: PowerShell runner, metadata/raw frames/pose traces/images/hashes | Implemented; shared validator fails incomplete or mismatched captures |
 | F9 monotonic rolling diagnostic and mirror -WorldSeed | Implemented |
 | Real target-host run, image/control verdict and live simulation/input scenarios | PENDING |
+
+### Host preflight observation and correction — 2026-11-01
+
+The user's PowerShell transcript confirms a successful fast-forward from `9dc03c8` to `6e73e3d` on the existing local `feat/v2-authored-nature-art` branch. The runner found the portable tools and entered the H: environment, then rejected `Assets/Art/KenneyNature/flower-yellowb.glb.import`. The status also listed the other model imports, shader/C# UID companions and the existing modified `project.godot`.
+
+**Observed result: BLOCKED before capture.** This is a candidate-checkout/preflight observation, not a Windows performance or image pass; `windows_verified_commit` remains null.
+
+The corrected [worktree helper](../scripts/acceptance-worktree.ps1) recognizes companions only for tracked resources, preserves original/prepared copies and hashes, allows preparation-time generation, and freezes configuration before/after every measured process. Source edits and orphan/unrelated files remain blocked. Windows tests reproduce the actual Git state; engine CI checks actual Godot-generated metadata. Exact CI evidence belongs to the correction's PR.
+
+Next host command after safely obtaining the fix: `.\scripts\run-v3-3-acceptance.ps1 -Scenario idle -Repeats 1`. See [sidecar policy and output layout](V3_3_ACCEPTANCE_RUNNER.md#existing-local-godot-import-and-uid-files). The target-host rerun remains PENDING.
 
 ## Current hardware and local rules
 

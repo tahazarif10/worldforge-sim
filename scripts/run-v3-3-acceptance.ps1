@@ -18,6 +18,7 @@ if ($env:OS -ne 'Windows_NT' -or
 Set-Location $root
 . (Join-Path $PSScriptRoot 'enter-dev.ps1')
 . (Join-Path $PSScriptRoot 'acceptance-bundle.ps1')
+. (Join-Path $PSScriptRoot 'acceptance-worktree.ps1')
 $selection = Resolve-AcceptanceSelection -Scenario $Scenario -Quality $Quality
 $Scenario = $selection.Scenario
 $Quality = $selection.Quality
@@ -30,18 +31,10 @@ foreach ($tool in @($sdk, $editor)) {
 if (-not (Test-Path -LiteralPath (Join-Path (Split-Path $editor -Parent) '_sc_'))) {
     throw 'Portable Godot _sc_ marker missing; refusing a profile cache outside H:.'
 }
-$commit = (& git -C $root rev-parse HEAD).Trim()
-if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$') { throw 'Unable to identify Git commit.' }
-$status = @(& git -C $root status --porcelain=v1 --untracked-files=all)
-if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect working tree.' }
-# Allow the established user-local project.godot change; every other change
-# requires reconciliation so an unknown binary/source is not measured.
-foreach ($line in $status) {
-    if ($line.Length -lt 4 -or $line.Substring(3) -cne 'project.godot') {
-        throw "Unreviewed working-tree change: $line. Preserve/reconcile it before acceptance."
-    }
-}
-$projectHash = (Get-FileHash -LiteralPath (Join-Path $root 'project.godot') -Algorithm SHA256).Hash
+$initialWorktree = Get-AcceptanceWorktreeState -Root $root
+$commit = $initialWorktree.commit_sha
+$projectHash = $initialWorktree.project_godot_sha256
+Write-Host "Recognized $($initialWorktree.godot_sidecars.Count) Godot sidecars; preserving their contents and hashes."
 $session = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
 $bundle = Join-Path $root ("artifacts\acceptance\v3-3\" + $session)
 New-Item -ItemType Directory -Path $bundle | Out-Null
@@ -50,6 +43,9 @@ $rows = New-Object 'System.Collections.Generic.List[string]'
 $report = Join-Path $bundle 'result.md'
 $failed = $null
 try {
+    [IO.File]::WriteAllText((Join-Path $bundle 'worktree-before-import.json'),
+        ($initialWorktree | ConvertTo-Json -Depth 8), $utf8)
+    Export-AcceptanceSidecars -Root $root -State $initialWorktree -Directory (Join-Path $bundle 'godot-sidecars/before-import')
     # Rebuild once using the repository's existing H: import/build preflight.
     & (Join-Path $PSScriptRoot 'verify-v2-art.ps1') -NoLaunch 2>&1 |
         Out-File -LiteralPath (Join-Path $bundle 'preflight.log') -Encoding utf8
@@ -59,6 +55,12 @@ try {
             Out-File -LiteralPath (Join-Path $bundle ($project + '.log')) -Encoding utf8
         if ($LASTEXITCODE -ne 0) { throw "Acceptance correctness test failed: $project" }
     }
+    # Import may legitimately generate/refresh companions. Source/config must stay fixed.
+    $captureWorktree = Get-AcceptanceWorktreeState -Root $root
+    Assert-AcceptanceWorktreeStable -Baseline $initialWorktree -Current $captureWorktree -AllowSidecarRefresh
+    [IO.File]::WriteAllText((Join-Path $bundle 'worktree-prepared.json'),
+        ($captureWorktree | ConvertTo-Json -Depth 8), $utf8)
+    Export-AcceptanceSidecars -Root $root -State $captureWorktree -Directory (Join-Path $bundle 'godot-sidecars/capture')
     $assembly = Join-Path $root '.godot\mono\temp\bin\Debug\WorldForgeSim.dll'
     if (-not (Test-Path -LiteralPath $assembly -PathType Leaf)) { throw 'Fresh game assembly missing.' }
     $assemblyHash = (Get-FileHash -LiteralPath $assembly -Algorithm SHA256).Hash
@@ -69,7 +71,11 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'SDK version query failed.' }
     $metadata = [ordered]@{
         evidence_schema = 2; session_id = $session; candidate_commit_sha = $commit
-        git_status = $status; project_godot_sha256 = $projectHash
+        git_status_before_import = $initialWorktree.git_status
+        git_status = $captureWorktree.git_status; project_godot_sha256 = $projectHash
+        godot_sidecars = $captureWorktree.godot_sidecars
+        godot_sidecar_snapshot = 'godot-sidecars/capture'
+        sidecar_policy = 'Tracked-resource companions; preserved before import and frozen after preparation.'
         assembly_sha256 = $assemblyHash; dotnet_sdk = $sdkVersion
         powershell_version = $PSVersionTable.PSVersion.ToString()
         requested_seed = $WorldSeed; quality = $Quality; max_fps = $MaxFps
@@ -79,6 +85,13 @@ try {
     }
     [IO.File]::WriteAllText((Join-Path $bundle 'metadata.json'),
         ($metadata | ConvertTo-Json -Depth 10), $utf8)
+    function Assert-HostCaptureIdentity {
+        $currentWorktree = Get-AcceptanceWorktreeState -Root $root
+        Assert-AcceptanceWorktreeStable -Baseline $captureWorktree -Current $currentWorktree
+        if ((Get-FileHash -LiteralPath $assembly -Algorithm SHA256).Hash -cne $assemblyHash) {
+            throw 'Build identity changed during capture.'
+        }
+    }
     $scenarios = if ($Scenario -eq 'all') { @('idle','pan','zoom','paint') } else { @($Scenario) }
     foreach ($name in $scenarios) {
         $seconds = if ($name -eq 'pan') { 60 } else { 30 }
@@ -87,14 +100,7 @@ try {
             # Alternate order across repeats to reduce systematic first-run bias.
             $backends = if ($repeat % 2 -eq 1) { @('direct','region-mirror') } else { @('region-mirror','direct') }
             foreach ($backend in $backends) {
-                $currentCommit = (& git -C $root rev-parse HEAD).Trim()
-                $currentStatus = @(& git -C $root status --porcelain=v1 --untracked-files=all)
-                if ($LASTEXITCODE -ne 0 -or $currentCommit -cne $commit -or
-                    ($currentStatus -join "`n") -cne ($status -join "`n") -or
-                    (Get-FileHash -LiteralPath (Join-Path $root 'project.godot') -Algorithm SHA256).Hash -cne $projectHash -or
-                    (Get-FileHash -LiteralPath $assembly -Algorithm SHA256).Hash -cne $assemblyHash) {
-                    throw 'Source/configuration/build identity changed during capture.'
-                }
+                Assert-HostCaptureIdentity
                 $directory = Join-Path $bundle ("$name-$repeat-$backend")
                 New-Item -ItemType Directory -Path $directory | Out-Null
                 $runId = "$session-$name-$repeat"
@@ -109,6 +115,7 @@ try {
                 Write-Host "Capturing $name / $backend / pass $repeat. Leave the window focused; Esc cancels."
                 Invoke-AcceptanceProcess -Executable $editor -Arguments $arguments `
                     -WorkingDirectory $root -OutputDirectory $directory -TimeoutSeconds ($seconds + 130)
+                Assert-HostCaptureIdentity
                 $capture = Read-AcceptanceCapture -Directory $directory -ExpectedSession $runId `
                     -ExpectedScenario $name -ExpectedBackend $backend -ExpectedSeed $WorldSeed
                 $captures[$backend] = $capture
