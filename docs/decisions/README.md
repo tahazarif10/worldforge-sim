@@ -15,7 +15,7 @@ ADRs explain **why** technical choices were made, how they are verified and whic
 | --- | --- | --- |
 | [0001](0001-preserve-v2-renderer-and-compatibility.md) | Accepted (codifies prior source and user direction) | Preserve one approved V2 art/camera pipeline, Compatibility baseline, human visual gate; independent V3 scene is not the user-facing target |
 | 0002 | Planned | Deterministic authoritative seeded biome/height region contract |
-| 0003 | Planned | Bounded demand-prioritized workers, data-validity checks and main-thread upload |
+| [0003](0003-bounded-viewport-demand-and-generation-leases.md) | Accepted for V3.4.1 opt-in foundation | Finite viewport demand, bounded residency and generation leases; worker/upload budgets remain planned |
 | 0004 | Planned | LOD seam stitching, nonempty fallback visual coverage and coast halo |
 | 0005 | Planned | Transactional whole-world save: compare immutable files/manifest vs SQLite |
 | 0006 | Planned | Deterministic region/entity scheduling, versioned RNG and inactive-area semantics |

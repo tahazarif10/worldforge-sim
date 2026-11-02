@@ -44,7 +44,8 @@ public partial class VisualTerrain3D : Node3D
     public long TotalTerrainChunkBuilds { get; private set; }
     public int ActiveTerrainChunks => _chunks.Count;
     public int LastRequestedChunks { get; private set; }
-    public int PendingVisibleChunks => Math.Max(0, LastRequestedChunks - _chunks.Count);
+    public int PendingVisibleChunks => ViewportStreamingEnabled
+        ? _viewportQueue.PendingCount : Math.Max(0, LastRequestedChunks - _chunks.Count);
     public bool RichTerrainDetails { get; private set; } = true;
     public bool SculptedFacets { get; private set; } = true;
     public bool SmoothSlopes { get; private set; } = true;
@@ -114,6 +115,7 @@ public partial class VisualTerrain3D : Node3D
             BuildChunk(key.X, key.Y);
         foreach (var key in new List<(int X, int Y)>(_foliageChunks.Keys))
             RebuildVegetationChunk(key.X, key.Y);
+        SynchronizeViewportResidentGeometry();
     }
 
     public float ReliefAt(int x, int y)
@@ -221,6 +223,7 @@ public partial class VisualTerrain3D : Node3D
         _elevation = new ElevationRegionStore(world.Seed, maxResidentRegions:12);
         foreach (MeshInstance3D mesh in _chunks.Values) mesh.QueueFree();
         _chunks.Clear();
+        ResetViewportStreaming();
         _changedChunks.Clear();
         foreach (Node3D chunk in _foliageChunks.Values) chunk.QueueFree();
         _foliageChunks.Clear();
@@ -266,6 +269,11 @@ public partial class VisualTerrain3D : Node3D
     public void UpdateVisibility(Godot.Camera3D camera, int maxNewChunks = 4)
     {
         if (_world is null) return;
+        if (ViewportStreamingEnabled)
+        {
+            UpdateViewportVisibility(camera, maxNewChunks);
+            return;
+        }
         Vector2 viewport = camera.GetViewport().GetVisibleRect().Size;
         if (viewport.X <= 0 || viewport.Y <= 0) return;
 
@@ -336,7 +344,10 @@ public partial class VisualTerrain3D : Node3D
         int bottom = Math.Min(_world.Height - 1, y + radius + 1);
         for (int cy = top / ChunkSize; cy <= bottom / ChunkSize; cy++)
         for (int cx = left / ChunkSize; cx <= right / ChunkSize; cx++)
+        {
             _changedChunks.Add((cx, cy));
+            MarkViewportChunkDirty(cx, cy);
+        }
         _coastDirty = true;
     }
 
@@ -350,6 +361,7 @@ public partial class VisualTerrain3D : Node3D
             if (!_chunks.ContainsKey((x, y))) continue;
             BuildChunk(x, y);
             RebuildVegetationChunk(x, y);
+            AcknowledgeViewportChunk(x, y);
         }
         _changedChunks.Clear();
         if (_coastDirty) RefreshCoastMask();

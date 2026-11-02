@@ -9,6 +9,7 @@ on:
       - 'scripts/**'
       - 'tests/TerrainBackendParity.Smoke/**'
       - 'tests/FrameTime.Smoke/**'
+      - 'tests/ViewportStreaming.Smoke/**'
       - 'tests/AcceptanceBundle.Smoke/**'
       - 'WorldForgeSim.csproj'
       - 'global.json'
@@ -98,6 +99,25 @@ jobs:
             --scene res://Scenes/RegionalWorldLab3D.tscn --quit-after 24 \
             --rendering-method gl_compatibility
 
+      - name: Real camera viewport coverage and bounded residency on both terrain sources
+        run: |
+          set -euo pipefail
+          for BACKEND in direct region-mirror; do
+            for MODE in legacy viewport; do
+              EXTRA=()
+              if [ "$MODE" = viewport ]; then EXTRA+=(--viewport-streaming); fi
+              timeout 90s "$GODOT" --headless --path "$GITHUB_WORKSPACE" \
+                --scene res://tests/ViewportStreaming.Smoke/EngineProbe.tscn \
+                --rendering-method gl_compatibility --resolution 1280x800 \
+                -- --world-seed=1315511732 "--terrain-backend=$BACKEND" "${EXTRA[@]}" \
+                2>&1 | tee "$RUNNER_TEMP/viewport-$BACKEND-$MODE.log"
+              if [ "$MODE" = viewport ]; then
+                grep -F 'PASS VIEWPORT ENGINE' "$RUNNER_TEMP/viewport-$BACKEND-$MODE.log"
+              else
+                grep -F 'PASS VIEWPORT DEFAULT OFF' "$RUNNER_TEMP/viewport-$BACKEND-$MODE.log"
+              fi
+            done
+          done
       - name: Capture four scenarios through the shared process and snapshot helpers
         shell: pwsh
         run: ./tests/AcceptanceBundle.Smoke/capture-engine.ps1 -Executable $env:GODOT -Directory ./artifacts/acceptance/ci

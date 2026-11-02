@@ -34,6 +34,8 @@ jobs:
         run: dotnet run --project tests/FrameTime.Smoke/FrameTime.Smoke.csproj -c Release
       - name: Viewport-driven chunk residency tests
         run: dotnet run --project tests/VisibleChunks.Smoke/VisibleChunks.Smoke.csproj -c Release
+      - name: Finite viewport coverage and bounded generation-safe residency
+        run: dotnet run --project tests/ViewportStreaming.Smoke/ViewportStreaming.Smoke.csproj -c Release
       - name: Authored nature species scatter tests
         run: dotnet run --project tests/NatureScatter.Smoke/NatureScatter.Smoke.csproj -c Release
       - name: Summit cap removal, mountain accent bounds and real-map density

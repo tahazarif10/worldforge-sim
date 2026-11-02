@@ -2,7 +2,7 @@
 
 **Original stylized 3D living-world god sandbox** — island terrain, coastal water, forests, mountains, authored CC0 nature, human agents and god powers, with an orthographic/isometric camera. Inspired by the sandbox-simulation **genre**, not WorldBox proprietary art/source/UI.
 
-**Development state — reviewed 2026-11-01:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. The **V3.3 measurement/parity runner is implemented**; next is actual Windows baseline acceptance, then no-hole streaming and authoritative region simulation. A complete small-world gameplay loop precedes optional maximum-map expansion. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
+**Development state — reviewed 2026-11-02:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. The **V3.3 measurement/parity runner is implemented**; actual Windows baseline acceptance remains pending. The explicitly authorized **V3.4.1 viewport planner/residency foundation is available behind an OFF-by-default flag**; complete no-hole fallback and authoritative region simulation remain future work. A complete small-world gameplay loop precedes optional maximum-map expansion. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
 
 ## Start the approved 3D game (Windows, H: drive)
 
@@ -38,6 +38,10 @@ The mirror wrapper now accepts `-WorldSeed 1315511732`. For matched camera, phas
 
 This **still runs the approved V2 renderer and camera** but accesses the existing 120×88 WorldState tiles through a bounded 64×64 `RegionStore` cache. It is not a playable 8192×8192 world. Do not run the user-rejected `RegionalWorldLab3D.tscn` for gameplay. Its engineering-only scripts require `-ExperimentalV3`.
 
+### Experimental viewport planner (same interactive scene)
+
+The [V3.4.1 guide](docs/V3_4_VIEWPORT_STREAMING.md) documents `verify-v2-art.ps1 -WorldSeed 1315511732 -ViewportStreaming`. This builds and opens normal interactive play with finite camera/height bounds and bounded chunk demand. Omit the switch for the ordinary planner. Coarse fallback, worker mesh jobs and physical performance acceptance are still pending.
+
 ## Current code capabilities and limitations
 
 | Implemented | Not yet implemented / not yet physically verified |
@@ -68,7 +72,7 @@ This **still runs the approved V2 renderer and camera** but accesses the existin
 
 Review [AGENTS.md](AGENTS.md) before modifying code. The project's [critical V3 visual/input regression issue #46](https://github.com/tahazarif10/worldforge-sim/issues/46) remains open; a Linux Godot boot is not user Windows acceptance.
 
-**Current engineering tracker:** [V3.3 exact Windows baseline #52](https://github.com/tahazarif10/worldforge-sim/issues/52), with first slices [#53](https://github.com/tahazarif10/worldforge-sim/issues/53) and [#54](https://github.com/tahazarif10/worldforge-sim/issues/54). The larger-world stages [#55](https://github.com/tahazarif10/worldforge-sim/issues/55), [#56](https://github.com/tahazarif10/worldforge-sim/issues/56) and [#57](https://github.com/tahazarif10/worldforge-sim/issues/57) are **blocked by earlier acceptance gates**, not started.
+**Current engineering tracker:** [V3.3 exact Windows baseline #52](https://github.com/tahazarif10/worldforge-sim/issues/52), with first slices [#53](https://github.com/tahazarif10/worldforge-sim/issues/53) and [#54](https://github.com/tahazarif10/worldforge-sim/issues/54). The larger-world stages [#55](https://github.com/tahazarif10/worldforge-sim/issues/55), [#56](https://github.com/tahazarif10/worldforge-sim/issues/56) and [#57](https://github.com/tahazarif10/worldforge-sim/issues/57) retain their physical acceptance dependencies. #55's first engineering slice [#63](https://github.com/tahazarif10/worldforge-sim/issues/63) is opt-in; subsequent fallback/worker/LOD and region-authority work are not complete.
 
 ## Architecture summary
 
@@ -87,7 +91,7 @@ Future bounded regional world: make 64×64 data regions authoritative behind thi
 - V2 introduced true stylized 3D, mouse-anchored orthographic camera, animated ocean and real CC0 models.
 - V3.0's alternate region demo proved only logical coordinates and some storage; **the user rejected appearance AND movement**. [Postmortem](docs/V3_REJECTION_POSTMORTEM.md).
 - [PR #47](https://github.com/tahazarif10/worldforge-sim/pull/47) restored approved V2 as the safe default; [PR #49](https://github.com/tahazarif10/worldforge-sim/pull/49) added opt-in exact data-source parity; [PR #50](https://github.com/tahazarif10/worldforge-sim/pull/50) removed dense rock caps from summits; [PR #51](https://github.com/tahazarif10/worldforge-sim/pull/51) added exact screenshot seed replay.
-- **Next:** measured V3.3 baseline/QA and only then streaming/LOD development, per the [roadmap](docs/ROADMAP.md).
+- **Current:** outstanding V3.3 baseline/QA plus explicitly authorized opt-in V3.4.1 engineering. Next streaming slice is coarse terrain/ocean fallback; see the [roadmap](docs/ROADMAP.md).
 
 ## Rights, CI and product boundaries
 

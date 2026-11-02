@@ -225,6 +225,7 @@ public partial class VisualLab3D
     private object FixtureMetadata() => new
     {
         version = AcceptanceOptions.FixtureVersion,
+        streaming_planner = _terrain.StreamingPlannerName,
         seed = _world.Seed,
         width = _world.Width,
         height = _world.Height,

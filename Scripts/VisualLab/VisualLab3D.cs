@@ -342,7 +342,8 @@ public partial class VisualLab3D : Node3D
                     $"pending visible chunks: {_terrain.PendingVisibleChunks}, " +
                     $"quality: {(_ecoMode ? "Eco" : "Balanced")}, " +
                     $"terrain builds since launch: {_terrain.TotalTerrainChunkBuilds}, " +
-                    $"tile source: {_terrain.TerrainBackendName}");
+                    $"tile source: {_terrain.TerrainBackendName}; " +
+                    $"streaming: {_terrain.StreamingDiagnostics}");
             if (k.Keycode == Key.Escape) GetTree().Quit();
             RefreshHud();
         }
@@ -438,6 +439,7 @@ public partial class VisualLab3D : Node3D
                     scenario_id = _frameProbe.ScenarioId,
                     seed = _world.Seed,
                     backend = _terrain.TerrainBackendName,
+                    streaming = _terrain.StreamingDiagnostics,
                     camera = _cameraRig.ReviewPose,
                     clock_source = "Godot.Time.GetTicksUsec",
                     capture_valid = false, // No isolated scenario or completed window.

@@ -220,3 +220,17 @@ Checked 2026-11-01; stable documentation is guidance, while exact installed 4.7.
 22. GitHub workflow permissions: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
 
 Primary references 1–7 and 9 were also consulted in this review. Sources describe capabilities and constraints; the proposed algorithms, priorities and product milestones are project-specific engineering judgments.
+
+## 9. Viewport and queue implementation research — 2026-11-02
+
+The [Godot 4.7 Camera3D reference](https://docs.godotengine.org/en/4.7/classes/class_camera3d.html) specifies `project_position` at a camera-depth plane and exposes `is_position_in_frustum`. The new adapter obtains near/far viewport corners from the real camera. Engine tests use the separate frustum-plane predicate as an independent coverage oracle.
+
+**Source finding:** the earlier visibility code used only sea level and 5m, while supported sculpt deltas reach ±8m. This motivates a declared full height envelope; it does not prove the user's earlier run had visible holes. Finite-volume clipping also avoids extending nearly horizontal rays to arbitrarily remote ground.
+
+**Selected design:** a conservative X/Z rectangle of the frustum intersected with the height slab, followed by world clipping and bounded margin. Exact convex-polygon/chunk clipping could reduce corner over-requesting but adds predicates and numerical cases; defer it until measured demand makes that complexity useful. Explicitly reject over-capacity demand rather than silently dropping coverage.
+
+A generation stamp plus unique lease rejects stale and remove/re-add completions. Camera demand is separate from data validity. The queue has bounded current entries; oldest visible demand cohorts limit starvation from newly arriving nearby work. These are design choices tested in the pure suite, not performance measurements.
+
+The [Godot 4.7 threading reference](https://docs.godotengine.org/en/4.7/tutorials/performance/thread_safe_apis.html) warns about active SceneTree and GPU operations across threads. This slice retains synchronous main-thread native work. It does not implement or benchmark background mesh generation.
+
+[ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md) records alternatives, explicit user authorization for an OFF-by-default engineering slice, limitations and physical promotion gates. The actual 4.7.2 Mono CI, rather than documentation alone, verifies API compatibility.

@@ -1,8 +1,8 @@
 ---
 state_schema: 3
 reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
-last_verified_date: 2026-11-01
-audited_repository_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
+last_verified_date: 2026-11-02
+audited_repository_commit: 1bedd907b154a5789cab685a693c604a308b03ae
 baseline_core_ci_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
 baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
@@ -12,17 +12,19 @@ windows_attempted_commit: 2d1dd5ed8cff3f9ab1c9214ccb2bed6f69ea6ea9
 windows_attempt_status: "Import/build and direct startup reached; three late C# UIDs detected; capture.json absent; run incomplete"
 user_accepted_visual_commit: null
 completed_through: V3.2-engineering
-active_milestone: V3.3.1
+active_milestone: V3.4.1
+host_acceptance_milestone: V3.3
+viewport_planner_issue: 63
 measurement_implementation_pr: 60
-active_status: "Post-build runtime preparation and incomplete-run diagnostics implemented after confirmed late UID generation; target rerun pending"
-next_gate: "Run H: acceptance runner on reference seed; review valid direct/mirror captures and complete #53 manual visual/input gates"
+active_status: "Opt-in viewport planner and bounded residency implemented; physical baseline and streaming promotion remain pending"
+next_gate: "Review V3.4.1 exact-head CI and opt-in behavior; collect complete V3.3 Windows baseline before any default promotion"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
 
 # WorldForge Sim — factual project state
 
-**Source audit updated 2026-11-01.** This file is the factual status ledger, not the entire history and not a promise of future implementation. The prior chronology is preserved verbatim in [PROJECT_HISTORY_2026-10-30.md](PROJECT_HISTORY_2026-10-30.md). The actionable future plan is [ROADMAP.md](ROADMAP.md).
+**Source audit updated 2026-11-02.** This file is the factual status ledger, not the entire history and not a promise of future implementation. The prior chronology is preserved verbatim in [PROJECT_HISTORY_2026-10-30.md](PROJECT_HISTORY_2026-10-30.md). The actionable future plan is [ROADMAP.md](ROADMAP.md).
 
 ## Product status
 
@@ -106,6 +108,18 @@ The [shared runtime preparation](../scripts/acceptance-runtime.ps1) now performs
 
 CI reproduces the exact three missing UIDs in its own disposable checkout and uses the same preparation/observed-process helpers for actual Godot captures. Exact-head evidence is recorded in the fix PR and #54. **H:-Windows rerun remains PENDING.**
 
+### Host startup evidence and authorized V3.4.1 engineering — 2026-11-02
+
+The supplied follow-up confirms all **63** companions recognized, import/build success, all three preparation stages completed and the direct idle fixture initialized on the R9 M395X. The new bundle is `artifacts/acceptance/v3-3/20261102-140354-abc21f68`.
+
+The host's displayed file timestamps show process logs created at 18:34:49, fixture startup logged by 18:34:50 and the ending worktree manifest written at 18:34:57. Stderr is empty; no before/after image or completed capture files exist. Together with the user's confirmation of closing the window, this is an approximately eight-second run ending **before the ten-second warm-up completed**, not a completed performance capture. It does not establish a renderer hang. The exact local HEAD was not printed in this newer transcript; the earlier `windows_attempted_commit` field remains the last explicitly established historical attempt, not a guessed SHA for this run.
+
+The user then explicitly authorized advancing the next development step. [#63](https://github.com/tahazarif10/worldforge-sim/issues/63) implements the **V3.4.1 engineering foundation behind an OFF-by-default flag**: finite camera/height bounds, bounded residency, generation/lease validation and same-scene integration. See [guide](V3_4_VIEWPORT_STREAMING.md) and [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md).
+
+No V3.3 physical gate is closed. No coarse fallback, asynchronous mesh jobs, whole-world authority, time/byte upload budgets or large-world performance is claimed. Exact implementation-head CI evidence belongs to the slice PR and issue #63. Windows visual/control/performance remains **PENDING**.
+
+Interactive review command after a safe update: `.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732 -ViewportStreaming`. It enables normal controls; closing that interactive session is expected. Omit the switch to use the ordinary planner.
+
 ## Current hardware and local rules
 
 - User PC: Windows, Godot **4.7.2 Mono**, **.NET 10**, GPU **AMD Radeon R9 M395X**, Compatibility/OpenGL renderer.
@@ -122,7 +136,7 @@ CI reproduces the exact three missing UIDs in its own disposable checkout and us
 4. **Physical gate missing:** matched direct/mirror screenshot and drag/wheel input performance, p50/p95/p99 on R9 M395X. User approvals are a distinct column.
 5. **Actual huge-world save/restore** missing; per-region checksummed files are not yet a durable all-regions transaction.
 
-## Next action: V3.3.1 implementation → V3.3.0 host acceptance
+## Current work: V3.4.1 opt-in engineering and outstanding V3.3 host acceptance
 
 **Live tracker:** [#52](https://github.com/tahazarif10/worldforge-sim/issues/52); implementation/evidence slices [#53](https://github.com/tahazarif10/worldforge-sim/issues/53), [#54](https://github.com/tahazarif10/worldforge-sim/issues/54).
 

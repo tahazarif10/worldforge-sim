@@ -16,6 +16,10 @@
 | World-scale preview | `RegionalWorldLab3D.tscn` at 8192² logical addresses | **WITHDRAWN / user-rejected** for missing terrain and camera/art regression |
 | CI | Core .NET smoke tests + official Godot 4.7.2 Mono Linux scene boots | Necessary, cannot establish Windows FPS/visual quality |
 
+### V3.4.1 implemented engineering foundation — 2026-11-02
+
+`ViewportChunkPlanner`, `ChunkResidencyQueue` and the opt-in `VisualTerrain3D.Streaming` adapter now implement finite camera/height demand and generation-checked synchronous residency. [Guide](V3_4_VIEWPORT_STREAMING.md), [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md). Default behavior is unchanged. Coarse fallback, background mesh jobs, upload time/byte budgets and independent regional authority described below remain target work.
+
 ## 2. Target dependency direction
 
 ```mermaid
@@ -147,7 +151,7 @@ Suggested counters per frame: active regions, active detailed/fallback chunks, u
 
 - [ADR 0001](decisions/0001-preserve-v2-renderer-and-compatibility.md): keep single V2 renderer/camera, Compatibility tier, user visual gate.
 - Planned ADR 0002: immutable region snapshots and authoritative procedural generator/versioning.
-- Planned ADR 0003: bounded streaming queue, cancellation, main-thread native upload.
+- [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md): accepted finite viewport demand and generation leases for the opt-in V3.4.1 foundation; worker/upload budgets remain planned.
 - Planned ADR 0004: cross-region canonical height + LOD seam strategy.
 - Planned ADR 0005: transactional whole-world save, choosing immutable files/manifest vs SQLite after prototype evidence.
 - Planned ADR 0006: regional population clock, versioned RNG, stable event order, interpolation and inactive-world semantics.

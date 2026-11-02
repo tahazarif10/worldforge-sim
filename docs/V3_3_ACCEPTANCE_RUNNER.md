@@ -57,6 +57,12 @@ The post-build import/runtime preparation above addresses the proven late-genera
 
 Every measured process now saves `worktree-after.json` even on a nonzero exit/timeout where inspection is possible; inspection failure is saved as `worktree-after.error.txt`. Missing capture files produce an explicit incomplete-run message before a sidecar mismatch can mask them. Sidecar mismatch diagnostics name added, changed or removed paths. A native exit code of zero alone never proves a completed capture.
 
+### Later host run — 2026-11-02
+
+The next supplied run recognized all 63 companions, completed all preparation stages and initialized the direct idle fixture without stderr. Its process logs were created at 18:34:49, startup finished logging by 18:34:50, and the post-process worktree snapshot was written at 18:34:57 (times as displayed on the host). The user confirmed manually closing the window. The approximately eight-second process lifetime did not complete the ten-second warm-up, so there was no before-image or capture window. No full-duration performance result is established by this run.
+
+Normal interactive play closes normally on operator request. The acceptance runner instead needs automatic completion of both measured processes. Developing the opt-in [V3.4.1 planner](V3_4_VIEWPORT_STREAMING.md) does not change or waive this evidence rule.
+
 ## Fixture and scenarios
 
 Fixture ID: `v3.3-reference-1`. Same approved `VisualLab3D` scene, 120×88 world, center `(60,44)`, orthographic size 79, 1280×800 viewport, specified quality, smooth terrain and fixed initial simulation state.
@@ -104,7 +110,7 @@ H:\WorldForge-Sim\artifacts\acceptance\v3-3\<session>\
     stderr.log
 ```
 
-The outer metadata records candidate SHA, Git status, project configuration hash, rebuilt assembly hash, SDK/PowerShell and available GPU driver information. Each capture records actual fixture, backend, engine/runtime/render settings, window/viewport, FPS cap, VSync, clock, completeness and raw statistics. Unknown hardware fields remain null. The runner also records companion paths, source paths, byte lengths and SHA-256 hashes, and verifies source/configuration/companion/assembly identity at both boundaries of every launch.
+The outer metadata records candidate SHA, Git status, project configuration hash, rebuilt assembly hash, SDK/PowerShell and available GPU driver information. Each capture records actual fixture, backend, active streaming planner, engine/runtime/render settings, window/viewport, FPS cap, VSync, clock, completeness and raw statistics. Unknown hardware fields remain null. The runner also records companion paths, source paths, byte lengths and SHA-256 hashes, and verifies source/configuration/companion/assembly identity at both boundaries of every launch.
 
 `frames.csv` columns: `session_id, scenario_id, sequence, elapsed_us, interval_us, engine_delta_ms`. A callback interval comes from `Time.GetTicksUsec`. Engine delta is separately retained and may differ. First callback establishes the origin; Stop freezes the final full interval.
 
