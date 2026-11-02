@@ -137,7 +137,8 @@ Check(!queue.Complete(edited with {Generation=revision with {Lod=1}}), "wrong LO
 Check(!queue.Complete(edited with {Generation=revision with {WorldEpoch=2}}), "wrong world rejected");
 Check(!queue.Complete(edited with {Generation=generation}), "wrong data revision rejected");
 Check(!queue.Complete(edited with {Ticket=edited.Ticket+99}), "wrong request lease rejected");
-Check(queue.Fail(edited) && queue.TryBegin(first.Key,out var retry) && retry.Ticket!=edited.Ticket,
+Check(queue.Fail(edited), "failed build is requeued");
+Check(queue.TryBegin(first.Key,out var retry) && retry.Ticket!=edited.Ticket,
     "failed build retries with a distinct lease");
 Check(!queue.Complete(edited) && queue.Complete(retry), "late failed response cannot replace retry");
 queue.Reconcile([Demand(2,2)]);
