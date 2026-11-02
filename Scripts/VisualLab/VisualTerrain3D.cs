@@ -109,6 +109,7 @@ public partial class VisualTerrain3D : Node3D
 
     private void RebuildResidentGeometry()
     {
+        InvalidateViewportGeometry();
         // Debug quality toggle only: the usual view-driven loading remains
         // bounded. Snapshot dictionary keys before replacing foliage batches.
         foreach (var key in new List<(int X, int Y)>(_chunks.Keys))
@@ -221,11 +222,19 @@ public partial class VisualTerrain3D : Node3D
             _tiles.Seed != world.Seed)
             throw new ArgumentException("Terrain source must exactly match current WorldState.");
         _elevation = new ElevationRegionStore(world.Seed, maxResidentRegions:12);
-        foreach (MeshInstance3D mesh in _chunks.Values) mesh.QueueFree();
+        foreach (MeshInstance3D mesh in _chunks.Values)
+        {
+            mesh.Visible = false;
+            mesh.QueueFree();
+        }
         _chunks.Clear();
         ResetViewportStreaming();
         _changedChunks.Clear();
-        foreach (Node3D chunk in _foliageChunks.Values) chunk.QueueFree();
+        foreach (Node3D chunk in _foliageChunks.Values)
+        {
+            chunk.Visible = false;
+            chunk.QueueFree();
+        }
         _foliageChunks.Clear();
         _propCounts.Clear();
         LastPropCount = 0;
@@ -365,6 +374,7 @@ public partial class VisualTerrain3D : Node3D
         }
         _changedChunks.Clear();
         if (_coastDirty) RefreshCoastMask();
+        RefreshViewportFallbacks();
     }
 
     private void RefreshCoastMask()
@@ -406,17 +416,11 @@ public partial class VisualTerrain3D : Node3D
     {
         TotalTerrainChunkBuilds++;
         var key = (cx, cy);
-        if (!_chunks.TryGetValue(key, out MeshInstance3D? instance))
-        {
-            instance = new MeshInstance3D { Name = $"TerrainChunk_{cx}_{cy}" };
-            _chunks[key] = instance;
-            AddChild(instance);
-        }
-
+        // Construct the complete resource before changing any resident node.
         using var surface = new SurfaceTool();
         surface.Begin(Mesh.PrimitiveType.Triangles);
         surface.SetMaterial(_earthMaterial);
-        bool any = false;
+        int landCells = 0;
         int xMax = Math.Min(_world.Width, (cx + 1) * ChunkSize);
         int yMax = Math.Min(_world.Height, (cy + 1) * ChunkSize);
 
@@ -425,7 +429,7 @@ public partial class VisualTerrain3D : Node3D
         {
             Terrain tile = _tiles.Tile(x, y);
             if (tile is Terrain.DeepWater or Terrain.ShallowWater) continue;
-            any = true;
+            landCells++;
             float h = HeightAt(x, y);
             Color col = TerrainColors[(int)tile];
             Vector3 a = new(x, h, y), b = new(x, h, y + 1);
@@ -504,9 +508,18 @@ public partial class VisualTerrain3D : Node3D
             }
         }
 
-        instance.Visible = any;
-        if (any) instance.Mesh = surface.Commit();
-        else instance.Mesh = null;
+        Mesh? replacement = landCells > 0 ? surface.Commit() : null;
+        if (landCells > 0 && (replacement is null || replacement.GetSurfaceCount() == 0))
+            throw new InvalidOperationException("Detailed terrain mesh construction failed.");
+        if (!_chunks.TryGetValue(key, out MeshInstance3D? instance))
+        {
+            instance = new MeshInstance3D { Name = $"TerrainChunk_{cx}_{cy}", Visible = false };
+            _chunks[key] = instance;
+            AddChild(instance);
+        }
+        instance.Mesh = replacement;
+        instance.Visible = landCells > 0;
+        RecordViewportDetail(cx, cy, instance, landCells);
     }
 
     private void AddSmoothTopFace(SurfaceTool surface, int x, int y, Color centerColor)
@@ -531,8 +544,8 @@ public partial class VisualTerrain3D : Node3D
 
     private void DrawSmoothCoastSkirts(SurfaceTool surface,int x,int y)
     {
-        SharedCornerHeightfield.Fan f = SharedCornerHeightfield.Tile(
-            x,y,_world.Width,_world.Height,HeightAt,ReliefAt(x,y));
+        // Banks and tops must use identical sculpted edge samples.
+        SharedCornerHeightfield.Fan f = EditableFan(x,y);
         const float sea = .12f;
         Color bank = _tiles.Tile(x,y) == Terrain.Sand
             ? new Color("#b89c69") : new Color("#746d5c");

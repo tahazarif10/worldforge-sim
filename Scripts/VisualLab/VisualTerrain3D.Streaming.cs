@@ -10,7 +10,7 @@ namespace WorldForge.VisualLab;
 public readonly record struct ViewportStreamingDiagnostics(
     string Planner, long WorldEpoch, int DesiredChunks, int VisibleChunks,
     int PendingChunks, int MissingVisibleChunks, long MissingVisibleCellUpperBound,
-    int Capacity);
+    int Capacity, int FallbackChunks, int MissingDetailedVisibleChunks);
 
 public partial class VisualTerrain3D
 {
@@ -22,7 +22,7 @@ public partial class VisualTerrain3D
 
     public bool ViewportStreamingEnabled { get; } =
         Array.Exists(OS.GetCmdlineUserArgs(), arg => arg == "--viewport-streaming");
-    public string StreamingPlannerName => ViewportStreamingEnabled ? "viewport-v1" : "legacy-v2";
+    public string StreamingPlannerName => ViewportStreamingEnabled ? "viewport-v2-fallback" : "legacy-v2";
     private readonly ChunkResidencyQueue _viewportQueue = new(ViewportCapacity);
     private readonly Dictionary<ChunkCoord, long> _viewportRevisions = new();
     private ViewportChunkPlan? _viewportPlan;
@@ -38,29 +38,34 @@ public partial class VisualTerrain3D
     {
         if (!ViewportStreamingEnabled) return;
         _viewportWorldEpoch = checked(_viewportWorldEpoch + 1);
+        ResetViewportSurfaces();
         _viewportQueue.Reset();
         _viewportRevisions.Clear();
         _viewportPlan = null;
-        GD.Print("Experimental viewport planner: viewport-v1; world epoch " + _viewportWorldEpoch);
+        GD.Print("Experimental viewport planner: viewport-v2-fallback; world epoch " + _viewportWorldEpoch);
     }
 
     public ViewportStreamingDiagnostics StreamingDiagnostics
     {
         get
         {
-            int missing = 0;
+            int missing = 0, missingDetail = 0;
             long cells = 0;
             if (_viewportPlan is not null)
                 foreach (ChunkCoord key in _viewportPlan.Visible)
-                    if (!_chunks.ContainsKey((key.X, key.Z)))
+                {
+                    if (!HasViewportDetailedCoverage(key.X, key.Z)) missingDetail++;
+                    if (!HasViewportSurfaceCoverage(key.X, key.Z))
                     {
                         missing++;
                         cells += (long)Math.Min(ChunkSize, _world.Width - key.X * ChunkSize) *
                             Math.Min(ChunkSize, _world.Height - key.Z * ChunkSize);
                     }
+                }
             return new ViewportStreamingDiagnostics(StreamingPlannerName, _viewportWorldEpoch,
                 _viewportPlan?.Desired.Count ?? 0, _viewportPlan?.Visible.Count ?? 0,
-                _viewportQueue.PendingCount, missing, cells, ViewportCapacity);
+                _viewportQueue.PendingCount, missing, cells, ViewportCapacity,
+                _viewportFallbacks.Count, missingDetail);
         }
     }
 
@@ -98,12 +103,22 @@ public partial class VisualTerrain3D
         foreach (ChunkCoord key in plan.Desired)
             _viewportRevisions.TryAdd(key, 0);
 
+        // Publish coverage for the entire new visible plan BEFORE eviction.
+        // This runs even when the detailed build budget is zero.
+        RefreshViewportFallbacks();
+
         foreach (var key in new List<(int X, int Y)>(_chunks.Keys))
         {
             if (plan.Desired.Contains(new ChunkCoord(key.X, key.Y))) continue;
+            _chunks[key].Visible = false;
             _chunks[key].QueueFree();
+            _viewportDetails.Remove(new ChunkCoord(key.X, key.Y));
             _chunks.Remove(key);
-            if (_foliageChunks.Remove(key, out Node3D? foliage)) foliage.QueueFree();
+            if (_foliageChunks.Remove(key, out Node3D? foliage))
+            {
+                foliage.Visible = false;
+                foliage.QueueFree();
+            }
             if (_propCounts.Remove(key, out int oldCount)) LastPropCount -= oldCount;
         }
 
@@ -117,8 +132,7 @@ public partial class VisualTerrain3D
                 // This slice deliberately retains synchronous main-thread mesh work.
                 BuildChunk(request.Key.X, request.Key.Z);
                 RebuildVegetationChunk(request.Key.X, request.Key.Z);
-                if (!_viewportQueue.Complete(request))
-                    throw new InvalidOperationException("Synchronous chunk lease was invalidated.");
+                CompleteViewportDetail(request);
             }
             catch
             {
@@ -141,19 +155,36 @@ public partial class VisualTerrain3D
     {
         if (!ViewportStreamingEnabled) return;
         var key = new ChunkCoord(x, z);
-        if (_viewportQueue.TryBegin(key, out ChunkRequest request))
-            _viewportQueue.Complete(request);
+        if (!_viewportQueue.TryBegin(key, out ChunkRequest request)) return;
+        try { CompleteViewportDetail(request); }
+        catch
+        {
+            _viewportQueue.Fail(request);
+            throw;
+        }
+    }
+
+    private void InvalidateViewportGeometry()
+    {
+        if (!ViewportStreamingEnabled) return;
+        foreach (ChunkCoord key in new List<ChunkCoord>(_viewportRevisions.Keys))
+            MarkViewportChunkDirty(key.X, key.Z);
     }
 
     private void SynchronizeViewportResidentGeometry()
     {
         if (!ViewportStreamingEnabled) return;
-        foreach (var key in _chunks.Keys)
-        {
-            MarkViewportChunkDirty(key.X, key.Y);
-            AcknowledgeViewportChunk(key.X, key.Y);
-        }
+        foreach (var key in _chunks.Keys) AcknowledgeViewportChunk(key.X, key.Y);
+        RefreshViewportFallbacks();
     }
 
-    public override void _ExitTree() => _viewportQueue.Dispose();
+    public override void _ExitTree()
+    {
+        _viewportQueue.Dispose();
+        // The scene owns and frees child resources at teardown.
+        _viewportDetails.Clear();
+        _viewportFallbacks.Clear();
+        _viewportRevisions.Clear();
+        _viewportPlan = null;
+    }
 }

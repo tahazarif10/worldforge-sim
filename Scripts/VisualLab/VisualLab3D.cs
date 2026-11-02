@@ -212,14 +212,15 @@ public partial class VisualLab3D : Node3D
             if (_tickAccumulator > TickSeconds * 12) _tickAccumulator = TickSeconds;
         }
 
-        // Fast travel cannot synchronously instantiate the whole visible
-        // forest in one frame. 50ms cadence + bounded 2/4 chunks per pass.
-        // Startup preloads the preview once; moving cameras build gradually.
+        // Coverage follows camera motion every rendered frame in opt-in mode.
+        // Detailed forest construction retains the existing 50ms 2/4 budget.
         _visibilityRefresh += delta;
-        if (_visibilityRefresh >= 0.05)
+        bool buildDetails = _visibilityRefresh >= 0.05;
+        if (_terrain.ViewportStreamingEnabled || buildDetails)
         {
-            _visibilityRefresh = 0;
-            _terrain.UpdateVisibility(_camera, maxNewChunks: _ecoMode ? 2 : 4);
+            if (buildDetails) _visibilityRefresh = 0;
+            _terrain.UpdateVisibility(_camera,
+                maxNewChunks: buildDetails ? (_ecoMode ? 2 : 4) : 0);
         }
 
         _terrainRefresh += delta;

@@ -17,6 +17,7 @@ documents = [
     "docs/V3_3_ACCEPTANCE_RUNNER.md",
     "docs/V3_4_VIEWPORT_STREAMING.md",
     "docs/decisions/0003-bounded-viewport-demand-and-generation-leases.md",
+    "docs/decisions/0004-continuous-surface-fallback.md",
     "docs/ROADMAP_FA.md",
     "docs/REPOSITORY_AUDIT_2026-11-01.md",
     "docs/decisions/0007-measurement-evidence-and-scenario-identity.md",

@@ -234,3 +234,15 @@ A generation stamp plus unique lease rejects stale and remove/re-add completions
 The [Godot 4.7 threading reference](https://docs.godotengine.org/en/4.7/tutorials/performance/thread_safe_apis.html) warns about active SceneTree and GPU operations across threads. This slice retains synchronous main-thread native work. It does not implement or benchmark background mesh generation.
 
 [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md) records alternatives, explicit user authorization for an OFF-by-default engineering slice, limitations and physical promotion gates. The actual 4.7.2 Mono CI, rather than documentation alone, verifies API compatibility.
+
+## 10. Surface fallback implementation research — 2026-11-02
+
+The [Godot 4.7 ArrayMesh guide](https://docs.godotengine.org/en/4.7/tutorials/3d/procedural_geometry/arraymesh.html) describes aligned vertex/normal/color arrays and `AddSurfaceFromArrays`. The selected adapter uploads bounded managed arrays on the main thread. The exact engine build and real mesh-array checks verify compatibility; API documentation alone is not execution evidence.
+
+The [Godot 4.7 3D performance guide](https://docs.godotengine.org/en/4.7/tutorials/performance/optimizing_3d_performance.html) discusses on-demand tiled worlds, LOD and transparency costs. We retain the current opaque water and select a surface-only readiness proxy. These are design decisions, not a documented R9 M395X speedup.
+
+**New source findings:** terrain dictionary membership did not prove a visible native surface; water-only chunks intentionally have no land mesh. Visibility updates were spaced 50ms apart, potentially leaving new camera demand unplanned between updates. Smooth coast banks used baseline heights while top triangles included sculpt offsets. V3.4.2 addresses these three contracts with actual-resource coverage, per-frame opt-in coverage and canonical edited coast edges.
+
+**Alternative comparison:** a coarser fixed-step grid reduces vertices but can remove small islands and create nonmatching edges. The first implementation therefore preserves exact per-cell top fans and the existing palette, simplifying banks and omitting decorations. The tradeoff is synchronous work and retained top resolution; it postpones measured distance LOD rather than asserting arbitrary thresholds. See [ADR 0004](decisions/0004-continuous-surface-fallback.md) for memory arithmetic, failure handling, limits and verification.
+
+**Next research/implementation question:** split immutable numeric generation from main-thread native upload, measure both, then enforce pending-byte and time budgets for camera demand and dirty edits. Continuous proxy coverage must survive queue backpressure and worker failures. This is V3.4.3; no worker or GPU performance claim is made in this slice.

@@ -33,7 +33,7 @@ if ($null -ne $WorldSeed) {
     $godotArgs += "--world-seed=$WorldSeed"
 }
 if ($ViewportStreaming) {
-    Write-Host 'Experimental viewport planner ON. Coarse fallback and Windows acceptance are still pending.'
+    Write-Host 'Experimental viewport streaming ON: surface fallback enabled; Windows performance acceptance is pending.'
     $godotArgs += '--viewport-streaming'
 }
 & $editor.FullName @godotArgs

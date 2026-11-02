@@ -9,7 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Scripts/**/*.cs" />
-    <Compile Include="tests/ViewportStreaming.Smoke/EngineProbe.cs" />
+    <Compile Include="tests/ViewportStreaming.Smoke/EngineProbe*.cs" />
     <ProjectReference Include="src/WorldSim/WorldSim.csproj" />
   </ItemGroup>
 </Project>

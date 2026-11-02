@@ -2,7 +2,7 @@
 state_schema: 3
 reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
 last_verified_date: 2026-11-02
-audited_repository_commit: 1bedd907b154a5789cab685a693c604a308b03ae
+audited_repository_commit: 19a7dd797306ed654b9218ff95bd942a0e587ad8
 baseline_core_ci_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
 baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
@@ -12,12 +12,14 @@ windows_attempted_commit: 2d1dd5ed8cff3f9ab1c9214ccb2bed6f69ea6ea9
 windows_attempt_status: "Import/build and direct startup reached; three late C# UIDs detected; capture.json absent; run incomplete"
 user_accepted_visual_commit: null
 completed_through: V3.2-engineering
-active_milestone: V3.4.1
+active_milestone: V3.4.2
 host_acceptance_milestone: V3.3
 viewport_planner_issue: 63
+surface_fallback_issue: 65
+last_interactive_feedback: "2026-11-02 positive qualitative V3.4.1 report; exact local SHA not supplied"
 measurement_implementation_pr: 60
-active_status: "Opt-in viewport planner and bounded residency implemented; physical baseline and streaming promotion remain pending"
-next_gate: "Review V3.4.1 exact-head CI and opt-in behavior; collect complete V3.3 Windows baseline before any default promotion"
+active_status: "Opt-in continuous surface fallback and ready-only handoff implemented; exact-head evidence in #65; physical baseline and promotion remain pending"
+next_gate: "Verify V3.4.2 exact-head CI and physical behavior; V3.4.3 immutable jobs and measured upload budgets next; no default promotion before host gates"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
@@ -30,7 +32,7 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 WorldForge Sim is an original **3D stylized isometric god-sandbox**. The user explicitly approved the **V2** visual direction, forest/water and camera after previously rejecting 2D pixel-art and then rejecting a standalone region-world V3.0 scene. The accepted *visual baseline* is the live V2 screenshot with world seed **1315511732**, AMD Radeon R9 M395X, Godot 4.7.2 Mono Compatibility/OpenGL and a visible HUD around 60 FPS/16.7ms for a short interval. That screenshot is evidence of a good appearance and a single instantaneous counter, **not 30–60s p95/p99 under pan/zoom stress**.
 
-The last runtime-code merge before this audit was **`9dc03c8aa608220971b1da3516074f8fd68508a8`** (PR #51), with prior mountain correction PR #50. Audited main was **`bf70b825528dda2f2bf8fee16e9f7245ec016c15`** after documentation PR #58. Neither reference establishes an exact user-accepted visual commit; that field remains unknown. User has not yet supplied a new F8 screenshot confirming the corrected mountain summit or the direct vs mirrored 3D frame-time comparison. Do **not** mislabel new mountain art as user accepted merely because merged/Godot CI passed.
+**Historical 2026-11-01 audit snapshot:** the last runtime-code merge at that point was **`9dc03c8aa608220971b1da3516074f8fd68508a8`** (PR #51), with prior mountain correction PR #50. Audited main was **`bf70b825528dda2f2bf8fee16e9f7245ec016c15`** after documentation PR #58. Neither reference establishes an exact user-accepted visual commit; that field remains unknown. User has not yet supplied a new F8 screenshot confirming the corrected mountain summit or the direct vs mirrored 3D frame-time comparison. Do **not** mislabel new mountain art as user accepted merely because merged/Godot CI passed.
 
 ### Code scope in main
 
@@ -45,7 +47,8 @@ The last runtime-code merge before this audit was **`9dc03c8aa608220971b1da35160
 | Mountain cap rock removal | Merged, deterministic count 66→9 at seed 1315511732; user Windows screenshot verdict pending | [PR #50](https://github.com/tahazarif10/worldforge-sim/pull/50) |
 | Exact screenshot seed replay via `-WorldSeed 1315511732` | Merged; Godot headless CI proved selected seed and imports 10 GLBs | [PR #51](https://github.com/tahazarif10/worldforge-sim/pull/51) |
 | Persistent independent world-wide authoritative regions | **Not implemented**; RegionMirror still samples `WorldState` | [Architecture](V3_ARCHITECTURE.md) |
-| Completely seamless large map / far LOD / pure background mesh jobs | **Not implemented**; old V3 scene had visible holes | [#46](https://github.com/tahazarif10/worldforge-sim/issues/46) |
+| Opt-in V3.4.1 bounded viewport demand + V3.4.2 continuous surface fallback | Implemented for the current small world; actual-resource checks, ready-only handoff and canonical sculpted coast banks | [Guide](V3_4_VIEWPORT_STREAMING.md), [#65](https://github.com/tahazarif10/worldforge-sim/issues/65) |
+| Physically accepted seamless large map / distance LOD / background mesh jobs | **Not implemented/accepted**; V3.4.3 and V3.4.4 remain open | [#55](https://github.com/tahazarif10/worldforge-sim/issues/55) |
 | 8192² active citizens / villages / kingdoms | **Not implemented**; user-facing large-world simulation blocked | [#45](https://github.com/tahazarif10/worldforge-sim/issues/45) |
 | Crash-atomic multi-region save manifest | **Not implemented**; individual checksummed per-region save only | [V3 architecture](V3_ARCHITECTURE.md) |
 | Quaternius hero art | **Not imported**; Kenney 10 GLBs are currently bundled | [Bundled asset provenance](../Assets/Art/KenneyNature/README.md) |
@@ -61,6 +64,7 @@ The last runtime-code merge before this audit was **`9dc03c8aa608220971b1da35160
 | 2026-10-30 | PR #49 | Direct vs RegionMirror every V2 tile, shoreline byte parity, heights, citizen RNG; official Godot both boots | Mirror physical UX/FPS comparison PENDING | Baseline V3.3.0 |
 | 2026-10-30 | PR #50 | Mountain summit law and exact V2 map seed: 66 old boulders -> **9** small accents, **36** top tiles no extra rock; all old core+Godot CI green | Pre-fix screenshot was approved except cap; post-fix screenshot pending | F8/F9 same-seed verification |
 | 2026-10-30 | PR #51 | Same V2 scene boot at exact reference seed 1315511732 in official engine CI; all core tests green | Not explicitly run on user host after merge | One-command host screenshot replay |
+| 2026-11-02 | PR #64, reviewed `c28fa4ba184be3f1b35cf6c501b017359c49f6f9`, main `19a7dd797306ed654b9218ff95bd942a0e587ad8` | Core/native PowerShell [41462871822](https://github.com/tahazarif10/worldforge-sim/actions/runs/41462871822), engine [41462871730](https://github.com/tahazarif10/worldforge-sim/actions/runs/41462871730), merged-main [41463368663](https://github.com/tahazarif10/worldforge-sim/actions/runs/41463368663): success; 63,253 pure and 43,567 engine camera samples per backend | User says interactive candidate looks good; exact host SHA not supplied | Isolated GPU metrics, exact-head screenshots and V3.4.2 review |
 
 The above numeric PR50 counts are code/test counts, **not a pixel-level proof of improved art**. The existing V2 HUD screenshot had 60 FPS and 16.7 ms worst in one displayed 1-second interval; this is not an AMD frame-time distribution nor a guaranteed sustained 60 FPS.
 
@@ -116,9 +120,33 @@ The host's displayed file timestamps show process logs created at 18:34:49, fixt
 
 The user then explicitly authorized advancing the next development step. [#63](https://github.com/tahazarif10/worldforge-sim/issues/63) implements the **V3.4.1 engineering foundation behind an OFF-by-default flag**: finite camera/height bounds, bounded residency, generation/lease validation and same-scene integration. See [guide](V3_4_VIEWPORT_STREAMING.md) and [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md).
 
-No V3.3 physical gate is closed. No coarse fallback, asynchronous mesh jobs, whole-world authority, time/byte upload budgets or large-world performance is claimed. Exact implementation-head CI evidence belongs to the slice PR and issue #63. Windows visual/control/performance remains **PENDING**.
+No V3.3 physical gate is closed. At that V3.4.1 slice, no coarse fallback, asynchronous mesh jobs, whole-world authority, time/byte upload budgets or large-world performance was claimed. The following V3.4.2 update supersedes only the surface-fallback status. Exact implementation-head CI evidence belongs to the slice PR and issue #63. Windows visual/control/performance remains **PENDING**.
 
 Interactive review command after a safe update: `.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732 -ViewportStreaming`. It enables normal controls; closing that interactive session is expected. Omit the switch to use the ordinary planner.
+
+### Positive interactive feedback and V3.4.2 surface fallback — 2026-11-02
+
+After the normal interactive V3.4.1 launch instructions, the user reported **“خوب شده”** and explicitly requested the next step. Record this as positive qualitative feedback for the recommended candidate, not proof of the exact host SHA, a fresh summit screenshot or completed V3.3 measurements. `user_accepted_visual_commit` and `windows_verified_commit` remain null because those identities/evidence were not supplied.
+
+[#65](https://github.com/tahazarif10/worldforge-sim/issues/65) implements the V3.4.2 slice behind the same OFF-by-default switch. [ADR 0004](decisions/0004-continuous-surface-fallback.md) records its alternatives and limits:
+
+- Surface-only land proxies preserve exact V2 tile tops, colors, center relief and shared edited edges; banks are simplified and decoration waits for detail.
+- The existing opaque water plane/shader covers water-only cells. Coverage checks inspect current generation, native mesh availability and actual node visibility, not dictionary membership.
+- Coverage is refreshed every opt-in game frame before eviction. Terrain/foliage completion with a matching lease publishes detail and retires the proxy. Failed/incomplete replacement leaves coverage available.
+- Edits, quality/format changes and world replacement update proxies. Smooth coast banks now use the same sculpted edge heights as their tops.
+- F10/F9 distinguish missing detail from missing combined surface coverage; fixture identity is `viewport-v2-fallback`.
+
+The pure and real-engine regression suite covers zero detail budget, actual triangle coverage, islands/water-only/partial chunks, two viewports, fast moves, edited shorelines, incomplete/late handoff and missing native resource repair. **Exact reviewed source SHA, actual CI outcomes and merge evidence are recorded in the #65 implementation PR and issue.** A listed scenario is not by itself a PASS.
+
+**V3.4.2 physical visual/performance acceptance: PENDING.** Fallback construction remains synchronous and adds work; no p99 improvement or GPU/RAM result is claimed. Full distance LOD, worker jobs and time/byte budgeting remain open. Next engineering slice: V3.4.3, immutable numeric generation and bounded measured main-thread upload including dirty edits.
+
+Next interactive command after a safe fast-forward:
+
+```powershell
+.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732 -ViewportStreaming
+```
+
+Normal controls remain active; closing the window is expected. F10 should show `MissingVisibleChunks = 0` after successful updates even while detail is pending. F8/F9 remain H:-local evidence. See [the current guide](V3_4_VIEWPORT_STREAMING.md) for the focused review and rollback.
 
 ## Current hardware and local rules
 
@@ -136,7 +164,7 @@ Interactive review command after a safe update: `.\scripts\verify-v2-art.ps1 -Wo
 4. **Physical gate missing:** matched direct/mirror screenshot and drag/wheel input performance, p50/p95/p99 on R9 M395X. User approvals are a distinct column.
 5. **Actual huge-world save/restore** missing; per-region checksummed files are not yet a durable all-regions transaction.
 
-## Current work: V3.4.1 opt-in engineering and outstanding V3.3 host acceptance
+## Current work: V3.4.2 opt-in coverage and outstanding V3.3 host acceptance
 
 **Live tracker:** [#52](https://github.com/tahazarif10/worldforge-sim/issues/52); implementation/evidence slices [#53](https://github.com/tahazarif10/worldforge-sim/issues/53), [#54](https://github.com/tahazarif10/worldforge-sim/issues/54).
 
@@ -153,11 +181,11 @@ Set-Location 'H:\WorldForge-Sim'
 git branch --show-current
 git rev-parse HEAD
 git status --short
-git fetch origin
-# Only if working-tree state permits:
-git switch main
-git pull --ff-only origin main
-.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732
+git fetch origin main
+if ($LASTEXITCODE -ne 0) { throw 'Download failed. Stop and inspect the Git output.' }
+git merge --ff-only --no-autostash FETCH_HEAD
+if ($LASTEXITCODE -ne 0) { throw 'Update stopped. Preserve local changes and inspect the Git output.' }
+.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732 -ViewportStreaming
 ```
 
 Do not run `git reset --hard`, `git clean`, or auto-delete `.godot`/assets to "repair" import. `F8` screenshot at `artifacts\visual-review`, `F9` frame time at `artifacts\performance`, `F10` chunk counters. If any check is missing, report **PENDING**.

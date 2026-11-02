@@ -18,7 +18,7 @@
 
 ### V3.4.1 implemented engineering foundation — 2026-11-02
 
-`ViewportChunkPlanner`, `ChunkResidencyQueue` and the opt-in `VisualTerrain3D.Streaming` adapter now implement finite camera/height demand and generation-checked synchronous residency. [Guide](V3_4_VIEWPORT_STREAMING.md), [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md). Default behavior is unchanged. Coarse fallback, background mesh jobs, upload time/byte budgets and independent regional authority described below remain target work.
+`ViewportChunkPlanner`, `ChunkResidencyQueue` and the opt-in `VisualTerrain3D.Streaming` adapter now implement finite camera/height demand and generation-checked synchronous residency. [Guide](V3_4_VIEWPORT_STREAMING.md), [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md). Default behavior is unchanged. V3.4.2 adds canonical surface-only fallback and actual-resource coverage through `VisualTerrain3D.Fallback` and pure `TerrainFallbackMesh`; [ADR 0004](decisions/0004-continuous-surface-fallback.md) records the readiness handoff. Coverage runs every opt-in game frame, while detailed builds retain their existing cadence. Background mesh jobs, upload time/byte budgets, distance LOD and independent regional authority below remain target work.
 
 ## 2. Target dependency direction
 
@@ -152,7 +152,7 @@ Suggested counters per frame: active regions, active detailed/fallback chunks, u
 - [ADR 0001](decisions/0001-preserve-v2-renderer-and-compatibility.md): keep single V2 renderer/camera, Compatibility tier, user visual gate.
 - Planned ADR 0002: immutable region snapshots and authoritative procedural generator/versioning.
 - [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md): accepted finite viewport demand and generation leases for the opt-in V3.4.1 foundation; worker/upload budgets remain planned.
-- Planned ADR 0004: cross-region canonical height + LOD seam strategy.
+- [ADR 0004](decisions/0004-continuous-surface-fallback.md): accepted canonical surface-only fallback and ready-only handoff; distance LOD seams and coast-mask tiling remain future work.
 - Planned ADR 0005: transactional whole-world save, choosing immutable files/manifest vs SQLite after prototype evidence.
 - Planned ADR 0006: regional population clock, versioned RNG, stable event order, interpolation and inactive-world semantics.
 - [ADR 0007](decisions/0007-measurement-evidence-and-scenario-identity.md): accepted measurement/scenario contract; capture/fixture foundation implemented, physical acceptance pending.
