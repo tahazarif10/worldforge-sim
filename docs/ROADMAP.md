@@ -60,7 +60,7 @@ Do not require a completed numerical baseline to begin the harness needed to mea
 
 **GitHub tracker:** [#52](https://github.com/tahazarif10/worldforge-sim/issues/52). Initial slices: [#53 V3.3.0](https://github.com/tahazarif10/worldforge-sim/issues/53) and [#54 V3.3.1](https://github.com/tahazarif10/worldforge-sim/issues/54).
 
-**Purpose:** create a real *measured* golden baseline before touching streaming or global world dimensions. Do not implement more world-size or camera changes first.
+**Purpose:** create a real *measured* golden baseline before promoting streaming or changing global world dimensions. On 2026-11-02 the user authorized the narrow OFF-by-default V3.4.1 engineering slice while host evidence remains pending; [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md) records that exception. No camera algorithm or world size changes are included.
 
 **V3.3.0 — Lock the reference scene and art contract**
 - Fix representative world seeds: `1315511732` (user's mountain ridge) and `20261030` (default), plus one new randomized seed recorded verbatim. State that `20261030` may contain **zero mountains**.
@@ -87,11 +87,13 @@ Do not require a completed numerical baseline to begin the harness needed to mea
 
 **V3.3 exit gate:** complete real Windows AMD baseline, readable images, no unacceptable camera drift, exact controls working, no lost terrain brush edits, image/FPS evidence recorded; user explicitly approves visual baseline. #46 remains open if V3-like large map visual/UX parity still unproven.
 
-### ◻ V3.4 — Seamless visual streaming *without visible holes*
+### ▶ V3.4 — Seamless visual streaming *without visible holes*
 
 **Tracker:** [#55](https://github.com/tahazarif10/worldforge-sim/issues/55).
 
-**Dependency:** V3.3 physical baseline and camera/art acceptance.
+**Dependency for user-facing promotion:** V3.3 physical baseline and camera/art acceptance.
+
+**Engineering update — 2026-11-02:** [V3.4.1 / #63](https://github.com/tahazarif10/worldforge-sim/issues/63) implements a finite-frustum/height-slab planner and bounded generation-safe residency behind `--viewport-streaming`, OFF by default, following explicit user authorization. [Guide and limits](V3_4_VIEWPORT_STREAMING.md). V3.4.2 fallback, workers and LOD remain planned. A pending detailed chunk can still lack geometry until fallback is implemented; this is not completion of the no-hole product gate.
 
 **V3.4.1 — Pure viewport planner and residency contract**
 - Extract exact shared visible-footprint planner from current `VisualTerrain3D.UpdateVisibility` and `StrategyCameraRig`. Camera can move or zoom; border margin and elevation bounds conservatively cover screen.

@@ -6,6 +6,7 @@
 
 | Question | Canonical document |
 | --- | --- |
+| How does the opt-in V3.4.1 planner work and launch? | [Viewport planning and bounded residency](V3_4_VIEWPORT_STREAMING.md) |
 | What is implemented, verified, blocked or still unknown? | [Project state](PROJECT_STATE.md) |
 | What should be built next, in which order, and how does each stage end? | [Engineering roadmap](ROADMAP.md) |
 | Where is the detailed Persian explanation? | [نقشهٔ راه فارسی](ROADMAP_FA.md), synchronized with the engineering roadmap |
@@ -48,3 +49,5 @@ Do not delete or silently rewrite historical verdicts. When a current contract c
 `#53 reference fixture` → `#54 valid measurement/parity harness` → `#53 numerical Windows acceptance` → `#52 V3.3 gate`.
 
 The [V3.3 runner](V3_3_ACCEPTANCE_RUNNER.md) now provides monotonic scenario captures, seed/pose/phase fixtures and validation. Next: run the H: host bundle and complete manual #53 gates. F9 is a rolling monotonic diagnostic; old engine-delta files remain historical.
+
+On 2026-11-02 the user authorized the OFF-by-default V3.4.1 engineering slice while the host baseline remains open. [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md) records that bounded exception. The next streaming implementation is coarse fallback, not a claim that the physical V3.3 gate has passed.

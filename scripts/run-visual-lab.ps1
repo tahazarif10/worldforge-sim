@@ -1,6 +1,6 @@
 # Launch opt-in 3D style prototype without changing project.godot or main scene.
 # Uses existing portable Godot/.NET on H: and writes its diagnostic log to H:.
-param([Nullable[int]]$WorldSeed = $null)
+param([Nullable[int]]$WorldSeed = $null, [switch]$ViewportStreaming)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
@@ -27,8 +27,13 @@ Write-Host 'Launching stand-alone 3D visual lab, preserving the 2D main scene.'
 Write-Host "Log: $log"
 $godotArgs = @('--path', $root, '--scene', 'res://Scenes/VisualLab3D.tscn',
     '--rendering-method', 'gl_compatibility', '--log-file', $log)
+if ($null -ne $WorldSeed -or $ViewportStreaming) { $godotArgs += '--' }
 if ($null -ne $WorldSeed) {
     Write-Host "Replaying approved 3D world seed $WorldSeed for mountain QA."
-    $godotArgs += @('--', "--world-seed=$WorldSeed")
+    $godotArgs += "--world-seed=$WorldSeed"
+}
+if ($ViewportStreaming) {
+    Write-Host 'Experimental viewport planner ON. Coarse fallback and Windows acceptance are still pending.'
+    $godotArgs += '--viewport-streaming'
 }
 & $editor.FullName @godotArgs
