@@ -99,7 +99,7 @@ jobs:
             --scene res://Scenes/RegionalWorldLab3D.tscn --quit-after 24 \
             --rendering-method gl_compatibility
 
-      - name: Real camera viewport coverage and bounded residency on both terrain sources
+      - name: Real camera coverage, surface fallback and safe handoff on both terrain sources
         run: |
           set -euo pipefail
           for BACKEND in direct region-mirror; do
@@ -113,6 +113,7 @@ jobs:
                 2>&1 | tee "$RUNNER_TEMP/viewport-$BACKEND-$MODE.log"
               if [ "$MODE" = viewport ]; then
                 grep -F 'PASS VIEWPORT ENGINE' "$RUNNER_TEMP/viewport-$BACKEND-$MODE.log"
+                grep -F 'PASS FALLBACK ENGINE' "$RUNNER_TEMP/viewport-$BACKEND-$MODE.log"
               else
                 grep -F 'PASS VIEWPORT DEFAULT OFF' "$RUNNER_TEMP/viewport-$BACKEND-$MODE.log"
               fi

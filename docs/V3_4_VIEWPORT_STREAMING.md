@@ -1,75 +1,81 @@
-# V3.4.1 viewport planning and bounded residency
+# V3.4 viewport streaming — bounded demand and continuous surface fallback
 
-**Engineering feature, OFF by default.** Parent [#55](https://github.com/tahazarif10/worldforge-sim/issues/55), slice [#63](https://github.com/tahazarif10/worldforge-sim/issues/63), [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md).
+**V3.4.1 foundation:** [#63 / PR #64](https://github.com/tahazarif10/worldforge-sim/pull/64), main `19a7dd797306ed654b9218ff95bd942a0e587ad8`. **V3.4.2 fallback:** [#65](https://github.com/tahazarif10/worldforge-sim/issues/65).
 
-## What this slice implements
+This is an explicit OFF-by-default experiment in the existing approved V2 scene. It now supplies surface coverage while detailed terrain and nature are queued. The world remains 120x88, the camera algorithm is unchanged, and the original opaque water shader remains in use. The withdrawn regional scene is not involved.
 
-- A pure finite-frustum/height-slab planner using the actual camera viewport, projection and near/far planes.
-- A conservative X/Z rectangle with world clipping, boundary tolerance and a distinct one-chunk margin.
-- Full supported sculpt-height coverage, including terrain below sea level.
-- Bounded current-demand metadata and explicit queued/generating/ready/stale states.
-- World/data/LOD/format plus unique-lease validation, with useful work retained during camera motion.
-- Integration with existing V2 meshes, foliage, camera and tools behind an explicit launch switch.
-- Membership-based missing-visible-chunk diagnostics and planner identity in F9/capture metadata.
+The user reported that the interactive V3.4.1 candidate looked good and authorized the next slice. Exact local HEAD, new screenshots and sustained GPU frame-time data were not supplied; V3.3 host acceptance remains open.
 
-The pure planner uses 16×16 display chunks. It does not replace the 64×64 region store or make a larger world authoritative.
+## Launch normal interactive review
 
-## Run interactively on H:
-
-After a safe fast-forward to the merged implementation, build and launch once:
+After safely fast-forwarding the existing checkout:
 
 ```powershell
 Set-Location 'H:\WorldForge-Sim'
 .\scripts\verify-v2-art.ps1 -WorldSeed 1315511732 -ViewportStreaming
 ```
 
-This is **interactive play**: camera and buttons work; closing the window ends the session normally. It is not the timed V3.3 acceptance launcher. It preserves the existing modified project.godot and writes diagnostic logs under H:.
-
-After that build, a faster relaunch is:
+For a subsequent launch after the build:
 
 ```powershell
 .\scripts\run-visual-lab.ps1 -WorldSeed 1315511732 -ViewportStreaming
 ```
 
-To return to the ordinary planner, omit `-ViewportStreaming`. The approved V2 scene remains the default in both cases.
+Controls are active and closing this interactive window is normal. This is not the paused, timed acceptance fixture. Omit `-ViewportStreaming` for the ordinary planner.
 
-The launch log must contain `Experimental viewport planner: viewport-v1`. F10 includes planner, world epoch, desired/visible/pending chunks, missing visible chunks and capacity. F8 saves the normal screenshot; F9 saves a mixed-session diagnostic with planner identity. Neither is an automatic performance acceptance.
+The log must contain `Experimental viewport planner: viewport-v2-fallback`. F10 prints the counters below. F8 saves an image; F9 saves a rolling diagnostic with planner identity, not an isolated performance acceptance.
+
+## How surface coverage works
+
+1. The actual near/far camera volume is clipped against the supported height slab (-8m through 13m), bounded by the world and expanded by one chunk of demand margin. Over-capacity plans are refused before eviction.
+2. Every visible-plan key lacking current detail gets a surface-only proxy before old geometry is removed. The proxy preserves the V2 land tiles, four-triangle height fans, palette and sculpted shared edges; it has no nature decorations, simplified banks and no proxy shadows.
+3. Water is covered by the existing opaque V2 ocean plane. A water-only chunk needs a verified water classification, not a hidden placeholder land mesh.
+4. The detailed build replaces its proxy only after terrain, foliage and the matching generation/lease finish. Both are never left visible together. Failed/incomplete work leaves the proxy available.
+5. Camera demand and coverage update every game frame. Detailed 2/4-chunk construction keeps its previous 50ms cadence. Edits/toggles/world resets update the generation identity.
+
+This keeps top-surface resolution; distance-based coarse LOD is still V3.4.4. No new coarse water shader or change to near detailed art is introduced.
 
 ## Meaning of the counters
 
 | Counter | Meaning |
 | --- | --- |
-| DesiredChunks | Visible bounding-rectangle chunks plus clipped safety margin |
-| VisibleChunks | Chunks in the conservative visible X/Z rectangle; rotated corners may over-request |
-| PendingChunks | Current queued, generating or stale replacements, including margin |
-| MissingVisibleChunks | Visible-plan keys absent from actual terrain mesh residency |
-| MissingVisibleCellUpperBound | Sum of cell counts in missing visible chunks; conservative, not a screen-pixel measurement |
-| Capacity | Maximum retained demand entries; exceeding it refuses the plan rather than truncating it |
+| DesiredChunks | Conservative visible bounding rectangle plus clipped margin |
+| VisibleChunks | Keys in that rectangle; rotated camera corners may over-request |
+| PendingChunks | Current queued, generating or stale detailed replacements, including margin |
+| FallbackChunks | Visible-plan fallback records; water-only records may have no land node |
+| MissingDetailedVisibleChunks | Visible-plan keys without a current ready detailed surface |
+| MissingVisibleChunks | Keys lacking current combined land/ocean coverage backed by actual visible resources |
+| MissingVisibleCellUpperBound | Cell count in uncovered chunks; conservative, not a screen-pixel measurement |
+| Capacity | Maximum current demand entries (2048); not a measured hardware recommendation |
 
-A zero missing count after draining proves all planned detail chunks are resident. It does not establish zero transient holes while chunks are pending. Water remains the existing whole small-world plane.
+During a rapid move, pending/missing-detail/fallback counts can be nonzero while **MissingVisibleChunks must remain zero after a successful update**. Once detailed demand drains, fallback count should return to zero. This counter cannot certify final GPU pixels or visual quality.
 
-## Focused review sequence
+## Focused Windows review
 
-1. Move and reverse the camera continuously; inspect F10 rather than guessing from total residency.
-2. Zoom from near to far, visit the four map edges and resize the window.
-3. Sculpt/paint within the view, move away and return; check retained edits and shore appearance.
-4. Toggle smooth terrain and return; use New World to check identity reset.
-5. Compare F8 appearance and a matched physical frame-time run with the ordinary planner.
+- Move and reverse continuously, visit all four world edges, zoom near/far and resize the window.
+- Watch F10 for zero missing combined coverage. A temporary reduction in vegetation while detail arrives is expected.
+- Paint land into water and water into land, sculpt a shoreline up/down, leave and return.
+- Toggle F6 smooth/legacy and return to smooth; use New World and check that old terrain does not remain visible.
+- Save F8 views of coast/mountains/forest; compare matched physical frame-time scenarios before any default promotion.
 
-**Windows result: PENDING.** Do not mark the V3.3 baseline or V3.4 product gate passed from this engineering implementation.
+**V3.4.2 Windows verdict and GPU measurements: PENDING.** A positive V3.4.1 qualitative report does not establish this new candidate's acceptance.
 
-## Verification
-
-Pure test command:
+## Automated verification
 
 ```text
 dotnet run --project tests/ViewportStreaming.Smoke/ViewportStreaming.Smoke.csproj -c Release
 ```
 
-The existing core CI runs it and builds the game. The official Godot 4.7.2 Mono workflow also runs the CI-only `EngineProbe.tscn`: default-OFF and experimental paths on both terrain sources, camera-plane oracle checks, real resize, bounded builds, sculpt/format changes and world replacement. Existing scenario capture validation remains enabled.
+The pure suite covers finite camera bounds, generation/lease/fairness, projected triangle land area, tiny islands, water exclusion, partial chunks, canonical sculpted edges and maximum output allocation.
 
-The probe is excluded from the pure test executable and is never added to the playable scene. It refuses execution outside headless GitHub CI. Its compiled script exists solely for actual-engine integration tests.
+The official Godot 4.7.2 Mono workflow runs the CI-only `EngineProbe.tscn` in default and opt-in modes, for direct and region-mirror. It inspects actual mesh arrays against the independent canonical picking surface, checks real camera planes and two viewports, stops detail construction, tests game-frame cadence, edits, failed/late handoff, missing mesh/ocean detection, repair and world replacement. The probe refuses execution outside headless GitHub CI and is never installed in the playable scene.
 
-## Remaining work
+Existing baseline capture/PowerShell checks remain. Exact run IDs and source heads are recorded in the slice PR/issue; a test listed here is not automatically a passed run.
 
-V3.4.2 must add continuous coarse terrain/ocean coverage and replace-on-ready behavior. V3.4.3 must move only immutable numeric mesh work to workers and enforce measured time/byte upload limits, including edits. V3.4.4 adds LOD transitions/seams. This slice does not claim these features, a larger map, lower p99 or a GPU performance pass.
+## Costs, limits and next step
+
+Fallback is synchronous and can add work during rapid movement. Its per-chunk numeric output is bounded to 9216 vertices (360 KiB of position/normal/color payload in the worst bank case), with additional conversion/native/GPU storage. No measured memory or frame-time improvement is claimed.
+
+V3.4.3 is next: immutable numeric jobs, bounded pending bytes, measured main-thread upload budgets and dirty-edit integration. V3.4.4 adds distance LOD and coast-patch seam parity. Regional authority, larger worlds and full-world saves remain later stages.
+
+Design rationale: [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md), [ADR 0004](decisions/0004-continuous-surface-fallback.md).

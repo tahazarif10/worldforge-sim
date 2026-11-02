@@ -7,8 +7,9 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="EngineProbe.cs" />
+    <Compile Remove="EngineProbe*.cs" />
     <Compile Include="../../Scripts/Streaming/ViewportChunkPlanner.cs" Link="ViewportChunkPlanner.cs" />
     <Compile Include="../../Scripts/Streaming/ChunkResidencyQueue.cs" Link="ChunkResidencyQueue.cs" />
+    <Compile Include="../../Scripts/Streaming/TerrainFallbackMesh.cs" Link="TerrainFallbackMesh.cs" />
   </ItemGroup>
 </Project>

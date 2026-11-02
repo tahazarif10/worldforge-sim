@@ -93,19 +93,21 @@ Do not require a completed numerical baseline to begin the harness needed to mea
 
 **Dependency for user-facing promotion:** V3.3 physical baseline and camera/art acceptance.
 
-**Engineering update — 2026-11-02:** [V3.4.1 / #63](https://github.com/tahazarif10/worldforge-sim/issues/63) implements a finite-frustum/height-slab planner and bounded generation-safe residency behind `--viewport-streaming`, OFF by default, following explicit user authorization. [Guide and limits](V3_4_VIEWPORT_STREAMING.md). V3.4.2 fallback, workers and LOD remain planned. A pending detailed chunk can still lack geometry until fallback is implemented; this is not completion of the no-hole product gate.
+**Engineering update — 2026-11-02:** [V3.4.1 / #63](https://github.com/tahazarif10/worldforge-sim/issues/63), merged in PR #64, supplies the finite-frustum/height-slab planner and bounded generation leases. After positive qualitative interactive feedback and renewed authorization, [V3.4.2 / #65](https://github.com/tahazarif10/worldforge-sim/issues/65) adds surface-only fallback, actual-resource coverage checks and replace-on-ready behind the same OFF-by-default switch. [Guide and limits](V3_4_VIEWPORT_STREAMING.md), [ADR 0004](decisions/0004-continuous-surface-fallback.md). Worker/time/byte budgets and distance LOD remain planned. This does not close the physical no-hole/performance product gate.
 
 **V3.4.1 — Pure viewport planner and residency contract**
 - Extract exact shared visible-footprint planner from current `VisualTerrain3D.UpdateVisibility` and `StrategyCameraRig`. Camera can move or zoom; border margin and elevation bounds conservatively cover screen.
 - Define `TileKey`, `ChunkCoord` (16×16 display), `RegionKey` (64×64 data), `ChunkGeneration`, explicit `Unloaded/Queued/Generating/Ready/Stale/Disposed`.
 - Bound the queue by desired footprint plus margin and prioritize current camera demand. Hard-reject world/data/LOD-format mismatches; a camera move reprioritizes or cancels irrelevant work but must not discard a still-wanted valid chunk solely because CameraEpoch advanced. Test continuous pan without starvation. Record **uncovered visible pixels/cells**.
 
-**V3.4.2 — Guaranteed distant fallback**
+**V3.4.2 — Continuous surface fallback (engineering implemented)**
+
+The first proxy preserves exact per-cell V2 top geometry, palette and coast silhouette; it simplifies banks and omits decoration. The existing opaque small-world ocean is reused. This is a surface-only readiness fallback, not the final distance-based coarse LOD. Tests inspect actual buffers with zero detail budget and exercise edits, failure, repair and handoff. See #65 for exact-head execution evidence.
 - *Before* removing previous geometry, present low-detail terrain+opaque ocean proxy covering every in-view region. Detailed chunk replaces matching proxy only when ready. No arbitrary 48-chunk cap without fallback.
 - Keep V2 terrain color palette/coast silhouette at low LOD; reduce far decoration, **not near-camera approved art**.
 - Verify rapid pans, zoom-in/out, window resize and teleport at map limits never show the blank background where ground/water should be.
 
-**V3.4.3 — Immutable worker mesh-data snapshots**
+**V3.4.3 — Immutable worker mesh-data snapshots (next engineering slice)**
 - Off-main-thread compute only **pure C# arrays** from immutable versioned region snapshots: vertices, indices, colors, normals, foliage placements. NO Godot `SceneTree`, `MeshInstance3D`, `SurfaceTool` or GPU texture operations in workers.
 - Main thread owns Godot mesh/material/nodes and controls uploads with count, bytes and measured time budgets. Dirty paint/sculpt rebuilds and coast updates enter the same bounded pipeline; the current count-only visibility budget does not cover all edit work. Cancel/discard invalid world/data generations.
 - Buffer capacity, world-seed generation identity, bounded memory accounting, teardown/join and background worker failure handling must be tested.

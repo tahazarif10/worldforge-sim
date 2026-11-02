@@ -24,12 +24,14 @@ public partial class EngineProbe : Node
             Require(terrain.ViewportStreamingEnabled == requested, "explicit opt-in selection");
             if (!requested)
             {
-                Require(terrain.StreamingPlannerName == "legacy-v2" && terrain.ActiveTerrainChunks > 0,
+                Require(terrain.StreamingPlannerName == "legacy-v2" && terrain.ActiveTerrainChunks > 0 &&
+                    terrain.ActiveFallbackChunks == 0,
                     "normal scene retains legacy planner and geometry");
                 GD.Print("PASS VIEWPORT DEFAULT OFF / " + terrain.TerrainBackendName);
                 GetTree().Quit();
                 return;
             }
+            lab.SetProcess(false); // Test owns camera/cadence deterministically.
             var rig = new StrategyCameraRig(camera, terrain.HeightAt, 120, 88,
                 terrain.ReliefAt, () => terrain.SmoothLandEnabled, terrain.SurfaceHeightAt);
             var poses = new[]
@@ -55,9 +57,12 @@ public partial class EngineProbe : Node
                     ViewportStreamingDiagnostics before = terrain.StreamingDiagnostics;
                     Require(before.DesiredChunks <= before.Capacity &&
                         terrain.ActiveTerrainChunks <= before.DesiredChunks, "bounded actual residency");
-                    sawPending |= before.MissingVisibleChunks > 0;
-                    Require(before.MissingVisibleCellUpperBound >= before.MissingVisibleChunks,
-                        "missing coverage is reported before builds");
+                    sawPending |= before.MissingDetailedVisibleChunks > 0;
+                    Require(before.MissingVisibleChunks == 0 && before.MissingVisibleCellUpperBound == 0,
+                        "surface coverage exists with zero detail budget");
+                    Require(before.FallbackChunks == before.MissingDetailedVisibleChunks &&
+                        before.FallbackChunks <= before.VisibleChunks, "bounded fallback coverage");
+                    InspectFallbackMeshes(terrain);
                     foreach (float height in new[] { -8f, .12f, 5f, 13f })
                     for (int z=0; z<88; z+=2)
                     for (int x=0; x<120; x+=2)
@@ -76,14 +81,32 @@ public partial class EngineProbe : Node
                         terrain.UpdateVisibility(camera, 2);
                         Require(terrain.TotalTerrainChunkBuilds-builds <= 2, "two-build update limit");
                         Require(++iterations <= before.DesiredChunks+1, "demand eventually drains");
+                        Require(terrain.StreamingDiagnostics.MissingVisibleChunks == 0,
+                            "replacement preserves continuous coverage");
                     }
-                    Require(terrain.StreamingDiagnostics.MissingVisibleChunks == 0,
-                        "all planned visible chunks are resident after drain");
+                    Require(terrain.StreamingDiagnostics.MissingVisibleChunks == 0 &&
+                        terrain.ActiveFallbackChunks == 0 &&
+                        terrain.StreamingDiagnostics.MissingDetailedVisibleChunks == 0,
+                        "ready detail replaces all proxies without overlap");
                     await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                 }
             }
             Require(viewports.Count >= 2, "actual viewport resize was exercised");
             Require(samples > 1000 && sawPending, "real camera coverage and pending diagnostics exercised");
+            rig.RestoreReviewPose(new CameraReviewPose(0,0,19));
+            typeof(VisualLab3D).GetField("_visibilityRefresh",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .SetValue(lab,0d);
+            long detailBuildsBeforeFrame=terrain.TotalTerrainChunkBuilds;
+            lab._Process(.001);
+            Require(terrain.TotalTerrainChunkBuilds==detailBuildsBeforeFrame &&
+                terrain.StreamingDiagnostics.MissingVisibleChunks==0,
+                "sub-50ms game frame refreshes coverage without building detail");
+            for(int z=0;z<88;z+=2)
+            for(int x=0;x<120;x+=2)
+                if(camera.IsPositionInFrustum(new Vector3(x+.25f,.12f,z+.25f)))
+                    Require(terrain.IsViewportChunkRequested(x/16,z/16),
+                        "actual game-frame demand follows the moved camera immediately");
 
             rig.RestoreReviewPose(new CameraReviewPose(60,44,19));
             terrain.UpdateVisibility(camera,64);
@@ -113,8 +136,10 @@ public partial class EngineProbe : Node
                 terrain.StreamingDiagnostics.DesiredChunks==0, "new world clears demand and advances identity");
             terrain.UpdateVisibility(camera,64);
             Require(terrain.StreamingDiagnostics.MissingVisibleChunks==0, "new world builds from fresh data");
+            RunFallbackLifecycle(terrain, camera);
             GD.Print($"PASS VIEWPORT ENGINE / {terrain.TerrainBackendName}: {samples} camera-plane samples; " +
-                $"{viewports.Count} viewports; pan/zoom/edges/sculpt/format/world replacement");
+                $"{viewports.Count} viewports; pan/zoom/edges/sculpt/format/world replacement; " +
+                "zero-budget surface coverage, mesh oracle, water-only, edits and failed handoff");
             GetTree().Quit();
         }
         catch(Exception ex)

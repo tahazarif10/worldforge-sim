@@ -190,3 +190,6 @@ static void CheckCompletion(bool ok)
 {
     if(!ok) throw new InvalidOperationException("Valid synchronous lease rejected");
 }
+
+FallbackChecks.Run();
+Console.WriteLine("PASS ALL V3.4.2 surface fallback tests");

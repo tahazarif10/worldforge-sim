@@ -2,7 +2,7 @@
 
 **Original stylized 3D living-world god sandbox** — island terrain, coastal water, forests, mountains, authored CC0 nature, human agents and god powers, with an orthographic/isometric camera. Inspired by the sandbox-simulation **genre**, not WorldBox proprietary art/source/UI.
 
-**Development state — reviewed 2026-11-02:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. The **V3.3 measurement/parity runner is implemented**; actual Windows baseline acceptance remains pending. The explicitly authorized **V3.4.1 viewport planner/residency foundation is available behind an OFF-by-default flag**; complete no-hole fallback and authoritative region simulation remain future work. A complete small-world gameplay loop precedes optional maximum-map expansion. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
+**Development state — reviewed 2026-11-02:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. The **V3.3 measurement/parity runner is implemented**; actual Windows baseline acceptance remains pending. The explicitly authorized **V3.4.2 viewport planner, bounded residency and continuous surface fallback are available behind an OFF-by-default flag**. V3.4.1 received positive qualitative interactive feedback; exact-host visual/performance acceptance, worker budgets, distance LOD and authoritative region simulation remain open. A complete small-world gameplay loop precedes optional maximum-map expansion. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
 
 ## Start the approved 3D game (Windows, H: drive)
 
@@ -15,9 +15,10 @@ Set-Location 'H:\WorldForge-Sim'
 git branch --show-current
 git rev-parse HEAD
 git status --short
-git fetch origin
-git switch main
-git pull --ff-only origin main
+git fetch origin main
+if ($LASTEXITCODE -ne 0) { throw 'Download failed. Stop and inspect the Git output.' }
+git merge --ff-only --no-autostash FETCH_HEAD
+if ($LASTEXITCODE -ne 0) { throw 'Update stopped. Preserve local changes and inspect the Git output.' }
 
 # Start the same mountain world as the user screenshot:
 .\scripts\verify-v2-art.ps1 -WorldSeed 1315511732
@@ -38,16 +39,16 @@ The mirror wrapper now accepts `-WorldSeed 1315511732`. For matched camera, phas
 
 This **still runs the approved V2 renderer and camera** but accesses the existing 120×88 WorldState tiles through a bounded 64×64 `RegionStore` cache. It is not a playable 8192×8192 world. Do not run the user-rejected `RegionalWorldLab3D.tscn` for gameplay. Its engineering-only scripts require `-ExperimentalV3`.
 
-### Experimental viewport planner (same interactive scene)
+### Experimental viewport streaming (same interactive scene)
 
-The [V3.4.1 guide](docs/V3_4_VIEWPORT_STREAMING.md) documents `verify-v2-art.ps1 -WorldSeed 1315511732 -ViewportStreaming`. This builds and opens normal interactive play with finite camera/height bounds and bounded chunk demand. Omit the switch for the ordinary planner. Coarse fallback, worker mesh jobs and physical performance acceptance are still pending.
+The [V3.4 guide](docs/V3_4_VIEWPORT_STREAMING.md) documents `verify-v2-art.ps1 -WorldSeed 1315511732 -ViewportStreaming`. This opens normal interactive play with finite camera/height bounds, bounded demand and surface-only land/ocean coverage while detail is queued. F10 separates missing detail from missing combined coverage. Omit the switch for the ordinary planner. Worker jobs, time/byte upload budgets, distance LOD and physical performance acceptance remain pending.
 
 ## Current code capabilities and limitations
 
 | Implemented | Not yet implemented / not yet physically verified |
 | --- | --- |
 | 3D biome terrain, Kenney 10 CC0 GLBs, coast/waves/foam, shared-corner mountain elevation and exact pointer picking | Verified premium Quaternius hero pack and high-end effects without host AMD cost |
-| F4 Eco, 16×16 visual chunks, 64×64 sparse region height edits | No-hole streamed far-LOD coverage, pure off-main-thread mesh build pipeline |
+| F4 Eco, 16×16 visual chunks, sparse region height edits; opt-in surface fallback and ready-only handoff | Physically verified no-hole far LOD, pure worker mesh pipeline and time/byte upload budgets |
 | WorldState people/meteor/brush/tick controls on V2 map | Persistent authoritative giant regions, 8192² simulated life |
 | Signed 64×64 biome and elevation region stores, checksummed per-region file codecs | Full crash-atomic multi-region manifest/backup/world saves |
 | V2 direct/RegionMirror data parity and mountain rock cap reduction, merged + CI passed | Final user Windows screenshot review of corrected summit; direct/mirror p95/p99 at matching camera |

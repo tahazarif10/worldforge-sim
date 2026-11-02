@@ -72,7 +72,8 @@ Use branches such as:
 docs/v3-3-research-milestone-masterplan
 dev/v3-3-0-golden-host-baseline
 dev/v3-4-1-viewport-coverage-planner
-dev/v3-4-2-immutable-mesh-jobs
+dev/v3-4-2-surface-fallback
+dev/v3-4-3-immutable-mesh-jobs
 fix/v3-4-chunk-revision-race
 ```
 
