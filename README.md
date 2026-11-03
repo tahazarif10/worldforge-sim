@@ -51,6 +51,8 @@ Double-click [RUN-TEST.cmd](RUN-TEST.cmd) in the existing H: checkout after a sa
 
 The report is copied for pasting in the active project conversation, and a local ZIP is prepared under artifacts/acceptance/self-test. Failure/cancellation preserves partial evidence. Nothing uploads automatically. This is a short diagnostic; physical performance acceptance remains pending. [Runner and coast-patch guide](docs/V3_4_COAST_PATCHES_AND_SELF_TEST.md).
 
+**Target-host result, 2026-11-03:** the received report at `849dc704fd596a654d39741df1d9dea1d9ea1ef9` passed all eight short worker captures on R9 M395X. [Measured rows, provenance and pending gates](docs/V3_ACCEPTANCE_MATRIX.md#g-target-host-short-diagnostic--2026-11-03). Review the existing ZIP and paint/zoom tails next; full-duration performance and user visual/input acceptance remain open.
+
 V3.4.4 slice 1 also proves bounded coast-mask patches against V2; the existing small-world water surface remains. Resident coast rendering and distance LOD are the next slices.
 
 ## Current code capabilities and limitations

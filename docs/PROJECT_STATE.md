@@ -2,14 +2,14 @@
 state_schema: 3
 reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
 last_verified_date: 2026-11-03
-audited_repository_commit: 5ed5cc89a671c81f274a7bddce701001ff57c1e0
+audited_repository_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
 baseline_core_ci_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
 baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
 baseline_engine_ci_run: 41105302717
 windows_verified_commit: null
-windows_attempted_commit: 2d1dd5ed8cff3f9ab1c9214ccb2bed6f69ea6ea9
-windows_attempt_status: "Import/build and direct startup reached; three late C# UIDs detected; capture.json absent; run incomplete"
+windows_attempted_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
+windows_attempt_status: "Target-host short diagnostic PASS: eight VALID worker captures; full acceptance still pending"
 user_accepted_visual_commit: null
 completed_through: V3.2-engineering
 active_milestone: V3.4.4
@@ -19,11 +19,13 @@ surface_fallback_issue: 65
 mesh_workers_issue: 67
 coast_diagnostics_issue: 69
 runner_repair_issue: 71
-latest_diagnostic_status: "2026-11-03 preflight exit 1; secondary stderr.log sharing violation masked the primary failure; no capture"
+windows_short_diagnostic_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
+windows_short_diagnostic_status: PASS
+latest_diagnostic_status: "2026-11-03 PASS, 168.9s, 3742 samples; exact host commit and driver recorded; raw ZIP review pending"
 last_interactive_feedback: "2026-11-03 positive qualitative report after V3.4.3 worker candidate; exact local SHA not supplied"
 measurement_implementation_pr: 60
 active_status: "V3.4.4 slice 1: bounded coast kernel and one-click worker diagnostics; exact-head CI recorded in #69 / [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70); physical promotion pending"
-next_gate: "Rerun RUN-TEST.cmd after #71 Windows preflight/log ownership repair; physical H: and GPU acceptance remain pending"
+next_gate: "Review existing 20261103-135153-e384afbb ZIP; profile paint/zoom tails before coast/LOD expansion; full physical acceptance pending"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
@@ -282,3 +284,15 @@ Implementation head `8e1369bf98cf82d1e84c1f6570a4901dfc373664`, tree `d487267bc6
 - Official Linux Godot retained the baseline/worker geometry probes, **eight baseline plus eight worker captures**, paired fixtures for all four scenarios, and explicit incomplete evidence for controlled close/Esc cancellation.
 - This documentation revision follows the verified implementation. Its final reviewed-head SHA, exact-head checks and merge identity are recorded in [PR #72](https://github.com/tahazarif10/worldforge-sim/pull/72); the implementation runs above are not relabeled as another HEAD.
 - The underlying native exit-1 reason on the user's machine is still unavailable in the supplied report. A corrected host rerun of **RUN-TEST.cmd** is required; physical H:-Windows/R9 M395X acceptance remains **PENDING**.
+
+### First complete target-host worker diagnostic — 2026-11-03
+
+The user supplied a PASS report from **`849dc704fd596a654d39741df1d9dea1d9ea1ef9`**, on AMD R9 M395X / driver 27.20.14540.15002 / Godot 4.7.2 Mono Compatibility, seed 1315511732 / Eco / viewport-v3-workers. All eight idle/pan/zoom/paint direct/mirror windows are reported VALID: **3,742 samples**, **168.9 seconds** total diagnostic elapsed. The prior preflight/locked-log stop did not recur. [Full transcribed evidence, provenance, counters and limits](V3_ACCEPTANCE_MATRIX.md#g-target-host-short-diagnostic--2026-11-03).
+
+This is a received text report; the original ZIP/raw frames/capture metadata/images have not been independently inspected. Short diagnostic success now supersedes the preceding request for a corrected short-run result. It does not supersede the full physical acceptance gate: `windows_verified_commit` and `user_accepted_visual_commit` remain null.
+
+Idle/pan p99 is 18.443–18.573 ms. Mirror zoom p99 is 31.886 ms; paint p99 is 31.791 ms direct and 38.555 ms mirror, with worst reported interval 45.336 ms. Every reported p95 is below the provisional 33.3 ms Eco target for these short windows. Reported worker chunk/coast failures are zero. Paint exceeds the 4 ms soft pump admission budget 11/23 times; snapshot/publication maxima identify profiling candidates, not proven causes of the frame-time tail.
+
+**Next action:** obtain and inspect the existing `H:\WorldForge-Sim\artifacts\acceptance\self-test\20261103-135153-e384afbb.zip`; no repeat of the same short test is needed first. Separate paint stage cost from mirror zoom behavior before implementing a speculative optimization or enlarging the world. Full-duration repeated scenarios, visual/input/save/live-simulation/coverage review and explicit approval remain pending in #53/#55.
+
+The runner repair's merged-main [CI 41647726158](https://github.com/tahazarif10/worldforge-sim/actions/runs/41647726158) also completed SUCCESS on `849dc704fd596a654d39741df1d9dea1d9ea1ef9`. That is source verification and is recorded separately from this received Windows report. This documentation-only follow-up changes no runtime, defaults, art or camera.
