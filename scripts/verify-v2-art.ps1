@@ -16,44 +16,13 @@ if (-not (Test-Path -LiteralPath $sdk)) { throw "Portable .NET SDK missing: $sdk
 if (-not (Test-Path -LiteralPath (Join-Path (Split-Path $editor -Parent) '_sc_'))) {
     throw 'Portable Godot marker _sc_ missing. Refusing to create Godot cache on C:.'
 }
-$assets = @(Get-ChildItem -LiteralPath (Join-Path $root 'Assets\Art\KenneyNature') -Filter '*.glb' -File)
-if ($assets.Count -ne 10) {
-    throw "Expected 10 tracked CC0 nature GLBs; found $($assets.Count). Run git fetch/switch first."
-}
-$logs = Join-Path $root 'artifacts\visual-lab'
-New-Item -ItemType Directory -Force -Path $logs | Out-Null
+. (Join-Path $PSScriptRoot 'acceptance-bundle.ps1')
+. (Join-Path $PSScriptRoot 'acceptance-preflight.ps1')
+$session = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
+$logs = Join-Path $root ('artifacts\visual-lab\preflight-' + $session)
+try { Invoke-AcceptancePreflight -Root $root -Executable $editor -Sdk $sdk -Directory $logs }
+finally { Write-Host "Preflight logs: $logs" }
 
-Write-Host 'Importing actual Kenney CC0 glTF models into H:-portable Godot cache.'
-& $editor --headless --editor --import --path $root --log-file (Join-Path $logs 'godot-nature-import.log')
-if ($LASTEXITCODE -ne 0) {
-    throw 'Headless Godot glTF import failed. Inspect H:\WorldForge-Sim\artifacts\visual-lab\godot-nature-import.log'
-}
-
-& $sdk run --project (Join-Path $root 'tests\NatureScatter.Smoke\NatureScatter.Smoke.csproj') -c Release
-if ($LASTEXITCODE -ne 0) { throw 'Nature art scatter smoke tests failed' }
-
-& $sdk run --project (Join-Path $root 'tests\MountainSummit.Smoke\MountainSummit.Smoke.csproj') -c Release
-if ($LASTEXITCODE -ne 0) { throw 'Mountain summit cap art and bounded accents tests failed' }
-
-& $sdk run --project (Join-Path $root 'tests\EnvironmentArt.Smoke\EnvironmentArt.Smoke.csproj') -c Release
-if ($LASTEXITCODE -ne 0) { throw 'Environment art / shoreline tests failed' }
-
-& $sdk run --project (Join-Path $root 'tests\WaterAndStreaming.Smoke\WaterAndStreaming.Smoke.csproj') -c Release
-if ($LASTEXITCODE -ne 0) { throw 'Water and chunk budget tests failed' }
-
-& $sdk run --project (Join-Path $root 'tests\TerrainRelief.Smoke\TerrainRelief.Smoke.csproj') -c Release
-if ($LASTEXITCODE -ne 0) { throw '3D relief geometry and ray picking tests failed' }
-
-& $sdk run --project (Join-Path $root 'tests\SharedHeightfield.Smoke\SharedHeightfield.Smoke.csproj') -c Release
-if ($LASTEXITCODE -ne 0) { throw 'Continuous terrain border and ray picking tests failed' }
-
-& $sdk run --project (Join-Path $root 'tests\ElevationRegion.Smoke\ElevationRegion.Smoke.csproj') -c Release
-if ($LASTEXITCODE -ne 0) { throw 'Elevation region and save recovery tests failed' }
-
-& $sdk build (Join-Path $root 'WorldForgeSim.csproj') -c Debug --disable-build-servers -p:UseSharedCompilation=false
-if ($LASTEXITCODE -ne 0) { throw 'Godot C# game build failed' }
-
-Write-Host 'GLB import, art scatter checks and game build succeeded.'
 Write-Host 'F4 Eco/Balanced; F5 facet relief; F6 smooth / legacy terrain; F8 PNG; F9 frame intervals; F10 chunks. All artifacts stay H:.'
 if (-not $NoLaunch) {
     if ($null -ne $WorldSeed) {

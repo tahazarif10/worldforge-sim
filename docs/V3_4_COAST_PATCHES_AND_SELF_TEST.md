@@ -86,3 +86,18 @@ Use the collected worker timings to identify whether snapshot capture, pure comp
 - [Microsoft Start-Process, PowerShell 5.1](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/start-process?view=powershell-5.1): explicit argument quoting and redirected native streams.
 - [Microsoft Set-Clipboard, PowerShell 5.1](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/set-clipboard?view=powershell-5.1): copy the report text, with bounded retries when the clipboard is busy.
 - [Microsoft Compress-Archive, PowerShell 5.1](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.archive/compress-archive?view=powershell-5.1): local evidence ZIP; source/cache directories are not gathered.
+
+
+## Windows preflight and locked-log correction (#71)
+
+A host run stopped at the import banner, and an unreadable stderr.log replaced the original preflight exit-1 error during final hashing. The report did not contain the underlying stderr, so that native failure is still an observation rather than an inferred engine defect.
+
+The corrected sequence runs the editor and SDK directly, in named preflight stage directories (import, each art test, build). A shared [preflight helper](../scripts/acceptance-preflight.ps1) serves both the diagnostic runner and verify-v2-art.ps1. Interactive verification now prints its unique artifacts/visual-lab/preflight-* log directory.
+
+The process helper owns its Process and output FileStreams, drains stdout/stderr concurrently as raw bytes, waits for EOF separately from process exit, and releases the files before hashing. It preserves a nonzero exit/timeout as the primary failure even if stream cleanup or later collection also fails. process.json records streams_complete and stream_failure. Stderr with exit zero remains diagnostic text.
+
+An unavailable log is explicitly marked in REPORT.txt; it cannot prevent the basic report from being created. Secondary hash/archive failures are recorded in collection-warnings.txt and printed/copied alongside the report. The original report file stays immutable after hash/archive creation; the clipboard can include the additional collection notices. No prior evidence directory is overwritten or repaired in place.
+
+Windows CI now runs the official engine's real import, seven art tests, C# game build, post-build import and both worker boots, then checks all 12 native stage exits/EOF, exclusive access to the closed logs and immediate evidence packaging. Synthetic native tests also fill both pipes beyond pipe capacity, emit stderr without failing, exit nonzero, time out and hold a log exclusively during report collection. Hosted CI remains distinct from the user GPU gate.
+
+Process API references: [Microsoft Process.WaitForExit](https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.process.waitforexit?view=netframework-4.8.1) and [Stream.CopyToAsync](https://learn.microsoft.com/en-us/dotnet/api/system.io.stream.copytoasync?view=netframework-4.8.1).

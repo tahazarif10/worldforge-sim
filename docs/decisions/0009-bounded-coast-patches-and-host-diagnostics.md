@@ -31,3 +31,10 @@ Capture worker maxima within the measured window, then drain final replacements 
 See [guide and test matrix](../V3_4_COAST_PATCHES_AND_SELF_TEST.md). Require exact-head core/native PowerShell and official engine CI before merge. Physical GPU/input acceptance remains separate.
 
 Omit -MeshWorkers to restore the default path; -ViewportStreaming selects the preceding synchronous fallback. No save format, world authority, default scene, artwork, shader or camera contract changes in this slice.
+
+
+## 2026-11-03 implementation correction — #71
+
+The host's first diagnostic stopped in preflight; final log hashing then raised a sharing violation and replaced the primary exit-1 failure. The runner now owns process/output streams directly, drains both pipes concurrently, closes its file handles before collection, and avoids a nested PowerShell preflight wrapper. The shared direct preflight uses named bounded native stages. Primary execution errors survive secondary hash/report/archive failures; unreadable files are labeled, not invented or silently claimed as complete.
+
+The previous Windows fixture tested wrapper routing rather than actual engine import/build. The required regression now includes the official Windows Godot Mono preflight plus native stdout/stderr pressure, timeout, immediate exclusive log reopen and locked-log report failure precedence. This refines the existing evidence decision without changing rendering, data ownership, defaults or physical acceptance requirements.
