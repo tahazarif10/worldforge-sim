@@ -13,7 +13,7 @@ public partial class EngineProbe
 {
     private sealed record StagedCase(WorldState World,ChunkRequest Request,ChunkMeshData Data,MeshInstance3D Hidden);
 
-    private async Task<StagedCase> BeginStagedCase(VisualTerrain3D terrain,Godot.Camera3D camera)
+    private async Task<StagedCase> BeginStagedCase(VisualTerrain3D terrain,Godot.Camera3D camera,PackedScene? importedArt=null)
     {
         var world=new WorldState(16,16,1315511732);
         for(int z=0;z<16;z++)for(int x=0;x<16;x++)world.Paint(x,z,0,Terrain.Forest);
@@ -22,6 +22,13 @@ public partial class EngineProbe
         await ReleaseCanceled(terrain,camera);
         terrain.UpdateVisibility(camera,0);
         SetField(terrain,"_coastDirty",false);
+        // Bind reloads authored art when absent. Apply the controlled import
+        // fixture after Bind, before immutable input capture.
+        if(importedArt is not null)
+        {
+            SetField(terrain,"_natureArt",null);
+            SetField(terrain,"_treePrefab",importedArt);SetField(terrain,"_rockPrefab",importedArt);
+        }
         Require(Queue(terrain).TryBegin(new(0,0),out ChunkRequest request),"reserve staged fixture");
         var snapshot=(ChunkBuildSnapshot)Call(terrain,"CaptureWorkerChunk",request)!;
         var data=ChunkMeshBuilder.Build(snapshot);
@@ -111,9 +118,7 @@ public partial class EngineProbe
             await ReleaseCanceled(terrain,camera);
             Require(Pool(terrain).ReservedBytes==0,"old world staged numeric reservation eventually released");
 
-            SetField(terrain,"_natureArt",null);
-            SetField(terrain,"_treePrefab",optional);SetField(terrain,"_rockPrefab",optional);
-            var fail=await BeginStagedCase(terrain,camera);
+            var fail=await BeginStagedCase(terrain,camera,optional);
             Require(fail.Data.Props.ToArray().Any(p=>p.Kind==NumericPropKind.ImportedTree),
                 "failure fixture contains captured imported foliage");
             SetField(terrain,"_treePrefab",null);SetField(terrain,"_rockPrefab",null);
@@ -128,6 +133,11 @@ public partial class EngineProbe
             SetField(terrain,"_natureArt",art);
             SetField(terrain,"_treePrefab",tree);SetField(terrain,"_rockPrefab",rock);
         }
+        terrain.MarkChanged(1,1,0);terrain.FlushChanges();
+        await Drain(terrain,camera);
+        Require(terrain.WorkerDiagnostics.StagedChunks==0 &&
+            terrain.WorkerDiagnostics.FailedChunks==0 && terrain.ActiveFallbackChunks==0,
+            "restored art and a fresh generation recover after staged foliage failure");
         GD.Print("PASS STAGED PUBLICATION: separate admissions and payloads, zero-budget wait, atomic handoff, edit/format/reset invalidation and native failure cleanup");
     }
 }
