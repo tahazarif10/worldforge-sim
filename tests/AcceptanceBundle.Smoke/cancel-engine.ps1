@@ -26,6 +26,12 @@ foreach ($mode in @('close','escape')) {
         if ($_.Exception.Message -notlike 'Acceptance process exited 2;*') { throw }
         $rejected = $true
     }
+    if (-not (Test-Path -LiteralPath (Join-Path $output 'incomplete.json'))) {
+        foreach ($name in @('stdout.log','stderr.log','godot.log')) {
+            Write-Host "[$mode/$name]"
+            Get-Content -LiteralPath (Join-Path $output $name) -Tail 35
+        }
+    }
     $incomplete = Get-Content -LiteralPath (Join-Path $output 'incomplete.json') -Raw | ConvertFrom-Json
     $expected = if ($mode -eq 'close') { 'Operator closed' } else { 'Operator pressed Esc' }
     if (-not $rejected -or $incomplete.capture_valid -ne $false -or
