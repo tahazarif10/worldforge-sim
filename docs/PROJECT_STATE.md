@@ -1,8 +1,8 @@
 ---
 state_schema: 3
 reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
-last_verified_date: 2026-11-02
-audited_repository_commit: 19a7dd797306ed654b9218ff95bd942a0e587ad8
+last_verified_date: 2026-11-03
+audited_repository_commit: 6a52ca82aa86b7332b9585df2c99610b2b6ff932
 baseline_core_ci_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
 baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
@@ -12,21 +12,22 @@ windows_attempted_commit: 2d1dd5ed8cff3f9ab1c9214ccb2bed6f69ea6ea9
 windows_attempt_status: "Import/build and direct startup reached; three late C# UIDs detected; capture.json absent; run incomplete"
 user_accepted_visual_commit: null
 completed_through: V3.2-engineering
-active_milestone: V3.4.2
+active_milestone: V3.4.3
 host_acceptance_milestone: V3.3
 viewport_planner_issue: 63
 surface_fallback_issue: 65
-last_interactive_feedback: "2026-11-02 positive qualitative V3.4.1 report; exact local SHA not supplied"
+mesh_workers_issue: 67
+last_interactive_feedback: "2026-11-03 positive qualitative report after V3.4.2 candidate; exact local SHA not supplied"
 measurement_implementation_pr: 60
-active_status: "Opt-in continuous surface fallback and ready-only handoff implemented; exact-head evidence in #65; physical baseline and promotion remain pending"
-next_gate: "Verify V3.4.2 exact-head CI and physical behavior; V3.4.3 immutable jobs and measured upload budgets next; no default promotion before host gates"
+active_status: "Separately opt-in immutable numeric workers and bounded measured native publication implemented; exact-head evidence in #67 / PR #68; physical promotion pending"
+next_gate: "Verify V3.4.3 exact-head CI and normal H: behavior; inspect snapshot/upload costs; V3.4.4 distance LOD and coast seams next; physical baseline required before default promotion"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
 
 # WorldForge Sim — factual project state
 
-**Source audit updated 2026-11-02.** This file is the factual status ledger, not the entire history and not a promise of future implementation. The prior chronology is preserved verbatim in [PROJECT_HISTORY_2026-10-30.md](PROJECT_HISTORY_2026-10-30.md). The actionable future plan is [ROADMAP.md](ROADMAP.md).
+**Source audit updated 2026-11-03.** This file is the factual status ledger, not the entire history and not a promise of future implementation. The prior chronology is preserved verbatim in [PROJECT_HISTORY_2026-10-30.md](PROJECT_HISTORY_2026-10-30.md). The actionable future plan is [ROADMAP.md](ROADMAP.md).
 
 ## Product status
 
@@ -48,7 +49,8 @@ WorldForge Sim is an original **3D stylized isometric god-sandbox**. The user ex
 | Exact screenshot seed replay via `-WorldSeed 1315511732` | Merged; Godot headless CI proved selected seed and imports 10 GLBs | [PR #51](https://github.com/tahazarif10/worldforge-sim/pull/51) |
 | Persistent independent world-wide authoritative regions | **Not implemented**; RegionMirror still samples `WorldState` | [Architecture](V3_ARCHITECTURE.md) |
 | Opt-in V3.4.1 bounded viewport demand + V3.4.2 continuous surface fallback | Implemented for the current small world; actual-resource checks, ready-only handoff and canonical sculpted coast banks | [Guide](V3_4_VIEWPORT_STREAMING.md), [#65](https://github.com/tahazarif10/worldforge-sim/issues/65) |
-| Physically accepted seamless large map / distance LOD / background mesh jobs | **Not implemented/accepted**; V3.4.3 and V3.4.4 remain open | [#55](https://github.com/tahazarif10/worldforge-sim/issues/55) |
+| Immutable numerical mesh/scatter/dirty-coast workers and measured publication | V3.4.3 implemented behind separate OFF-by-default flag; current small world, finite tasks/results and generation-safe publication | [Guide](V3_4_MESH_WORKERS.md), [PR #68](https://github.com/tahazarif10/worldforge-sim/pull/68) |
+| Physically accepted seamless large map / distance LOD | **Not implemented/accepted**; V3.4.4 and large-world authority remain open | [#55](https://github.com/tahazarif10/worldforge-sim/issues/55) |
 | 8192² active citizens / villages / kingdoms | **Not implemented**; user-facing large-world simulation blocked | [#45](https://github.com/tahazarif10/worldforge-sim/issues/45) |
 | Crash-atomic multi-region save manifest | **Not implemented**; individual checksummed per-region save only | [V3 architecture](V3_ARCHITECTURE.md) |
 | Quaternius hero art | **Not imported**; Kenney 10 GLBs are currently bundled | [Bundled asset provenance](../Assets/Art/KenneyNature/README.md) |
@@ -65,6 +67,7 @@ WorldForge Sim is an original **3D stylized isometric god-sandbox**. The user ex
 | 2026-10-30 | PR #50 | Mountain summit law and exact V2 map seed: 66 old boulders -> **9** small accents, **36** top tiles no extra rock; all old core+Godot CI green | Pre-fix screenshot was approved except cap; post-fix screenshot pending | F8/F9 same-seed verification |
 | 2026-10-30 | PR #51 | Same V2 scene boot at exact reference seed 1315511732 in official engine CI; all core tests green | Not explicitly run on user host after merge | One-command host screenshot replay |
 | 2026-11-02 | PR #64, reviewed `c28fa4ba184be3f1b35cf6c501b017359c49f6f9`, main `19a7dd797306ed654b9218ff95bd942a0e587ad8` | Core/native PowerShell [41462871822](https://github.com/tahazarif10/worldforge-sim/actions/runs/41462871822), engine [41462871730](https://github.com/tahazarif10/worldforge-sim/actions/runs/41462871730), merged-main [41463368663](https://github.com/tahazarif10/worldforge-sim/actions/runs/41463368663): success; 63,253 pure and 43,567 engine camera samples per backend | User says interactive candidate looks good; exact host SHA not supplied | Isolated GPU metrics, exact-head screenshots and V3.4.2 review |
+| 2026-11-03 review | PR #66, reviewed `44c1d50e6bd06e7c1986fd0055e1832f5bd4836a`, main `6a52ca82aa86b7332b9585df2c99610b2b6ff932` | Core/native PowerShell [41467777831](https://github.com/tahazarif10/worldforge-sim/actions/runs/41467777831), engine [41467778006](https://github.com/tahazarif10/worldforge-sim/actions/runs/41467778006), merged-main [41468119713](https://github.com/tahazarif10/worldforge-sim/actions/runs/41468119713): success; actual-resource coverage, sculpted coast and ready-only handoff | User again says the preceding interactive candidate looks good; exact host SHA not supplied | New worker candidate, exact-head screenshots, isolated physical GPU/input metrics |
 
 The above numeric PR50 counts are code/test counts, **not a pixel-level proof of improved art**. The existing V2 HUD screenshot had 60 FPS and 16.7 ms worst in one displayed 1-second interval; this is not an AMD frame-time distribution nor a guaranteed sustained 60 FPS.
 
@@ -148,6 +151,29 @@ Next interactive command after a safe fast-forward:
 
 Normal controls remain active; closing the window is expected. F10 should show `MissingVisibleChunks = 0` after successful updates even while detail is pending. F8/F9 remain H:-local evidence. See [the current guide](V3_4_VIEWPORT_STREAMING.md) for the focused review and rollback.
 
+### Positive feedback and V3.4.3 immutable workers — 2026-11-03
+
+The user again reported **“خوب شده”** after the preceding V3.4.2 interactive instructions and authorized continuing. Record this as qualitative feedback only: the exact local SHA, new screenshots and complete GPU distributions were not provided. `windows_verified_commit` and `user_accepted_visual_commit` remain null.
+
+[#67 / PR #68](https://github.com/tahazarif10/worldforge-sim/pull/68) adds the separate OFF-by-default `-MeshWorkers` path under [ADR 0008](decisions/0008-immutable-mesh-workers-and-publication-budgets.md). It uses owned raw tile/corner snapshots, pure detailed geometry/scatter jobs and dirty coast jobs. Godot resource creation and atomic detail/proxy handoff remain main-thread operations in the same approved scene.
+
+- Two active tasks, four retained tasks/results, 16 MiB managed array reservation. Canceled tasks retain reservations until completion; this is not a process RAM/VRAM cap.
+- Main-thread publication admission: 2 Eco/4 normal units, 2 MiB numeric payload, soft 4 ms monotonic window. Actual snapshot, compute, publication and pump durations are recorded separately; one native unit can exceed the window.
+- Dirty edits, format toggles and elevation reload use matching generations. Stale results are discarded; two failures block retry for that generation while fallback remains. New World cancels, scene teardown cancels and joins.
+- Immediate surface coverage and initial-world ocean bootstrap remain synchronous. Worker preview rejects worlds above 16,384 cells; current WorldState/RegionMirror authority and 120x88 gameplay remain.
+- Pure tests and a real-engine native V2 comparison cover eight geometry modes, three art profiles, partial/sculpted chunks, both data backends, cancellation, failure, rapid camera changes and teardown. Existing fallback/capture/PowerShell gates remain.
+- Headless Godot does not perform normal GPU texture updates. The probe detects that capability and validates the exact consumed dirty-coast payload hash and native binding; a real texture readback is checked only when supported. This is not pixel/GPU acceptance.
+
+**Evidence:** exact implementation/review/merge SHAs and final core/engine/PowerShell run outcomes belong to [PR #68](https://github.com/tahazarif10/worldforge-sim/pull/68) and [#67](https://github.com/tahazarif10/worldforge-sim/issues/67), avoiding a self-referential source SHA in this file. Tests described here must not be treated as executed unless the linked exact-head run succeeded.
+
+**Physical worker acceptance: PENDING.** Use the [worker guide](V3_4_MESH_WORKERS.md). Next interactive command after a safe update:
+
+```powershell
+.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732 -MeshWorkers
+```
+
+Controls remain active and closing the game is normal. `-ViewportStreaming` alone selects the previous synchronous fallback baseline; neither flag selects the ordinary planner. F10/F9 include worker diagnostics. The next architecture slice is V3.4.4 distance LOD/coast seams; inspect actual snapshot/upload costs before choosing the first optimization or increasing scale.
+
 ## Current hardware and local rules
 
 - User PC: Windows, Godot **4.7.2 Mono**, **.NET 10**, GPU **AMD Radeon R9 M395X**, Compatibility/OpenGL renderer.
@@ -164,7 +190,7 @@ Normal controls remain active; closing the window is expected. F10 should show `
 4. **Physical gate missing:** matched direct/mirror screenshot and drag/wheel input performance, p50/p95/p99 on R9 M395X. User approvals are a distinct column.
 5. **Actual huge-world save/restore** missing; per-region checksummed files are not yet a durable all-regions transaction.
 
-## Current work: V3.4.2 opt-in coverage and outstanding V3.3 host acceptance
+## Current work: V3.4.3 opt-in workers and outstanding V3.3 host acceptance
 
 **Live tracker:** [#52](https://github.com/tahazarif10/worldforge-sim/issues/52); implementation/evidence slices [#53](https://github.com/tahazarif10/worldforge-sim/issues/53), [#54](https://github.com/tahazarif10/worldforge-sim/issues/54).
 
@@ -185,7 +211,7 @@ git fetch origin main
 if ($LASTEXITCODE -ne 0) { throw 'Download failed. Stop and inspect the Git output.' }
 git merge --ff-only --no-autostash FETCH_HEAD
 if ($LASTEXITCODE -ne 0) { throw 'Update stopped. Preserve local changes and inspect the Git output.' }
-.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732 -ViewportStreaming
+.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732 -MeshWorkers
 ```
 
 Do not run `git reset --hard`, `git clean`, or auto-delete `.godot`/assets to "repair" import. `F8` screenshot at `artifacts\visual-review`, `F9` frame time at `artifacts\performance`, `F10` chunk counters. If any check is missing, report **PENDING**.

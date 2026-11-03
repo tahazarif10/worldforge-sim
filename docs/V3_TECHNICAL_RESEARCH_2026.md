@@ -246,3 +246,28 @@ The [Godot 4.7 3D performance guide](https://docs.godotengine.org/en/4.7/tutoria
 **Alternative comparison:** a coarser fixed-step grid reduces vertices but can remove small islands and create nonmatching edges. The first implementation therefore preserves exact per-cell top fans and the existing palette, simplifying banks and omitting decorations. The tradeoff is synchronous work and retained top resolution; it postpones measured distance LOD rather than asserting arbitrary thresholds. See [ADR 0004](decisions/0004-continuous-surface-fallback.md) for memory arithmetic, failure handling, limits and verification.
 
 **Next research/implementation question:** split immutable numeric generation from main-thread native upload, measure both, then enforce pending-byte and time budgets for camera demand and dirty edits. Continuous proxy coverage must survive queue backpressure and worker failures. This is V3.4.3; no worker or GPU performance claim is made in this slice.
+
+
+## 11. Immutable workers and publication research — 2026-11-03
+
+Primary references checked:
+
+- [Godot 4.7 thread-safe APIs](https://docs.godotengine.org/en/4.7/tutorials/performance/thread_safe_apis.html): active scene-tree mutation, rendering nodes and shared resources require care; direct GPU operations can synchronize/stall.
+- [Godot 4.7 ArrayMesh](https://docs.godotengine.org/en/4.7/tutorials/3d/procedural_geometry/arraymesh.html): aligned position/normal/color arrays can describe the retained triangle topology.
+- [.NET cooperative cancellation](https://learn.microsoft.com/en-us/dotnet/standard/threading/cancellation-in-managed-threads): cancellation requests require work to observe them; they are not immediate termination.
+- [.NET task cancellation](https://learn.microsoft.com/en-us/dotnet/standard/parallel-programming/task-cancellation): the delegate's handling of cancellation determines task completion behavior.
+- [.NET channels](https://learn.microsoft.com/en-us/dotnet/core/extensions/channels): bounded producer/consumer capacity is an alternative when a separate pending queue is useful.
+- [Godot 4.7 RenderingServer](https://docs.godotengine.org/en/4.7/classes/class_renderingserver.html): headless rendering returns dummy behavior.
+- [Godot 4.7 dummy texture implementation](https://github.com/godotengine/godot/blob/4.7/servers/rendering/dummy/storage/texture_storage.h): initial image data is retained, but texture_2d_update is a no-op. The exact installed engine is capability-checked by the probe.
+
+**Source finding:** V3.4.2 detail and scatter loops read live terrain/elevation and mix numeric work with SurfaceTool/MultiMesh operations. The coast kernel is already pure but was called synchronously for dirty edits. The small-world data copy is bounded and permits isolating these computations without changing art or moving shared native assets off thread.
+
+**Selected engineering design:** capture one-cell tile halos and owned corner offsets on the owner, run numerical V2 geometry/scatter on immutable copies, then stage native resources on the owner after matching generation/lease. Existing demand is already bounded/coalesced, so a two-task/four-retained-entry pool is simpler here than a second queued channel. Reservations include completed outputs and survive cancellation until actual completion. Thread-pool tasks avoid creating a dedicated OS thread per chunk.
+
+**Budget interpretation:** a native call cannot be preempted safely. Count and numeric-payload admission are hard; a measured 4 ms elapsed window is soft, stops subsequent work and records overruns. The immediate coverage pass remains separate. Array reservation is not total RAM, and numeric prop bytes are not GPU mesh transfer bytes. Hardware evidence is required to tune these constants or demonstrate benefit.
+
+**New engine-test finding:** the first integration run reached the full native terrain/foliage comparison but rejected dirty-coast texture readback after rapid edits. The dummy renderer's source explains why its readback remains the initial image. The corrected oracle detects actual support, checks the hash of the exact successfully consumed payload plus current native texture binding, and checks image bytes only when updated readback exists. Production texture update behavior is unchanged; no headless GPU/pixel claim is made.
+
+**Falsifiable checks:** all eight geometry formats and three authored/missing/optional-import art profiles match the retained native output within explicit floating-point/packed-color tolerances. Rapid reversal and edits cannot install stale generations; retained reservation/count caps hold; two failures leave fallback instead of spinning; cancellation/teardown releases work only after it stops. These are correctness tests, not frame-time measurements. Exact execution outcomes live in [PR #68](https://github.com/tahazarif10/worldforge-sim/pull/68).
+
+**Next:** measure snapshot vs native publication cost on the actual host, then evaluate LOD/coast patch seams in V3.4.4. Full regional authority remains V3.5. See [ADR 0008](decisions/0008-immutable-mesh-workers-and-publication-budgets.md).

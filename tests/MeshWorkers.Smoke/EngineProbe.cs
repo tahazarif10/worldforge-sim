@@ -28,6 +28,7 @@ public partial class EngineProbe : Node
             Require(System.Environment.GetEnvironmentVariable("GITHUB_ACTIONS")=="true" &&
                 DisplayServer.GetName()=="headless","probe is restricted to headless GitHub CI");
             _owner=System.Environment.CurrentManagedThreadId;
+            DetectTextureReadback();
             var lab=GD.Load<PackedScene>("res://Scenes/VisualLab3D.tscn").Instantiate<VisualLab3D>();
             AddChild(lab);lab.SetProcess(false);
             var terrain=lab.GetNode<VisualTerrain3D>("WorldAndFoliage");

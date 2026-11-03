@@ -16,6 +16,8 @@ documents = [
     "docs/README.md",
     "docs/V3_3_ACCEPTANCE_RUNNER.md",
     "docs/V3_4_VIEWPORT_STREAMING.md",
+    "docs/V3_4_MESH_WORKERS.md",
+    "docs/decisions/0008-immutable-mesh-workers-and-publication-budgets.md",
     "docs/decisions/0003-bounded-viewport-demand-and-generation-leases.md",
     "docs/decisions/0004-continuous-surface-fallback.md",
     "docs/ROADMAP_FA.md",

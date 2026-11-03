@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Godot;
 using WorldForge.Camera3D;
@@ -70,11 +71,42 @@ public partial class EngineProbe
         }
     }
 
-    private static void CheckCoast(VisualTerrain3D terrain,WorldState world)
+    private bool _textureUpdateReadback;
+    private void DetectTextureReadback()
     {
-        using Image image=Field<ImageTexture>(terrain,"_coastMaskTexture").GetImage();
-        byte[] actual=image.GetData(),expected=WaterCoastMath.BuildMask(world.Width,world.Height,world.Tile,world.Seed);
-        Require(actual.SequenceEqual(expected),"published dirty coast matches original mask byte for byte");
+        // Godot's dummy renderer stores initial image data but texture_2d_update
+        // is a no-op. Detect the actual engine capability; never claim GPU parity.
+        byte[] initial=[1,2,3,255],changed=[4,5,6,255];
+        using Image before=Image.CreateFromData(1,1,false,Image.Format.Rgba8,initial);
+        using Image after=Image.CreateFromData(1,1,false,Image.Format.Rgba8,changed);
+        using ImageTexture texture=ImageTexture.CreateFromImage(before);
+        texture.Update(after);
+        using Image readback=texture.GetImage();
+        byte[] observed=readback.GetData();
+        _textureUpdateReadback=observed.SequenceEqual(changed);
+        Require(_textureUpdateReadback || observed.SequenceEqual(initial),"known headless texture contract");
+        GD.Print(_textureUpdateReadback?"Coast texture update readback available":
+            "Headless texture update readback unavailable: validating consumed payload and native binding; GPU gate pending");
+    }
+
+    private void CheckCoast(VisualTerrain3D terrain,WorldState world)
+    {
+        byte[] expected=WaterCoastMath.BuildMask(world.Width,world.Height,world.Tile,world.Seed);
+        var d=terrain.WorkerDiagnostics;
+        Require(d.CoastPublications>0 && !d.CoastPending &&
+            d.LastCoastPayloadSha256==Convert.ToHexString(SHA256.HashData(expected)),
+            "successfully consumed dirty coast payload matches original mask byte for byte");
+        var texture=Field<ImageTexture>(terrain,"_coastMaskTexture");
+        var water=Field<MeshInstance3D>(terrain,"_water");
+        Require(texture.GetWidth()==world.Width && texture.GetHeight()==world.Height &&
+            water.MaterialOverride is ShaderMaterial material &&
+            material.GetShaderParameter("shore_mask").AsGodotObject()==texture,
+            "current coast texture is bound to the original native water material");
+        if(_textureUpdateReadback)
+        {
+            using Image image=texture.GetImage();
+            Require(image.GetData().SequenceEqual(expected),"actual updated coast readback matches");
+        }
     }
 
     private async Task ExercisePipeline(VisualLab3D lab,VisualTerrain3D terrain,Godot.Camera3D camera)

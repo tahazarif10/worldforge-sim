@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using System.Security.Cryptography;
 using WorldSim;
 using WorldForge.VisualLab;
 
@@ -46,9 +47,11 @@ public sealed class VisualBuildResult
     public int Width { get; }
     public int Height { get; }
     public ReadOnlySpan<byte> Rgba => _rgba;
+    public string? CoastPayloadSha256 { get; }
     public long PayloadBytes => Mesh?.PayloadBytes ?? _rgba.Length;
     private VisualBuildResult(ChunkMeshData? mesh,int width,int height,byte[] rgba)
-    { Mesh=mesh;Width=width;Height=height;_rgba=rgba; }
+    { Mesh=mesh;Width=width;Height=height;_rgba=rgba;
+        CoastPayloadSha256=mesh is null?Convert.ToHexString(SHA256.HashData(rgba)):null; }
     public static VisualBuildResult Chunk(ChunkMeshData mesh)=>new(mesh,0,0,[]);
     internal static VisualBuildResult Coast(int width,int height,byte[] rgba)=>new(null,width,height,rgba);
 }

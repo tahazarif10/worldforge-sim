@@ -1,6 +1,6 @@
 # V3.4 viewport streaming — bounded demand and continuous surface fallback
 
-**V3.4.1 foundation:** [#63 / PR #64](https://github.com/tahazarif10/worldforge-sim/pull/64), main `19a7dd797306ed654b9218ff95bd942a0e587ad8`. **V3.4.2 fallback:** [#65](https://github.com/tahazarif10/worldforge-sim/issues/65).
+**V3.4.1 foundation:** [#63 / PR #64](https://github.com/tahazarif10/worldforge-sim/pull/64), main `19a7dd797306ed654b9218ff95bd942a0e587ad8`. **V3.4.2 fallback:** [#65 / PR #66](https://github.com/tahazarif10/worldforge-sim/pull/66). **V3.4.3 worker extension:** [separate guide](V3_4_MESH_WORKERS.md), [PR #68](https://github.com/tahazarif10/worldforge-sim/pull/68).
 
 This is an explicit OFF-by-default experiment in the existing approved V2 scene. It now supplies surface coverage while detailed terrain and nature are queued. The world remains 120x88, the camera algorithm is unchanged, and the original opaque water shader remains in use. The withdrawn regional scene is not involved.
 
@@ -31,7 +31,7 @@ The log must contain `Experimental viewport planner: viewport-v2-fallback`. F10 
 2. Every visible-plan key lacking current detail gets a surface-only proxy before old geometry is removed. The proxy preserves the V2 land tiles, four-triangle height fans, palette and sculpted shared edges; it has no nature decorations, simplified banks and no proxy shadows.
 3. Water is covered by the existing opaque V2 ocean plane. A water-only chunk needs a verified water classification, not a hidden placeholder land mesh.
 4. The detailed build replaces its proxy only after terrain, foliage and the matching generation/lease finish. Both are never left visible together. Failed/incomplete work leaves the proxy available.
-5. Camera demand and coverage update every game frame. Detailed 2/4-chunk construction keeps its previous 50ms cadence. Edits/toggles/world resets update the generation identity.
+5. Camera demand and coverage update every game frame. With `-ViewportStreaming` alone, detailed 2/4-chunk construction keeps its previous 50ms cadence; `-MeshWorkers` instead pumps bounded publication every frame. Edits/toggles/world resets update the generation identity.
 
 This keeps top-surface resolution; distance-based coarse LOD is still V3.4.4. No new coarse water shader or change to near detailed art is introduced.
 
@@ -58,7 +58,7 @@ During a rapid move, pending/missing-detail/fallback counts can be nonzero while
 - Toggle F6 smooth/legacy and return to smooth; use New World and check that old terrain does not remain visible.
 - Save F8 views of coast/mountains/forest; compare matched physical frame-time scenarios before any default promotion.
 
-**V3.4.2 Windows verdict and GPU measurements: PENDING.** A positive V3.4.1 qualitative report does not establish this new candidate's acceptance.
+**Exact-head Windows verdict and GPU measurements: PENDING.** The user reported another positive qualitative result after the V3.4.2 recommendation on 2026-11-03, without exact host SHA, new screenshots or isolated measurements. That feedback does not establish the new worker candidate's acceptance.
 
 ## Automated verification
 
@@ -76,6 +76,6 @@ Existing baseline capture/PowerShell checks remain. Exact run IDs and source hea
 
 Fallback is synchronous and can add work during rapid movement. Its per-chunk numeric output is bounded to 9216 vertices (360 KiB of position/normal/color payload in the worst bank case), with additional conversion/native/GPU storage. No measured memory or frame-time improvement is claimed.
 
-V3.4.3 is next: immutable numeric jobs, bounded pending bytes, measured main-thread upload budgets and dirty-edit integration. V3.4.4 adds distance LOD and coast-patch seam parity. Regional authority, larger worlds and full-world saves remain later stages.
+V3.4.3 now adds separately opt-in immutable numeric jobs, bounded retained arrays, main-thread count/payload and soft-time admission with dirty-edit integration. See the [worker guide](V3_4_MESH_WORKERS.md) for limits, diagnostics, launch and rollback. V3.4.4 adds distance LOD and coast-patch seam parity. Regional authority, larger worlds and full-world saves remain later stages.
 
 Design rationale: [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md), [ADR 0004](decisions/0004-continuous-surface-fallback.md).

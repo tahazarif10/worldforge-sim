@@ -1,6 +1,6 @@
 # WorldForge Sim — engineering master roadmap
 
-> Source of truth for **future milestone order and release gates**, reviewed 2026-11-01.
+> Source of truth for **future milestone order and release gates**, reviewed 2026-11-03.
 > This replaces the obsolete 2D/pixel-art-first roadmap. For what is **actually
 > implemented**, see [PROJECT_STATE.md](PROJECT_STATE.md). Proposed numbers,
 > features and budgets below are targets, not claims that the game has them.
@@ -93,11 +93,11 @@ Do not require a completed numerical baseline to begin the harness needed to mea
 
 **Dependency for user-facing promotion:** V3.3 physical baseline and camera/art acceptance.
 
-**Engineering update — 2026-11-02:** [V3.4.1 / #63](https://github.com/tahazarif10/worldforge-sim/issues/63), merged in PR #64, supplies the finite-frustum/height-slab planner and bounded generation leases. After positive qualitative interactive feedback and renewed authorization, [V3.4.2 / #65](https://github.com/tahazarif10/worldforge-sim/issues/65) adds surface-only fallback, actual-resource coverage checks and replace-on-ready behind the same OFF-by-default switch. [Guide and limits](V3_4_VIEWPORT_STREAMING.md), [ADR 0004](decisions/0004-continuous-surface-fallback.md). Worker/time/byte budgets and distance LOD remain planned. This does not close the physical no-hole/performance product gate.
+**Engineering update — 2026-11-02:** [V3.4.1 / #63](https://github.com/tahazarif10/worldforge-sim/issues/63), merged in PR #64, supplies the finite-frustum/height-slab planner and bounded generation leases. After positive qualitative interactive feedback and renewed authorization, [V3.4.2 / #65](https://github.com/tahazarif10/worldforge-sim/issues/65) adds surface-only fallback, actual-resource coverage checks and replace-on-ready behind the same OFF-by-default switch. [Guide and limits](V3_4_VIEWPORT_STREAMING.md), [ADR 0004](decisions/0004-continuous-surface-fallback.md). The renewed 2026-11-03 authorization advances [V3.4.3 / #67](https://github.com/tahazarif10/worldforge-sim/issues/67): immutable jobs and measured native publication under [ADR 0008](decisions/0008-immutable-mesh-workers-and-publication-budgets.md), with a separate OFF-by-default flag. Distance LOD remains planned. This does not close the physical no-hole/performance product gate.
 
 **V3.4.1 — Pure viewport planner and residency contract**
 - Extract exact shared visible-footprint planner from current `VisualTerrain3D.UpdateVisibility` and `StrategyCameraRig`. Camera can move or zoom; border margin and elevation bounds conservatively cover screen.
-- Define `TileKey`, `ChunkCoord` (16×16 display), `RegionKey` (64×64 data), `ChunkGeneration`, explicit `Unloaded/Queued/Generating/Ready/Stale/Disposed`.
+- Define `TileKey`, `ChunkCoord` (16×16 display), `RegionKey` (64×64 data), `ChunkGeneration`, explicit `Unloaded/Queued/Generating/Ready/Stale/Failed/Disposed` (Failed added by V3.4.3 for exhausted retries).
 - Bound the queue by desired footprint plus margin and prioritize current camera demand. Hard-reject world/data/LOD-format mismatches; a camera move reprioritizes or cancels irrelevant work but must not discard a still-wanted valid chunk solely because CameraEpoch advanced. Test continuous pan without starvation. Record **uncovered visible pixels/cells**.
 
 **V3.4.2 — Continuous surface fallback (engineering implemented)**
@@ -107,12 +107,20 @@ The first proxy preserves exact per-cell V2 top geometry, palette and coast silh
 - Keep V2 terrain color palette/coast silhouette at low LOD; reduce far decoration, **not near-camera approved art**.
 - Verify rapid pans, zoom-in/out, window resize and teleport at map limits never show the blank background where ground/water should be.
 
-**V3.4.3 — Immutable worker mesh-data snapshots (next engineering slice)**
-- Off-main-thread compute only **pure C# arrays** from immutable versioned region snapshots: vertices, indices, colors, normals, foliage placements. NO Godot `SceneTree`, `MeshInstance3D`, `SurfaceTool` or GPU texture operations in workers.
-- Main thread owns Godot mesh/material/nodes and controls uploads with count, bytes and measured time budgets. Dirty paint/sculpt rebuilds and coast updates enter the same bounded pipeline; the current count-only visibility budget does not cover all edit work. Cancel/discard invalid world/data generations.
-- Buffer capacity, world-seed generation identity, bounded memory accounting, teardown/join and background worker failure handling must be tested.
+**V3.4.3 — Immutable worker mesh-data snapshots (engineering implemented, host gate pending)**
 
-**V3.4.4 — LOD, seams and coast parity**
+[Guide](V3_4_MESH_WORKERS.md), [ADR 0008](decisions/0008-immutable-mesh-workers-and-publication-budgets.md), [PR #68](https://github.com/tahazarif10/worldforge-sim/pull/68).
+
+- Pure C# numeric jobs consume owned chunk halos/corner offsets, seed, art flags and generation/lease; current WorldState/RegionMirror remains the source. Vertices/normals/colors/placements are compared with the retained native V2 builder. No Godot or live-world access runs in workers.
+- Two active jobs, four retained tasks/results and 16 MiB reserved array payload; cancellation keeps its reservation until completion/release. These are not whole-process RAM or GPU-memory limits.
+- Main-thread publication has 2 Eco/4 normal units, 2 MiB numeric-payload admission and a measured soft 4 ms window per update. One native unit cannot be preempted; overruns stop further admission. Snapshot, compute, upload and pump costs remain distinct.
+- Dirty paint/sculpt/format/elevation detail and dirty coast enter this path. Immediate coverage proxies and initial-world ocean bootstrap remain synchronous. Worker coast preview rejects worlds above 16,384 cells; no global 8192² mask.
+- Current generation/unique lease rejects stale work. Two failures stop retrying that generation while fallback remains; edits/re-entry permit retry. Teardown cancels and joins pure jobs.
+- `-MeshWorkers` implies viewport fallback; `-ViewportStreaming` alone retains V3.4.2. Exact-head core/engine/PowerShell results belong to #67/PR #68. User-host screenshots, input and p95/p99 remain pending.
+
+**V3.4.4 — LOD, seams and coast parity (next architecture slice)**
+
+First inspect V3.4.3 host snapshot/upload/overrun diagnostics. If one native publication unit dominates, scope and measure its split before increasing map size. Maintain near-field art and current fallback through each change.
 - Start with LOD0 (approved near 16×16), LOD1 (moderate distant geometry), LOD2 (low-detail fallback). **Prototype and benchmark thresholds**, do not hardcode arbitrary GPU assumptions.
 - Ensure shared edge heights, LOD seam stitching/skirting and exact near-geometry picking. Current foam requires at least a three-cell input halo, absolute-coordinate noise and separate consideration of texture filtering borders. Compare patch/global masks at boundaries. A whole 8192² BuildMask would use 384 MiB of array payload including 256 MiB output RGBA, before native/GPU copies.
 - Keep opaque V2 shader style, water motion/foam colors and Kenney per-chunk MultiMesh. No old flat-shader V3 fallback.
@@ -247,7 +255,7 @@ Follow [Engineering Workflow](ENGINEERING_WORKFLOW.md), [Architecture](V3_ARCHIT
 | Implemented foundation | #53 fixture specification + #54 monotonic/scenario core | See PR #60 and the runner guide; physical host acceptance remains open |
 | Implemented automation | #54 launcher/pose parity and H: evidence runner | Core/engine/PowerShell checks recorded on PR #60; next collect actual H: evidence |
 | Host checkpoint | #53 matched direct/mirror runs | Real art/control verdict and valid repeated measurements; #52 can then close |
-| Following architecture | #55 planner/fallback, then bounded jobs/LOD | Coverage and performance acceptance before #56 authority changes |
+| Following architecture | #55 planner/fallback/workers implemented opt-in; distance LOD/coast seams next | Coverage and performance acceptance before #56 authority changes |
 | Product checkpoint | #56/#57 at 512²–1024², then V4.0 | A durable, understandable living-world loop before optional maximum scale |
 
 Assign an implementer and evidence reviewer in each issue; do not invent assignees or delivery dates. Estimate the next small slice after its source audit, then revise from observed throughput. Scope changes must record their impact on dependencies and acceptance. The active stage is not complete while its physical gate is pending.

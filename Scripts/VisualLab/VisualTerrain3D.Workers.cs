@@ -12,6 +12,7 @@ public readonly record struct MeshWorkerDiagnostics(bool Enabled,int Active,int 
     int LastUploadCount,long LastUploadPayloadBytes,double LastUploadMilliseconds,
     double LastSnapshotMilliseconds,double LastPumpMilliseconds,double LastComputeMilliseconds,
     long TimeBudgetOverruns,long Discarded,long Published,int LastWorkerThreadId,
+    string? LastCoastPayloadSha256,long CoastPublications,
     int WorkerLimit,int RetainedLimit,long ReservationLimit,long UploadByteLimit,double SoftMilliseconds);
 
 public partial class VisualTerrain3D
@@ -28,6 +29,8 @@ public partial class VisualTerrain3D
     private int _coastAttempts,_lastWorkerThread,_lastUploadCount;
     private long _lastUploadBytes;
     private double _lastUploadMs,_lastSnapshotMs,_lastPumpMs,_lastComputeMs;
+    private string? _lastCoastPayloadSha256;
+    private long _coastPublications;
     public string? LastMeshWorkerFailure { get; private set; }
 
     private void AssertWorkerOwner()
@@ -47,7 +50,8 @@ public partial class VisualTerrain3D
                 _meshWorkers?.ReservedBytes??0,ready,_viewportQueue.CountStates(ChunkResidencyState.Failed),
                 MeshWorkersEnabled&&_coastDirty,_coastAttempts,_lastUploadCount,_lastUploadBytes,
                 _lastUploadMs,_lastSnapshotMs,_lastPumpMs,_lastComputeMs,_workerOverruns,
-                _workerDiscarded,_workerPublished,_lastWorkerThread,2,4,WorkerReservationLimit,
+                _workerDiscarded,_workerPublished,_lastWorkerThread,_lastCoastPayloadSha256,_coastPublications,
+                2,4,WorkerReservationLimit,
                 WorkerUploadBytes,WorkerSoftMilliseconds);
         }
     }
@@ -60,7 +64,7 @@ public partial class VisualTerrain3D
         _meshWorkers.CancelWhere(_=>true); // Retain reservations until those jobs actually stop.
         _workerFailures.Clear();_coastAttempts=0;
         _coastRevision=checked(_coastRevision+1);
-        LastMeshWorkerFailure=null;
+        LastMeshWorkerFailure=null;_lastCoastPayloadSha256=null;
     }
 
     private void MarkWorkerCoastDirty()

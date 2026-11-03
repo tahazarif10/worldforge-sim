@@ -137,6 +137,8 @@ public partial class VisualTerrain3D
         else _coastMaskTexture.Update(image);
         material.SetShaderParameter("shore_mask",_coastMaskTexture);
         material.SetShaderParameter("map_size",new Vector2(_world.Width,_world.Height));
+        _lastCoastPayloadSha256=result.CoastPayloadSha256;
+        _coastPublications++;
         _coastDirty=false;
     }
 }
