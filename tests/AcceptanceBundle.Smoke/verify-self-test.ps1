@@ -57,8 +57,20 @@ try {
     New-Item -ItemType Directory -Path (Join-Path $launcher 'scripts') | Out-Null
     Copy-Item -LiteralPath (Join-Path $root 'RUN-TEST.cmd') -Destination $launcher
     Write-SelfTestText -Path (Join-Path $launcher 'scripts\run-self-test.ps1') -Text 'Write-Output "CMD_ENTRY_OK"; exit 7'
-    $entryOutput = @(& $env:ComSpec /d /c ('""' + (Join-Path $launcher 'RUN-TEST.cmd') + '" <nul"'))
-    Check ($LASTEXITCODE -eq 7 -and ($entryOutput -join ' ').Contains('CMD_ENTRY_OK')) 'real CMD launcher quotes paths and preserves child exit code'
+    $start = New-Object Diagnostics.ProcessStartInfo
+    $start.FileName = $env:ComSpec
+    $start.Arguments = '/d /c RUN-TEST.cmd <nul'
+    $start.WorkingDirectory = $launcher
+    $start.UseShellExecute = $false
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $child = [Diagnostics.Process]::Start($start)
+    try {
+        if (-not $child.WaitForExit(20000)) { $child.Kill(); throw 'CMD fixture timed out.' }
+        $entryOutput = $child.StandardOutput.ReadToEnd()
+        $entryError = $child.StandardError.ReadToEnd()
+        Check ($child.ExitCode -eq 7 -and $entryOutput.Contains('CMD_ENTRY_OK') -and -not $entryError) 'real CMD launcher quotes paths and preserves child exit code'
+    } finally { $child.Dispose() }
     Write-Host 'PASS ALL Windows self-test packaging, failure recovery, clipboard fallback and CMD entry point'
 } finally {
     Remove-Item -LiteralPath $temp -Recurse -Force

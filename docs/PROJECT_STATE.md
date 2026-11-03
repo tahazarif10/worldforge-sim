@@ -20,7 +20,7 @@ mesh_workers_issue: 67
 coast_diagnostics_issue: 69
 last_interactive_feedback: "2026-11-03 positive qualitative report after V3.4.3 worker candidate; exact local SHA not supplied"
 measurement_implementation_pr: 60
-active_status: "V3.4.4 slice 1: bounded coast kernel and one-click worker diagnostics; exact-head CI recorded in #69 / its PR; physical promotion pending"
+active_status: "V3.4.4 slice 1: bounded coast kernel and one-click worker diagnostics; exact-head CI recorded in #69 / [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70); physical promotion pending"
 next_gate: "Run RUN-TEST.cmd on H: and inspect worker costs; next resident coast rendering and distance LOD; physical baseline required before default promotion"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
@@ -241,7 +241,7 @@ The user again reported that the candidate was good, authorized the next step, a
 
 [#69](https://github.com/tahazarif10/worldforge-sim/issues/69) implements **V3.4.4 slice 1**: bounded coast snapshots with independent kernel halo/filter gutter, exact V2 patch bytes, and the [one-click diagnostic runner](V3_4_COAST_PATCHES_AND_SELF_TEST.md). The worker path exercises the patch kernel while retaining small-world texture publication. Distance LOD and resident water-patch rendering remain open; the whole V3.4.4 milestone is not complete.
 
-New exact-head validation belongs to #69 / its PR. The previous CI above is a baseline, not evidence for this new revision. The actual user Windows run remains **PENDING**.
+New exact-head validation belongs to #69 / [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70). The previous CI above is a baseline, not evidence for this new revision. The actual user Windows run remains **PENDING**.
 
 **Next host command after a safe update:** `Set-Location 'H:\WorldForge-Sim'; .\RUN-TEST.cmd`. Eight short automated windows close themselves. Paste the copied report here; attach the generated ZIP if needed. A canceled/failed run still preserves a report and partial logs. Full-duration worker acceptance is `scripts\run-v3-3-acceptance.ps1 -MeshWorkers`. Normal interactive play remains `scripts\verify-v2-art.ps1 -WorldSeed 1315511732 -MeshWorkers`.
 

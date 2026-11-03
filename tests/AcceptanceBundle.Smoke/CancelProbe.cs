@@ -15,6 +15,6 @@ public partial class CancelProbe : Node
         if (Array.Exists(OS.GetCmdlineUserArgs(), a => a == "--cancel-probe=escape"))
             game._Input(new InputEventKey { Pressed = true, Keycode = Key.Escape });
         else
-            game.Notification(NotificationWMCloseRequest);
+            game.Notification((int)NotificationWMCloseRequest);
     }
 }
