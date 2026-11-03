@@ -1,6 +1,6 @@
 # First-time import of the 10 bundled CC0 GLB models; all activity on H:.
 # Does not reset, overwrite or modify project.godot itself.
-param([switch]$NoLaunch, [Nullable[int]]$WorldSeed = $null, [switch]$ViewportStreaming)
+param([switch]$NoLaunch, [Nullable[int]]$WorldSeed = $null, [switch]$ViewportStreaming, [switch]$MeshWorkers)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
@@ -57,8 +57,8 @@ Write-Host 'GLB import, art scatter checks and game build succeeded.'
 Write-Host 'F4 Eco/Balanced; F5 facet relief; F6 smooth / legacy terrain; F8 PNG; F9 frame intervals; F10 chunks. All artifacts stay H:.'
 if (-not $NoLaunch) {
     if ($null -ne $WorldSeed) {
-        & (Join-Path $PSScriptRoot 'run-visual-lab.ps1') -WorldSeed $WorldSeed -ViewportStreaming:$ViewportStreaming
+        & (Join-Path $PSScriptRoot 'run-visual-lab.ps1') -WorldSeed $WorldSeed -ViewportStreaming:$ViewportStreaming -MeshWorkers:$MeshWorkers
     } else {
-        & (Join-Path $PSScriptRoot 'run-visual-lab.ps1') -ViewportStreaming:$ViewportStreaming
+        & (Join-Path $PSScriptRoot 'run-visual-lab.ps1') -ViewportStreaming:$ViewportStreaming -MeshWorkers:$MeshWorkers
     }
 }

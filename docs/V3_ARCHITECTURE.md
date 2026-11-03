@@ -1,6 +1,6 @@
 # V3 architecture — one visual pipeline, region-backed data
 
-**Status:** target architecture (research + design), reviewed 2026-11-01. Existing source is explicitly identified; the remainder is **NOT IMPLEMENTED**. Superseding the following contracts requires a recorded ADR and the V2 parity evidence.
+**Status:** target architecture (research + design), reviewed 2026-11-03. Existing source is explicitly identified; the remainder is **NOT IMPLEMENTED**. Superseding the following contracts requires a recorded ADR and the V2 parity evidence.
 
 ## 1. Known source snapshot
 
@@ -18,7 +18,13 @@
 
 ### V3.4.1 implemented engineering foundation — 2026-11-02
 
-`ViewportChunkPlanner`, `ChunkResidencyQueue` and the opt-in `VisualTerrain3D.Streaming` adapter now implement finite camera/height demand and generation-checked synchronous residency. [Guide](V3_4_VIEWPORT_STREAMING.md), [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md). Default behavior is unchanged. V3.4.2 adds canonical surface-only fallback and actual-resource coverage through `VisualTerrain3D.Fallback` and pure `TerrainFallbackMesh`; [ADR 0004](decisions/0004-continuous-surface-fallback.md) records the readiness handoff. Coverage runs every opt-in game frame, while detailed builds retain their existing cadence. Background mesh jobs, upload time/byte budgets, distance LOD and independent regional authority below remain target work.
+`ViewportChunkPlanner`, `ChunkResidencyQueue` and the opt-in `VisualTerrain3D.Streaming` adapter now implement finite camera/height demand and generation-checked synchronous residency. [Guide](V3_4_VIEWPORT_STREAMING.md), [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md). Default behavior is unchanged. V3.4.2 adds canonical surface-only fallback and actual-resource coverage through `VisualTerrain3D.Fallback` and pure `TerrainFallbackMesh`; [ADR 0004](decisions/0004-continuous-surface-fallback.md) records the readiness handoff. Coverage runs every opt-in game frame. With `-ViewportStreaming` alone, detailed builds retain their existing cadence.
+
+### V3.4.3 implemented worker boundary — 2026-11-03
+
+The separate `-MeshWorkers` path adds `ChunkBuildSnapshot`, `ChunkMeshBuilder`, `CoastBuildSnapshot`, `BoundedWorkPool`, `PublicationBudget` and the `VisualTerrain3D.Workers/WorkerUpload` adapter. Two pure tasks/four retained results share 16 MiB reserved array payload. Main-thread admission is 2 Eco/4 normal units, 2 MiB result payload and a soft 4 ms monotonic window per game frame. Cancellation retains live reservations; generation/lease checks, staged native replacement, finite failure retries and cancel/join handle lifecycle. [Guide](V3_4_MESH_WORKERS.md), [ADR 0008](decisions/0008-immutable-mesh-workers-and-publication-budgets.md).
+
+Snapshots currently sample WorldState/RegionMirror; they do not establish authoritative regions. Dirty coast jobs remain small-world bounded to 16,384 cells. Immediate fallback and initial-world ocean bootstrap are synchronous. Distance LOD, tiled coast and independent regional authority below remain target work; physical performance/promotion is pending.
 
 ## 2. Target dependency direction
 
@@ -30,12 +36,12 @@ flowchart TD
     R --> G["V2-compatible generator and edits"]
     R --> E["Entity scheduler: future"]
     R --> P["Transactional persistence: future"]
-    S --> W["Pure managed mesh workers: future"]
+    S --> W["Pure mesh workers: small-world path exists"]
     W --> U["Bounded main-thread native upload"]
     U --> V
 ```
 
-The current WorldState/RegionMirror pair remains until authority migration passes. The diagram is the target dependency structure, not a list of existing modules. Scene/GPU state stays on the main thread. Data regions are 64×64; near display chunks are 16×16.
+The current WorldState/RegionMirror pair remains until authority migration passes. The diagram is the target dependency structure: the small-world numeric worker/upload boundary exists, while authoritative regional snapshots remain proposed. Scene/GPU state stays on the main thread. Data regions are 64×64; near display chunks are 16×16.
 
 ### Non-negotiable ownership
 
@@ -94,8 +100,8 @@ Check world/data/LOD validity before publication. A camera epoch change alone do
 
 - A renderable **coarse** near/far proxy must exist for every screen-visible terrain/water position. If a detailed mesh isn't ready, show the proxy rather than the empty backdrop.
 - Detail priority is screen-space error, camera proximity and current tool interaction, not blind FIFO.
-- Rebuild dirty chunks once per edit burst; combine overlapping invalidations with halo/revision checks. Paint/sculpt/shore updates use the same bounded scheduling contract as newly visible chunks; current `FlushChanges` bypasses the new-chunk count limiter.
-- Bound work by both **number** of chunks and *measured* milliseconds/bytes. Existing fixed `2 Eco/4 Balanced chunks per 50ms` is a starting control, not evidence of stable latency.
+- Rebuild dirty chunks once per edit burst; combine overlapping invalidations with halo/revision checks. V3.4.3 worker mode routes dirty detailed paint/sculpt/shore results through the same bounded scheduler as new demand. The retained synchronous comparison modes still rebuild through their original `FlushChanges`; coverage proxies remain immediate.
+- Bound work by both **number** of chunks and *measured* milliseconds/bytes. The prior `2 Eco/4 Balanced chunks per 50ms` comparison path remains. Worker mode uses per-frame count/byte and soft-time admission, not a hard latency guarantee.
 - Retain old visible geometry until a replacement is valid; avoid `QueueFree` of an old chunk before a replacement exists for that area.
 - Workers use fixed capacity/coalesced desired work; cancel on world replacement/teardown, release arrays, and install only on the main thread. State machine tests must cover errors, stale results, cancellation and rapid reverse-camera travel.
 

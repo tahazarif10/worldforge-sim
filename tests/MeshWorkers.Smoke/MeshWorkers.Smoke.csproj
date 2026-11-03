@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="EngineProbe*.cs" />
+    <ProjectReference Include="../../src/WorldSim/WorldSim.csproj" />
+    <Compile Include="../../Scripts/Streaming/ViewportChunkPlanner.cs" Link="ViewportChunkPlanner.cs" />
+    <Compile Include="../../Scripts/Streaming/ChunkResidencyQueue.cs" Link="ChunkResidencyQueue.cs" />
+    <Compile Include="../../Scripts/Streaming/ChunkBuildSnapshot.cs" Link="ChunkBuildSnapshot.cs" />
+    <Compile Include="../../Scripts/Streaming/ChunkMeshData.cs" Link="ChunkMeshData.cs" />
+    <Compile Include="../../Scripts/Streaming/ChunkMeshBuilder.cs" Link="ChunkMeshBuilder.cs" />
+    <Compile Include="../../Scripts/Streaming/VisualBuildResult.cs" Link="VisualBuildResult.cs" />
+    <Compile Include="../../Scripts/Streaming/BoundedWorkPool.cs" Link="BoundedWorkPool.cs" />
+    <Compile Include="../../Scripts/Streaming/PublicationBudget.cs" Link="PublicationBudget.cs" />
+    <Compile Include="../../Scripts/VisualLab/SharedCornerHeightfield.cs" Link="SharedCornerHeightfield.cs" />
+    <Compile Include="../../Scripts/VisualLab/EnvironmentArtMath.cs" Link="EnvironmentArtMath.cs" />
+    <Compile Include="../../Scripts/VisualLab/TerrainReliefMath.cs" Link="TerrainReliefMath.cs" />
+    <Compile Include="../../Scripts/VisualLab/NatureScatter.cs" Link="NatureScatter.cs" />
+    <Compile Include="../../Scripts/VisualLab/MountainSummitArtMath.cs" Link="MountainSummitArtMath.cs" />
+    <Compile Include="../../Scripts/VisualLab/WaterCoastMath.cs" Link="WaterCoastMath.cs" />
+  </ItemGroup>
+</Project>

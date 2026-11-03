@@ -2,7 +2,7 @@
 
 **Original stylized 3D living-world god sandbox** — island terrain, coastal water, forests, mountains, authored CC0 nature, human agents and god powers, with an orthographic/isometric camera. Inspired by the sandbox-simulation **genre**, not WorldBox proprietary art/source/UI.
 
-**Development state — reviewed 2026-11-02:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. The **V3.3 measurement/parity runner is implemented**; actual Windows baseline acceptance remains pending. The explicitly authorized **V3.4.2 viewport planner, bounded residency and continuous surface fallback are available behind an OFF-by-default flag**. V3.4.1 received positive qualitative interactive feedback; exact-host visual/performance acceptance, worker budgets, distance LOD and authoritative region simulation remain open. A complete small-world gameplay loop precedes optional maximum-map expansion. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
+**Development state — reviewed 2026-11-03:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. The **V3.3 measurement/parity runner is implemented**; actual Windows baseline acceptance remains pending. The **V3.4.3 immutable mesh/scatter/coast workers and measured publication budgets are separately opt-in**, extending the V3.4.2 viewport/fallback path. The preceding interactive candidate received positive qualitative feedback; exact-host worker visual/performance acceptance, distance LOD and authoritative region simulation remain open. A complete small-world gameplay loop precedes optional maximum-map expansion. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
 
 ## Start the approved 3D game (Windows, H: drive)
 
@@ -41,14 +41,16 @@ This **still runs the approved V2 renderer and camera** but accesses the existin
 
 ### Experimental viewport streaming (same interactive scene)
 
-The [V3.4 guide](docs/V3_4_VIEWPORT_STREAMING.md) documents `verify-v2-art.ps1 -WorldSeed 1315511732 -ViewportStreaming`. This opens normal interactive play with finite camera/height bounds, bounded demand and surface-only land/ocean coverage while detail is queued. F10 separates missing detail from missing combined coverage. Omit the switch for the ordinary planner. Worker jobs, time/byte upload budgets, distance LOD and physical performance acceptance remain pending.
+The [V3.4 guide](docs/V3_4_VIEWPORT_STREAMING.md) documents `verify-v2-art.ps1 -WorldSeed 1315511732 -ViewportStreaming`. This opens normal interactive play with finite camera/height bounds, bounded demand and surface-only land/ocean coverage while detail is queued. F10 separates missing detail from missing combined coverage. Omit the switch for the ordinary planner.
+
+For the new [V3.4.3 worker path](docs/V3_4_MESH_WORKERS.md), run `verify-v2-art.ps1 -WorldSeed 1315511732 -MeshWorkers`. It includes surface fallback, at most two numeric workers/four retained results, and main-thread count/payload plus soft time admission. F10/F9 include worker diagnostics. `-ViewportStreaming` alone preserves the previous synchronous streaming path. Native upload duration, final GPU pixels and target-host performance still require physical review.
 
 ## Current code capabilities and limitations
 
 | Implemented | Not yet implemented / not yet physically verified |
 | --- | --- |
 | 3D biome terrain, Kenney 10 CC0 GLBs, coast/waves/foam, shared-corner mountain elevation and exact pointer picking | Verified premium Quaternius hero pack and high-end effects without host AMD cost |
-| F4 Eco, 16×16 visual chunks, sparse region height edits; opt-in surface fallback and ready-only handoff | Physically verified no-hole far LOD, pure worker mesh pipeline and time/byte upload budgets |
+| F4 Eco, 16×16 visual chunks, sparse region height edits; opt-in surface fallback and immutable workers with bounded publication | Physically verified no-hole far LOD, worker GPU/frame-time benefit and native-memory limits |
 | WorldState people/meteor/brush/tick controls on V2 map | Persistent authoritative giant regions, 8192² simulated life |
 | Signed 64×64 biome and elevation region stores, checksummed per-region file codecs | Full crash-atomic multi-region manifest/backup/world saves |
 | V2 direct/RegionMirror data parity and mountain rock cap reduction, merged + CI passed | Final user Windows screenshot review of corrected summit; direct/mirror p95/p99 at matching camera |
@@ -57,6 +59,7 @@ The [V3.4 guide](docs/V3_4_VIEWPORT_STREAMING.md) documents `verify-v2-art.ps1 -
 
 | Document | Why to read it |
 | --- | --- |
+| [V3.4.3 worker guide](docs/V3_4_MESH_WORKERS.md) | Exact switch, ownership, budgets, counters, tests and rollback |
 | [V3.3 measurement runner](docs/V3_3_ACCEPTANCE_RUNNER.md) | One-command H: captures, exact fixture, output schema and remaining manual gates |
 | [Documentation guide](docs/README.md) | Current vs historical documents and where each kind of evidence belongs |
 | [نقشهٔ راه فارسی](docs/ROADMAP_FA.md) | توضیح مراحل، وابستگی‌ها، معیار پایان و اقدام بعدی |
@@ -73,7 +76,7 @@ The [V3.4 guide](docs/V3_4_VIEWPORT_STREAMING.md) documents `verify-v2-art.ps1 -
 
 Review [AGENTS.md](AGENTS.md) before modifying code. The project's [critical V3 visual/input regression issue #46](https://github.com/tahazarif10/worldforge-sim/issues/46) remains open; a Linux Godot boot is not user Windows acceptance.
 
-**Current engineering tracker:** [V3.3 exact Windows baseline #52](https://github.com/tahazarif10/worldforge-sim/issues/52), with first slices [#53](https://github.com/tahazarif10/worldforge-sim/issues/53) and [#54](https://github.com/tahazarif10/worldforge-sim/issues/54). The larger-world stages [#55](https://github.com/tahazarif10/worldforge-sim/issues/55), [#56](https://github.com/tahazarif10/worldforge-sim/issues/56) and [#57](https://github.com/tahazarif10/worldforge-sim/issues/57) retain their physical acceptance dependencies. #55's first engineering slice [#63](https://github.com/tahazarif10/worldforge-sim/issues/63) is opt-in; subsequent fallback/worker/LOD and region-authority work are not complete.
+**Current engineering tracker:** [V3.3 exact Windows baseline #52](https://github.com/tahazarif10/worldforge-sim/issues/52), with first slices [#53](https://github.com/tahazarif10/worldforge-sim/issues/53) and [#54](https://github.com/tahazarif10/worldforge-sim/issues/54). The larger-world stages [#55](https://github.com/tahazarif10/worldforge-sim/issues/55), [#56](https://github.com/tahazarif10/worldforge-sim/issues/56) and [#57](https://github.com/tahazarif10/worldforge-sim/issues/57) retain their physical acceptance dependencies. #55's planner [#63](https://github.com/tahazarif10/worldforge-sim/issues/63), fallback [#65](https://github.com/tahazarif10/worldforge-sim/issues/65) and worker [#67](https://github.com/tahazarif10/worldforge-sim/issues/67) slices are opt-in; distance LOD, large-world authority and physical promotion remain open.
 
 ## Architecture summary
 
@@ -92,7 +95,7 @@ Future bounded regional world: make 64×64 data regions authoritative behind thi
 - V2 introduced true stylized 3D, mouse-anchored orthographic camera, animated ocean and real CC0 models.
 - V3.0's alternate region demo proved only logical coordinates and some storage; **the user rejected appearance AND movement**. [Postmortem](docs/V3_REJECTION_POSTMORTEM.md).
 - [PR #47](https://github.com/tahazarif10/worldforge-sim/pull/47) restored approved V2 as the safe default; [PR #49](https://github.com/tahazarif10/worldforge-sim/pull/49) added opt-in exact data-source parity; [PR #50](https://github.com/tahazarif10/worldforge-sim/pull/50) removed dense rock caps from summits; [PR #51](https://github.com/tahazarif10/worldforge-sim/pull/51) added exact screenshot seed replay.
-- **Current:** outstanding V3.3 baseline/QA plus explicitly authorized opt-in V3.4.1 engineering. Next streaming slice is coarse terrain/ocean fallback; see the [roadmap](docs/ROADMAP.md).
+- **Current:** outstanding V3.3 baseline/QA plus V3.4.3 worker engineering in [PR #68](https://github.com/tahazarif10/worldforge-sim/pull/68). Next architecture slice is V3.4.4 distance LOD/coast seams, with host profiling before default promotion; see the [roadmap](docs/ROADMAP.md).
 
 ## Rights, CI and product boundaries
 
