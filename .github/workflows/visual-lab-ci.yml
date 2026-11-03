@@ -10,6 +10,7 @@ on:
       - 'tests/TerrainBackendParity.Smoke/**'
       - 'tests/FrameTime.Smoke/**'
       - 'tests/ViewportStreaming.Smoke/**'
+      - 'tests/MeshWorkers.Smoke/**'
       - 'tests/AcceptanceBundle.Smoke/**'
       - 'WorldForgeSim.csproj'
       - 'global.json'
@@ -118,6 +119,17 @@ jobs:
                 grep -F 'PASS VIEWPORT DEFAULT OFF' "$RUNNER_TEMP/viewport-$BACKEND-$MODE.log"
               fi
             done
+          done
+      - name: Compare numeric workers with retained native V2 art and exercise bounded lifecycle
+        run: |
+          set -euo pipefail
+          for BACKEND in direct region-mirror; do
+            timeout 120s "$GODOT" --headless --path "$GITHUB_WORKSPACE" \
+              --scene res://tests/MeshWorkers.Smoke/EngineProbe.tscn \
+              --rendering-method gl_compatibility --resolution 1280x800 \
+              -- --world-seed=1315511732 "--terrain-backend=$BACKEND" --mesh-workers \
+              2>&1 | tee "$RUNNER_TEMP/workers-$BACKEND.log"
+            grep -F 'PASS WORKER ENGINE' "$RUNNER_TEMP/workers-$BACKEND.log"
           done
       - name: Capture four scenarios through the shared process and snapshot helpers
         shell: pwsh
