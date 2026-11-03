@@ -2,7 +2,7 @@
 state_schema: 3
 reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
 last_verified_date: 2026-11-03
-audited_repository_commit: 6a52ca82aa86b7332b9585df2c99610b2b6ff932
+audited_repository_commit: 2bc9649b29626642d93d9bc3029117c172670683
 baseline_core_ci_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
 baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
@@ -12,15 +12,16 @@ windows_attempted_commit: 2d1dd5ed8cff3f9ab1c9214ccb2bed6f69ea6ea9
 windows_attempt_status: "Import/build and direct startup reached; three late C# UIDs detected; capture.json absent; run incomplete"
 user_accepted_visual_commit: null
 completed_through: V3.2-engineering
-active_milestone: V3.4.3
+active_milestone: V3.4.4
 host_acceptance_milestone: V3.3
 viewport_planner_issue: 63
 surface_fallback_issue: 65
 mesh_workers_issue: 67
-last_interactive_feedback: "2026-11-03 positive qualitative report after V3.4.2 candidate; exact local SHA not supplied"
+coast_diagnostics_issue: 69
+last_interactive_feedback: "2026-11-03 positive qualitative report after V3.4.3 worker candidate; exact local SHA not supplied"
 measurement_implementation_pr: 60
-active_status: "Separately opt-in immutable numeric workers and bounded measured native publication implemented; exact-head evidence in #67 / PR #68; physical promotion pending"
-next_gate: "Verify V3.4.3 exact-head CI and normal H: behavior; inspect snapshot/upload costs; V3.4.4 distance LOD and coast seams next; physical baseline required before default promotion"
+active_status: "V3.4.4 slice 1: bounded coast kernel and one-click worker diagnostics; exact-head CI recorded in #69 / [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70); physical promotion pending"
+next_gate: "Run RUN-TEST.cmd on H: and inspect worker costs; next resident coast rendering and distance LOD; physical baseline required before default promotion"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
@@ -230,3 +231,28 @@ Do not run `git reset --hard`, `git clean`, or auto-delete `.godot`/assets to "r
 - [Original project development chronology](PROJECT_HISTORY_2026-10-30.md)
 
 This document is updated at every milestone acceptance/rollback. Do not invent acceptance and do not silently replace the known rejected V3 user feedback with green CI.
+
+
+### V3.4.3 verified baseline and next authorized slice — 2026-11-03
+
+PR #68 merged reviewed head f6019e10a5cf6b965a2ea094d0b023d23c082561 as main 2bc9649b29626642d93d9bc3029117c172670683, tree 4485904c0b24028d4564b55c988d921de291521a. Exact-head [core/native PowerShell 41636945940](https://github.com/tahazarif10/worldforge-sim/actions/runs/41636945940), [engine 41636945938](https://github.com/tahazarif10/worldforge-sim/actions/runs/41636945938), and [merged-main 41637277301](https://github.com/tahazarif10/worldforge-sim/actions/runs/41637277301) succeeded. Pure worker tests compared 422,736 vertices; engine probes compared 399,132 vertices across 72 geometry/foliage cases per backend. The dummy-renderer texture update limitation is recorded in PR #68; no GPU readback/performance proof is claimed.
+
+The user again reported that the candidate was good, authorized the next step, and requested a file that runs the game tests and copies logs for this conversation. This is qualitative feedback without exact local SHA/screenshots/timing artifacts.
+
+[#69](https://github.com/tahazarif10/worldforge-sim/issues/69) implements **V3.4.4 slice 1**: bounded coast snapshots with independent kernel halo/filter gutter, exact V2 patch bytes, and the [one-click diagnostic runner](V3_4_COAST_PATCHES_AND_SELF_TEST.md). The worker path exercises the patch kernel while retaining small-world texture publication. Distance LOD and resident water-patch rendering remain open; the whole V3.4.4 milestone is not complete.
+
+New exact-head validation belongs to #69 / [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70). The previous CI above is a baseline, not evidence for this new revision. The actual user Windows run remains **PENDING**.
+
+**Next host command after a safe update:** `Set-Location 'H:\WorldForge-Sim'; .\RUN-TEST.cmd`. Eight short automated windows close themselves. Paste the copied report here; attach the generated ZIP if needed. A canceled/failed run still preserves a report and partial logs. Full-duration worker acceptance is `scripts\run-v3-3-acceptance.ps1 -MeshWorkers`. Normal interactive play remains `scripts\verify-v2-art.ps1 -WorldSeed 1315511732 -MeshWorkers`.
+
+The script performs no Git update/reset/clean/stash or automatic upload. Existing source/configuration safeguards and the H: output policy remain. Actual Windows GPU visuals, physical input and sustained p95/p99 are not inferred from CI or a short diagnostic PASS.
+
+### V3.4.4 slice 1 implementation verification
+
+Implementation head `ca3b3e74ed227f2f7bb19e74496fc8632b16b319`, tree `8754f027c0a9cf58cb41e04ebf5b15737c344b5d`, passed [core/native Windows PowerShell 41642728294](https://github.com/tahazarif10/worldforge-sim/actions/runs/41642728294), [official Godot engine 41642728211](https://github.com/tahazarif10/worldforge-sim/actions/runs/41642728211), and [branch-push core 41642716600](https://github.com/tahazarif10/worldforge-sim/actions/runs/41642716600).
+
+- Coast parity: **1,280 patches, 3,671,360 exact RGBA byte comparisons, 128,000 bilinear channel comparisons**; independent Manhattan halo oracle; logical 8192 source captured only 1,600 local cells.
+- Windows PowerShell 5.1: actual CMD path/exit propagation, hosted disposable H: wrapper parameter routing, ZIP/hash/report contents, early/partial failure recovery, clipboard fallback, existing source/sidecar preservation checks.
+- Official engine: retained 72 native geometry/foliage cases and 399,132 compared vertices per backend; eight baseline plus eight worker captures; paired fixtures for every scenario; close and Esc both wrote explicit incomplete evidence and exited 2.
+- This documentation revision follows the verified implementation. The final reviewed documentation-head SHA, its exact-head checks and merge identity are recorded in [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70); the implementation evidence above is not relabeled as a different HEAD.
+- Actual user H:-Windows AMD R9 M395X run of RUN-TEST.cmd is **PENDING**. Hosted Windows wrapper and headless Godot checks do not certify physical GPU output or sustained performance.

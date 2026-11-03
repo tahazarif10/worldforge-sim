@@ -5,7 +5,8 @@ function Initialize-AcceptanceRuntime {
         [Parameter(Mandatory = $true)][string]$Executable,
         [Parameter(Mandatory = $true)][string]$Root,
         [Parameter(Mandatory = $true)][string]$Directory,
-        [Parameter(Mandatory = $true)][int]$WorldSeed
+        [Parameter(Mandatory = $true)][int]$WorldSeed,
+        [ValidateSet('--mesh-workers','--viewport-streaming')][string[]]$FeatureArguments = @()
     )
     $ErrorActionPreference = 'Stop'
     $seedText = $WorldSeed.ToString([Globalization.CultureInfo]::InvariantCulture)
@@ -18,7 +19,7 @@ function Initialize-AcceptanceRuntime {
             $arguments += @('--editor','--import')
         } else {
             $arguments += @('--scene','res://Scenes/VisualLab3D.tscn','--quit-after','24',
-                '--',"--world-seed=$seedText","--terrain-backend=$stage")
+                '--',"--world-seed=$seedText","--terrain-backend=$stage") + $FeatureArguments
         }
         Write-Host "Preparing runtime: $stage (outside capture)."
         $processArgs = @{

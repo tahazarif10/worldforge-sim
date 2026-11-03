@@ -30,11 +30,22 @@ public sealed class CoastBuildSnapshot
     public VisualBuildResult Build(CancellationToken cancel)
     {
         cancel.ThrowIfCancellationRequested();
-        byte[] bytes=WaterCoastMath.BuildMask(Width,Height,(x,z)=>
+        // Exercise bounded patches while preserving the small-world publication contract.
+        // The retained V2 global mask remains the independent whole-world parity oracle.
+        byte[] bytes=new byte[checked(Width*Height*4)];
+        for(int z=0;z<Height;z+=CoastPatchSnapshot.InteriorLimit)
+        for(int x=0;x<Width;x+=CoastPatchSnapshot.InteriorLimit)
         {
-            if(x==0)cancel.ThrowIfCancellationRequested();
-            return _tiles[z*Width+x];
-        },Seed);
+            cancel.ThrowIfCancellationRequested();
+            var patch=new CoastPatchSnapshot(Width,Height,x,z,
+                Math.Min(CoastPatchSnapshot.InteriorLimit,Width-x),
+                Math.Min(CoastPatchSnapshot.InteriorLimit,Height-z),Seed,
+                (tx,tz)=>_tiles[tz*Width+tx]);
+            byte[] rgba=patch.Build(cancel);
+            for(int row=0;row<patch.InteriorHeight;row++)
+                rgba.AsSpan(((z-patch.MaskZ+row)*patch.MaskWidth+x-patch.MaskX)*4,
+                    patch.InteriorWidth*4).CopyTo(bytes.AsSpan(((z+row)*Width+x)*4));
+        }
         cancel.ThrowIfCancellationRequested();
         return VisualBuildResult.Coast(Width,Height,bytes);
     }

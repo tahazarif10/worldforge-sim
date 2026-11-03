@@ -21,6 +21,7 @@ ADRs explain **why** technical choices were made, how they are verified and whic
 | 0006 | Planned | Deterministic region/entity scheduling, versioned RNG and inactive-area semantics |
 | [0007](0007-measurement-evidence-and-scenario-identity.md) | Accepted; capture foundation implemented, host gate pending | Monotonic measurement, exact scenario identity and fixture/harness/host acceptance order |
 | [0008](0008-immutable-mesh-workers-and-publication-budgets.md) | Accepted for V3.4.3 opt-in workers | Immutable raw snapshots, bounded task/result reservations, owner-thread publication, soft time admission and finite failure handling |
+| [0009](0009-bounded-coast-patches-and-host-diagnostics.md) | Accepted for V3.4.4 slice 1 | Bounded coast halo/gutter, exact data parity and automatic failure-preserving host diagnostics |
 
 Add an ADR when changing: visual backend, camera interaction contract, Godot render mode, data authority, region boundaries, thread/queue/cancellation semantics, save format, world generator or accepted milestone order.
 

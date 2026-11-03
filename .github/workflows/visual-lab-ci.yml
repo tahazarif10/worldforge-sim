@@ -11,6 +11,8 @@ on:
       - 'tests/FrameTime.Smoke/**'
       - 'tests/ViewportStreaming.Smoke/**'
       - 'tests/MeshWorkers.Smoke/**'
+      - 'tests/CoastPatches.Smoke/**'
+      - 'RUN-TEST.cmd'
       - 'tests/AcceptanceBundle.Smoke/**'
       - 'WorldForgeSim.csproj'
       - 'global.json'
@@ -137,3 +139,9 @@ jobs:
       - name: Validate actual frame windows, statistics, camera traces and scenario identity
         shell: pwsh
         run: ./tests/AcceptanceBundle.Smoke/verify-engine.ps1 -Directory ./artifacts/acceptance/ci -WorktreeBaseline ./artifacts/acceptance/ci/worktree-prepared.json
+      - name: Capture worker idle, pan, zoom and paint with exact identity and settled screenshots
+        shell: pwsh
+        run: ./tests/AcceptanceBundle.Smoke/capture-engine.ps1 -Executable $env:GODOT -Directory ./artifacts/acceptance/ci -MeshWorkers
+      - name: Preserve explicit incomplete evidence for engine close and Esc cancellation
+        shell: pwsh
+        run: ./tests/AcceptanceBundle.Smoke/cancel-engine.ps1 -Executable $env:GODOT -Directory ./artifacts/acceptance/ci

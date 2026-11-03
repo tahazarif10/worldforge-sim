@@ -52,3 +52,7 @@ Do not delete or silently rewrite historical verdicts. When a current contract c
 The [V3.3 runner](V3_3_ACCEPTANCE_RUNNER.md) now provides monotonic scenario captures, seed/pose/phase fixtures and validation. Next: run the H: host bundle and complete manual #53 gates. F9 is a rolling monotonic diagnostic; old engine-delta files remain historical.
 
 On 2026-11-02 the user authorized the OFF-by-default V3.4.1 engineering slice while the host baseline remains open. [ADR 0003](decisions/0003-bounded-viewport-demand-and-generation-leases.md) records that bounded exception. Following positive qualitative interactive feedback and renewed authorization, V3.4.2 adds surface fallback under [ADR 0004](decisions/0004-continuous-surface-fallback.md). Renewed positive feedback and authorization on 2026-11-03 advance V3.4.3 immutable workers and bounded publication under [ADR 0008](decisions/0008-immutable-mesh-workers-and-publication-budgets.md), with a separate explicit flag. V3.4.4 distance LOD/coast seams is the next architecture slice; actual host profiling determines any prerequisite native-publication optimization. Physical V3.3 acceptance and default promotion remain open.
+
+## Latest engineering slice
+
+[V3.4.4 coast patches and one-click host diagnostics](V3_4_COAST_PATCHES_AND_SELF_TEST.md) describes RUN-TEST.cmd, local evidence/clipboard behavior, bounded coast data, remaining LOD work and test limits. [ADR 0009](decisions/0009-bounded-coast-patches-and-host-diagnostics.md) records the decision.

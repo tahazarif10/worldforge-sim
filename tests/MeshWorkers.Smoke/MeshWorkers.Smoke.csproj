@@ -15,6 +15,7 @@
     <Compile Include="../../Scripts/Streaming/ChunkMeshData.cs" Link="ChunkMeshData.cs" />
     <Compile Include="../../Scripts/Streaming/ChunkMeshBuilder.cs" Link="ChunkMeshBuilder.cs" />
     <Compile Include="../../Scripts/Streaming/VisualBuildResult.cs" Link="VisualBuildResult.cs" />
+    <Compile Include="../../Scripts/Streaming/CoastPatchSnapshot.cs" Link="CoastPatchSnapshot.cs" />
     <Compile Include="../../Scripts/Streaming/BoundedWorkPool.cs" Link="BoundedWorkPool.cs" />
     <Compile Include="../../Scripts/Streaming/PublicationBudget.cs" Link="PublicationBudget.cs" />
     <Compile Include="../../Scripts/VisualLab/SharedCornerHeightfield.cs" Link="SharedCornerHeightfield.cs" />

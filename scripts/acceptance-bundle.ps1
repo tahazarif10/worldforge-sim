@@ -7,7 +7,8 @@ function Read-AcceptanceCapture {
         [Parameter(Mandatory = $true)][ValidateSet('idle','pan','zoom','paint')][string]$ExpectedScenario,
         [Parameter(Mandatory = $true)][ValidateSet('direct','region-mirror')][string]$ExpectedBackend,
         [Parameter(Mandatory = $true)][int]$ExpectedSeed,
-        [switch]$AllowHeadless
+        [switch]$AllowHeadless,
+        [ValidateSet('legacy-v2','viewport-v2-fallback','viewport-v3-workers')][string]$ExpectedPlanner = 'legacy-v2'
     )
     $ErrorActionPreference = 'Stop'
     Set-StrictMode -Version Latest
@@ -30,6 +31,15 @@ function Read-AcceptanceCapture {
     if ($m.clock_source -cne 'Godot.Time.GetTicksUsec' -or
         $m.percentile_method -cne 'nearest-rank' -or
         $m.fixture.version -cne 'v3.3-reference-1') { throw 'Unsupported clock or fixture schema.' }
+    if ($m.fixture.streaming_planner -cne $ExpectedPlanner) { throw 'Streaming planner identity mismatch.' }
+    if ($ExpectedPlanner -ceq 'viewport-v3-workers') {
+        if (-not $m.streaming_settled -or -not $m.worker_window.enabled -or
+            $m.worker_window.max_failed_chunks -ne 0 -or $m.worker_window.max_coast_failures -ne 0 -or
+            $m.worker_window.max_active -gt 2 -or $m.worker_window.max_retained -gt 4 -or
+            $m.worker_window.max_reserved_bytes -gt 16777216 -or
+            $m.worker_window.max_upload_bytes -gt 2097152 -or
+            $null -ne $m.worker_failure) { throw 'Worker capture failed its bounded/settled contract.' }
+    }
     if ($m.headless -and -not $AllowHeadless) { throw 'Headless output is not Windows host evidence.' }
     if (-not $AllowHeadless -and ($m.os -cne 'Windows' -or
         $m.fixture.renderer -cne 'gl_compatibility')) { throw 'Expected Windows Compatibility capture.' }
@@ -166,19 +176,43 @@ function Invoke-AcceptanceProcess {
         -WorkingDirectory $WorkingDirectory -PassThru `
         -RedirectStandardOutput (Join-Path $OutputDirectory 'stdout.log') `
         -RedirectStandardError (Join-Path $OutputDirectory 'stderr.log')
+    $processClock = [Diagnostics.Stopwatch]::StartNew()
+    $processOutcome = 'interrupted'
+    $nativeExit = $null
     try {
         $handle = $process.Handle
         if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-            $process.Kill()
-            $process.WaitForExit()
+            $processOutcome = 'timeout'
             throw "Acceptance process exceeded $TimeoutSeconds seconds."
         }
         $process.WaitForExit()
-        if ($process.ExitCode -ne 0) {
-            throw "Acceptance process exited $($process.ExitCode); inspect stdout.log and stderr.log."
+        $nativeExit = $process.ExitCode
+        $processOutcome = 'exited'
+        if ($nativeExit -ne 0) {
+            throw "Acceptance process exited $nativeExit; inspect godot.log, stdout.log and stderr.log."
         }
     }
-    finally { $process.Dispose() }
+    finally {
+        # Kill only the owned child/tree on timeout or interruption; never leave an import/build orphan.
+        try {
+            if (-not $process.HasExited) {
+                if ($env:OS -eq 'Windows_NT') {
+                    & (Join-Path $env:SystemRoot 'System32\taskkill.exe') /PID $process.Id /T /F 2>&1 | Out-Null
+                } else { $process.Kill() }
+                [void]$process.WaitForExit(5000)
+            }
+        } catch {
+            try { if (-not $process.HasExited) { $process.Kill() } } catch { }
+        }
+        $processClock.Stop()
+        try {
+            [IO.File]::WriteAllText((Join-Path $OutputDirectory 'process.json'),
+                ([ordered]@{ outcome=$processOutcome; exit_code=$nativeExit;
+                    elapsed_seconds=$processClock.Elapsed.TotalSeconds; timeout_seconds=$TimeoutSeconds } | ConvertTo-Json),
+                (New-Object Text.UTF8Encoding($false)))
+        } catch { Write-Warning 'Could not preserve process outcome metadata.' }
+        $process.Dispose()
+    }
 }
 
 function Resolve-AcceptanceSelection {
