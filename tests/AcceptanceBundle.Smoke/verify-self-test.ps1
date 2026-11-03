@@ -71,6 +71,40 @@ try {
         $entryError = $child.StandardError.ReadToEnd()
         Check ($child.ExitCode -eq 7 -and $entryOutput.Contains('CMD_ENTRY_OK') -and -not $entryError) 'real CMD launcher quotes paths and preserves child exit code'
     } finally { $child.Dispose() }
+    # Run the actual H:-guarded entry script with a stub capture action in disposable hosted CI.
+    # This checks parameter plumbing and script-relative resolution; it is not engine/GPU evidence.
+    if ($env:GITHUB_ACTIONS -eq 'true') {
+        if (Test-Path -LiteralPath 'H:\') { throw 'Hosted fixture requires an unused H: drive.' }
+        $mapped = $false
+        $hostFixture = Join-Path $temp 'host fixture'
+        New-Item -ItemType Directory -Path (Join-Path $hostFixture 'scripts') | Out-Null
+        foreach ($name in @('run-self-test.ps1','self-test-report.ps1','acceptance-bundle.ps1')) {
+            Copy-Item -LiteralPath (Join-Path $root ('scripts\' + $name)) -Destination (Join-Path $hostFixture 'scripts')
+        }
+        $stub = @'
+param([switch]$Quick,[switch]$MeshWorkers,[string]$Scenario,[int]$Repeats,[string]$EvidenceDirectory)
+$ErrorActionPreference = 'Stop'
+if (-not $Quick -or -not $MeshWorkers -or $Scenario -cne 'all' -or $Repeats -ne 1 -or
+    -not $EvidenceDirectory.StartsWith('H:\artifacts\acceptance\self-test\')) { throw 'Wrong wrapper parameters.' }
+New-Item -ItemType Directory -Path $EvidenceDirectory | Out-Null
+Set-Content -LiteralPath (Join-Path $EvidenceDirectory 'result.md') -Value 'WRAPPER_PARAMETERS_VERIFIED; synthetic only'
+'@
+        Write-SelfTestText -Path (Join-Path $hostFixture 'scripts\run-v3-3-acceptance.ps1') -Text $stub
+        try {
+            & (Join-Path $env:SystemRoot 'System32\subst.exe') H: $hostFixture
+            if ($LASTEXITCODE -ne 0) { throw 'Could not create the disposable hosted drive.' }
+            $mapped = $true
+            $entryLog = Join-Path $temp 'entry logs'
+            New-Item -ItemType Directory -Path $entryLog | Out-Null
+            Invoke-AcceptanceProcess -Executable (Join-Path $PSHOME 'powershell.exe') -Arguments @(
+                '-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File','H:\scripts\run-self-test.ps1','-NoClipboard') -WorkingDirectory 'H:\' -OutputDirectory $entryLog -TimeoutSeconds 30
+            $reports = @(Get-ChildItem -LiteralPath 'H:\artifacts\acceptance\self-test' -Filter 'REPORT.txt' -Recurse -File)
+            Check ($reports.Count -eq 1 -and
+                (Get-Content -LiteralPath $reports[0].FullName -Raw).Contains('WRAPPER_PARAMETERS_VERIFIED')) 'actual H: wrapper resolves scripts and selects quick worker all-scenario paired capture'
+        } finally {
+            if ($mapped) { & (Join-Path $env:SystemRoot 'System32\subst.exe') H: /D | Out-Null }
+        }
+    }
     Write-Host 'PASS ALL Windows self-test packaging, failure recovery, clipboard fallback and CMD entry point'
 } finally {
     Remove-Item -LiteralPath $temp -Recurse -Force
