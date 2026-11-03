@@ -24,6 +24,7 @@ Set-Location $root
 . (Join-Path $PSScriptRoot 'acceptance-bundle.ps1')
 . (Join-Path $PSScriptRoot 'acceptance-worktree.ps1')
 . (Join-Path $PSScriptRoot 'acceptance-runtime.ps1')
+. (Join-Path $PSScriptRoot 'acceptance-preflight.ps1')
 $selection = Resolve-AcceptanceSelection -Scenario $Scenario -Quality $Quality
 $Scenario = $selection.Scenario
 $Quality = $selection.Quality
@@ -65,11 +66,8 @@ try {
     Export-AcceptanceSidecars -Root $root -State $initialWorktree -Directory (Join-Path $bundle 'godot-sidecars/before-import')
     # Rebuild once using the repository's existing H: import/build preflight.
     $preflight = Join-Path $bundle 'preflight'
-    New-Item -ItemType Directory -Path $preflight | Out-Null
     Write-Host 'Preparing assets and building the game (up to 10 minutes; see preflight logs).'
-    Invoke-AcceptanceProcess -Executable (Join-Path $PSHOME 'powershell.exe') -Arguments @(
-        '-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',
-        (Join-Path $PSScriptRoot 'verify-v2-art.ps1'),'-NoLaunch') -WorkingDirectory $root -OutputDirectory $preflight -TimeoutSeconds 600
+    Invoke-AcceptancePreflight -Root $root -Executable $editor -Sdk $sdk -Directory $preflight
     $correctness = @('FrameTime.Smoke','TerrainBackendParity.Smoke')
     if ($MeshWorkers) { $correctness += @('MeshWorkers.Smoke','CoastPatches.Smoke') }
     foreach ($project in $correctness) {
@@ -172,7 +170,16 @@ catch {
         $_.Exception.Message + "`nCompleted rows:`n" + ($rows -join "`n") + "`n", $utf8)
 }
 finally {
-    Write-AcceptanceHashes -Directory $bundle
+    try { Write-AcceptanceHashes -Directory $bundle }
+    catch {
+        # Preserve the first failure. Evidence collection must not replace it.
+        if ($null -eq $failed) { $failed = $_ }
+        try {
+            [IO.File]::WriteAllText((Join-Path $bundle 'collection-error.txt'),
+                $_.Exception.Message, $utf8)
+        } catch { }
+        Write-Warning 'Artifact hashing incomplete; see collection-error.txt and the preserved primary failure.'
+    }
     Write-Host "Evidence: $bundle"
 }
 if ($null -ne $failed) { throw $failed }

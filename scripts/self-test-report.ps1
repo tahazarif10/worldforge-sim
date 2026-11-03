@@ -24,10 +24,20 @@ function New-SelfTestReport {
             $lines.Add("GPU/driver: $($m.gpu_driver | ConvertTo-Json -Compress)")
         } catch { $lines.Add("Metadata unavailable: $($_.Exception.Message)") }
     }
+    if (-not (Test-Path -LiteralPath $metadata)) {
+        $early = Join-Path $Directory 'capture\worktree-before-import.json'
+        if (Test-Path -LiteralPath $early) {
+            try {
+                $m = Get-Content -LiteralPath $early -Raw -Encoding UTF8 | ConvertFrom-Json
+                $lines.Add("Commit (before preflight): $($m.commit_sha)")
+            } catch { $lines.Add("Early identity unavailable: $($_.Exception.Message)") }
+        }
+    }
     $result = Join-Path $Directory 'capture\result.md'
     if (Test-Path -LiteralPath $result) {
         $lines.Add('')
-        $lines.Add((Get-Content -LiteralPath $result -Raw -Encoding UTF8))
+        try { $lines.Add((Get-Content -LiteralPath $result -Raw -Encoding UTF8)) }
+        catch { $lines.Add("Result file unavailable: $($_.Exception.Message)") }
     }
     $captureRoot = Join-Path $Directory 'capture'
     if (Test-Path -LiteralPath $captureRoot) {
@@ -41,14 +51,19 @@ function New-SelfTestReport {
     $lines.Add('')
     $lines.Add('LOG TAILS (complete logs, captures and screenshots remain in the ZIP)')
     # Prefer stderr and newest logs on failure, while retaining a fixed-size clipboard report.
-    $logs = @(Get-ChildItem -LiteralPath $Directory -Filter '*.log' -File -Recurse |
-        Where-Object { $_.Length -gt 0 } | Sort-Object LastWriteTime -Descending | Select-Object -First 18)
+    $logs = @()
+    try {
+        $logs = @(Get-ChildItem -LiteralPath $Directory -Filter '*.log' -File -Recurse |
+            Where-Object { $_.Length -gt 0 } | Sort-Object LastWriteTime -Descending | Select-Object -First 18)
+    } catch { $lines.Add("Log enumeration incomplete: $($_.Exception.Message)") }
     foreach ($file in $logs) {
         $relative = $file.FullName.Substring($Directory.TrimEnd('\').Length + 1)
-        $tail = [string]::Join([Environment]::NewLine, [string[]]@(Get-Content -LiteralPath $file.FullName -Tail 20))
-        if ($tail.Length -gt 2000) { $tail = $tail.Substring($tail.Length - 2000) }
         $lines.Add("[$relative]")
-        $lines.Add($tail)
+        try {
+            $tail = [string]::Join([Environment]::NewLine, [string[]]@(Get-Content -LiteralPath $file.FullName -Tail 20))
+            if ($tail.Length -gt 2000) { $tail = $tail.Substring($tail.Length - 2000) }
+            $lines.Add($tail)
+        } catch { $lines.Add("UNAVAILABLE (secondary collection issue): $($_.Exception.Message)") }
     }
     $text = [string]::Join([Environment]::NewLine, $lines.ToArray())
     if ($text.Length -gt 40000) { $text = $text.Substring(0, 40000) + [Environment]::NewLine + '[Report trimmed; complete evidence is in the ZIP.]' }
@@ -72,6 +87,7 @@ function Invoke-SelfTestBundle {
     $failure = ''
     $archive = $null
     $copied = $false
+    $collection = New-Object 'System.Collections.Generic.List[string]'
     try {
         & $Action $Directory *>&1 | Tee-Object -FilePath (Join-Path $Directory 'runner.log') |
             ForEach-Object { Write-Host $_ }
@@ -85,15 +101,28 @@ function Invoke-SelfTestBundle {
             [ordered]@{ diagnostic_schema=1; status=$status; physical_acceptance='PENDING';
                 failure=$failure; elapsed_seconds=$clock.Elapsed.TotalSeconds;
                 finished_utc=[DateTime]::UtcNow.ToString('o') } | ConvertTo-Json)
-        $report = New-SelfTestReport -Directory $Directory -Status $status -Failure $failure -Seconds $clock.Elapsed.TotalSeconds
+        try { $report = New-SelfTestReport -Directory $Directory -Status $status -Failure $failure -Seconds $clock.Elapsed.TotalSeconds }
+        catch {
+            $report = "AUTOMATED DIAGNOSTIC REPORT" + [Environment]::NewLine +
+                "Status: $status" + [Environment]::NewLine + "Failure: $failure" +
+                [Environment]::NewLine + "Report detail collection failed: $($_.Exception.Message)" +
+                [Environment]::NewLine + "Evidence directory: $Directory"
+        }
         Write-SelfTestText -Path (Join-Path $Directory 'REPORT.txt') -Text $report
         try {
             Write-AcceptanceHashes -Directory $Directory
+        } catch { $collection.Add("Hash collection incomplete: $($_.Exception.Message)") }
+        try {
             Compress-Archive -LiteralPath $Directory -DestinationPath ($Directory + '.zip') -CompressionLevel Optimal
             $archive = $Directory + '.zip'
-        }
-        catch {
-            Write-Warning "ZIP unavailable; the complete evidence folder is preserved: $($_.Exception.Message)"
+        } catch { $collection.Add("ZIP unavailable; evidence folder preserved: $($_.Exception.Message)") }
+        if ($collection.Count -gt 0) {
+            # The original run status/failure remains authoritative. Additional failures are secondary.
+            $notice = [string]::Join([Environment]::NewLine, $collection.ToArray())
+            Write-SelfTestText -Path (Join-Path $Directory 'collection-warnings.txt') -Text $notice
+            # Keep REPORT.txt immutable after hashing/archiving; append notices only to the clipboard/console.
+            $report += [Environment]::NewLine + 'COLLECTION WARNINGS' + [Environment]::NewLine + $notice
+            Write-Warning $notice
         }
         if (-not $NoClipboard) {
             for ($attempt=0; $attempt -lt 3 -and -not $copied; $attempt++) {

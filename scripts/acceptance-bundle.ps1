@@ -162,57 +162,107 @@ function Invoke-AcceptanceProcess {
         [Parameter(Mandatory = $true)][string[]]$Arguments,
         [Parameter(Mandatory = $true)][string]$WorkingDirectory,
         [Parameter(Mandatory = $true)][string]$OutputDirectory,
-        [Parameter(Mandatory = $true)][int]$TimeoutSeconds
+        [Parameter(Mandatory = $true)][ValidateRange(1,3600)][int]$TimeoutSeconds,
+        [ValidateRange(100,10000)][int]$StreamDrainMilliseconds = 3000
     )
-    # Start-Process joins ArgumentList; explicitly apply Windows argv quoting.
-    # No cmd.exe, expression evaluation or shell expansion is involved.
+    $ErrorActionPreference = 'Stop'
+    # Own both process and file streams. A Start-Process returned handle alone
+    # does not give this caller ownership of the cmdlet's redirection writers.
     $quoted = @($Arguments | ForEach-Object {
         if ($_ -match "[\x00\r\n]") { throw 'Invalid native argument.' }
         $value = [regex]::Replace($_, '(\\*)"', '$1$1\"')
         $value = [regex]::Replace($value, '(\\+)$', '$1$1')
         '"' + $value + '"'
     })
-    $process = Start-Process -FilePath $Executable -ArgumentList ($quoted -join ' ') `
-        -WorkingDirectory $WorkingDirectory -PassThru `
-        -RedirectStandardOutput (Join-Path $OutputDirectory 'stdout.log') `
-        -RedirectStandardError (Join-Path $OutputDirectory 'stderr.log')
-    $processClock = [Diagnostics.Stopwatch]::StartNew()
-    $processOutcome = 'interrupted'
+    $info = New-Object Diagnostics.ProcessStartInfo
+    $info.FileName = $Executable
+    $info.Arguments = $quoted -join ' '
+    $info.WorkingDirectory = $WorkingDirectory
+    $info.UseShellExecute = $false
+    $info.CreateNoWindow = $true
+    $info.RedirectStandardOutput = $true
+    $info.RedirectStandardError = $true
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $info
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    $started = $false
     $nativeExit = $null
+    $outcome = 'start-failed'
+    $streamsComplete = $false
+    $primary = $null
+    $streamFailure = $null
+    $stdout = $null
+    $stderr = $null
+    [Threading.Tasks.Task[]]$copies = @()
     try {
-        $handle = $process.Handle
+        $stdout = [IO.File]::Open((Join-Path $OutputDirectory 'stdout.log'),
+            [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::Read)
+        $stderr = [IO.File]::Open((Join-Path $OutputDirectory 'stderr.log'),
+            [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::Read)
+        $started = $process.Start()
+        if (-not $started) { throw 'Native process did not start.' }
+        $outcome = 'interrupted'
+        # Drain both pipes concurrently, including stderr with a zero exit status.
+        # Raw bytes never become PowerShell NativeCommandError records.
+        $copies = @($process.StandardOutput.BaseStream.CopyToAsync($stdout),
+                    $process.StandardError.BaseStream.CopyToAsync($stderr))
         if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-            $processOutcome = 'timeout'
+            $outcome = 'timeout'
             throw "Acceptance process exceeded $TimeoutSeconds seconds."
         }
-        $process.WaitForExit()
         $nativeExit = $process.ExitCode
-        $processOutcome = 'exited'
+        $outcome = 'exited'
         if ($nativeExit -ne 0) {
             throw "Acceptance process exited $nativeExit; inspect godot.log, stdout.log and stderr.log."
         }
     }
+    catch { $primary = $_ }
     finally {
-        # Kill only the owned child/tree on timeout or interruption; never leave an import/build orphan.
+        # Stop only the owned running child/tree; never kill all Godot/dotnet processes.
         try {
-            if (-not $process.HasExited) {
+            if ($started -and -not $process.HasExited) {
                 if ($env:OS -eq 'Windows_NT') {
                     & (Join-Path $env:SystemRoot 'System32\taskkill.exe') /PID $process.Id /T /F 2>&1 | Out-Null
                 } else { $process.Kill() }
                 [void]$process.WaitForExit(5000)
             }
         } catch {
-            try { if (-not $process.HasExited) { $process.Kill() } } catch { }
+            try { if ($started -and -not $process.HasExited) { $process.Kill() } } catch { }
         }
-        $processClock.Stop()
+        try {
+            if ($copies.Count -eq 2) {
+                $streamsComplete = [Threading.Tasks.Task]::WaitAll($copies, $StreamDrainMilliseconds)
+                if (-not $streamsComplete) { $streamFailure = 'Output pipes did not reach EOF within the bounded drain period.' }
+            }
+        } catch { $streamFailure = $_.Exception.Message }
+        # Dispose our actual file handles even after timeout, pipe failure or cancellation.
+        # This boundary precedes hash/report/ZIP collection.
+        if ($started) {
+            try { $process.StandardOutput.Dispose() } catch { }
+            try { $process.StandardError.Dispose() } catch { }
+        }
+        foreach ($stream in @($stdout,$stderr)) {
+            if ($null -ne $stream) {
+                try { $stream.Dispose() } catch { if (-not $streamFailure) { $streamFailure = $_.Exception.Message } }
+            }
+        }
+        foreach ($copy in $copies) {
+            if ($copy.IsFaulted) { $null = $copy.Exception } # Observe completed faults.
+        }
+        $clock.Stop()
         try {
             [IO.File]::WriteAllText((Join-Path $OutputDirectory 'process.json'),
-                ([ordered]@{ outcome=$processOutcome; exit_code=$nativeExit;
-                    elapsed_seconds=$processClock.Elapsed.TotalSeconds; timeout_seconds=$TimeoutSeconds } | ConvertTo-Json),
-                (New-Object Text.UTF8Encoding($false)))
+                ([ordered]@{
+                    outcome=$outcome; exit_code=$nativeExit; streams_complete=$streamsComplete
+                    stream_failure=$streamFailure; elapsed_seconds=$clock.Elapsed.TotalSeconds
+                    timeout_seconds=$TimeoutSeconds
+                    primary_failure=$(if ($null -ne $primary) { $primary.Exception.Message } else { $null })
+                } | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
         } catch { Write-Warning 'Could not preserve process outcome metadata.' }
         $process.Dispose()
     }
+    if ($null -ne $primary) { throw $primary }
+    if (-not $streamsComplete -or $streamFailure) { throw "Incomplete native output: $streamFailure" }
 }
 
 function Resolve-AcceptanceSelection {

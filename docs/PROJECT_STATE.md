@@ -2,7 +2,7 @@
 state_schema: 3
 reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
 last_verified_date: 2026-11-03
-audited_repository_commit: 2bc9649b29626642d93d9bc3029117c172670683
+audited_repository_commit: 5ed5cc89a671c81f274a7bddce701001ff57c1e0
 baseline_core_ci_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
 baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
@@ -18,10 +18,12 @@ viewport_planner_issue: 63
 surface_fallback_issue: 65
 mesh_workers_issue: 67
 coast_diagnostics_issue: 69
+runner_repair_issue: 71
+latest_diagnostic_status: "2026-11-03 preflight exit 1; secondary stderr.log sharing violation masked the primary failure; no capture"
 last_interactive_feedback: "2026-11-03 positive qualitative report after V3.4.3 worker candidate; exact local SHA not supplied"
 measurement_implementation_pr: 60
 active_status: "V3.4.4 slice 1: bounded coast kernel and one-click worker diagnostics; exact-head CI recorded in #69 / [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70); physical promotion pending"
-next_gate: "Run RUN-TEST.cmd on H: and inspect worker costs; next resident coast rendering and distance LOD; physical baseline required before default promotion"
+next_gate: "Rerun RUN-TEST.cmd after #71 Windows preflight/log ownership repair; physical H: and GPU acceptance remain pending"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
@@ -256,3 +258,16 @@ Implementation head `ca3b3e74ed227f2f7bb19e74496fc8632b16b319`, tree `8754f027c0
 - Official engine: retained 72 native geometry/foliage cases and 399,132 compared vertices per backend; eight baseline plus eight worker captures; paired fixtures for every scenario; close and Esc both wrote explicit incomplete evidence and exited 2.
 - This documentation revision follows the verified implementation. The final reviewed documentation-head SHA, its exact-head checks and merge identity are recorded in [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70); the implementation evidence above is not relabeled as a different HEAD.
 - Actual user H:-Windows AMD R9 M395X run of RUN-TEST.cmd is **PENDING**. Hosted Windows wrapper and headless Godot checks do not certify physical GPU output or sustained performance.
+
+
+### Actual Windows diagnostic failure and process/log repair — 2026-11-03
+
+The user supplied REPORT.txt from artifacts/acceptance/self-test/20261103-132655-694d3da6. It stopped after **1.9 seconds**, with **83** existing companions recognized. The inner result.md preserved a preflight process exit code of **1**; the outer report instead reported a sharing violation reading preflight/stderr.log. Stdout reached the Godot startup banner during import. No capture scenario was reached. The supplied report does not establish the local SHA or the contents of the unavailable stderr file, so the original native import failure is not diagnosed as a game/GPU crash or user cancellation.
+
+[#71](https://github.com/tahazarif10/worldforge-sim/issues/71) corrects two concrete mechanisms: the native runner explicitly owns and drains both redirected byte streams and closes its actual log file handles; import/SDK/build stages run directly through that runner, without an intermediate PowerShell process. Each stage has separate output and process metadata. Exit status and pipe completion are distinct, and native stderr text alone does not imply process failure.
+
+The first run failure is preserved if final hash collection also fails. Report generation tolerates unreadable individual logs, includes early worktree commit identity when later metadata was never written, and records secondary hash/ZIP errors separately. It does not delete caches, reset local changes, kill processes by name, or automatically upload evidence.
+
+The preceding Windows CI exercised a launcher stub and report behavior; it did **not** execute the real Windows Godot import/build path. This repair adds native output-pressure/timeout/locked-file regression tests and the actual official Windows Godot 4.7.2 Mono preflight (seven art correctness projects, game build and both worker runtime boots) under PowerShell 5.1, followed immediately by exclusive log reopen, hashes, report and ZIP. Existing Linux engine integration remains a separate gate.
+
+Exact repair-head checks are recorded in #71 / its PR before merge. The next user command remains RUN-TEST.cmd after a safe fast-forward. A successful hosted Windows preflight does not establish physical R9 M395X capture, art or performance approval; the user's corrected run remains **PENDING**.
