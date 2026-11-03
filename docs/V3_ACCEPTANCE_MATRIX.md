@@ -178,3 +178,71 @@ Known deviations / untested items: ...
 Decision: MERGE INTERNAL ONLY | PROMOTE USER-FACING | BLOCK
 Next exact action / command: ...
 ```
+
+## G. Target-host short diagnostic — 2026-11-03
+
+**Reported result: PASS; capture integrity VALID. Full visual/input/performance acceptance remains PENDING.** This is the first complete target-host short worker diagnostic supplied in the active project conversation after the preflight/log repair in [PR #72](https://github.com/tahazarif10/worldforge-sim/pull/72).
+
+### Provenance and scope
+
+| Field | Supplied evidence |
+| --- | --- |
+| Candidate commit | `849dc704fd596a654d39741df1d9dea1d9ea1ef9` |
+| Runner / profile | RUN-TEST.cmd; short-diagnostic; one pass per scenario/backend |
+| Planner / seed / quality | viewport-v3-workers / 1315511732 / Eco |
+| Engine / renderer | Godot 4.7.2 stable Mono / Compatibility OpenGL |
+| GPU / driver | AMD RADEON R9 M395X / 27.20.14540.15002 |
+| Whole diagnostic elapsed | 168.9 seconds, including preparation and collection |
+| Per-window request | 3 seconds warm-up + 8 seconds capture; eight windows |
+| Capture session | 20261103-135153-944451ca |
+| Local evidence directory | `H:\WorldForge-Sim\artifacts\acceptance\self-test\20261103-135153-e384afbb` |
+| Expected local archive | `H:\WorldForge-Sim\artifacts\acceptance\self-test\20261103-135153-e384afbb.zip` |
+| Received source | User-uploaded Pasted text(20261103-135435).txt, 17,690 bytes |
+| Received file SHA256 | `d740862f773bde1f8e29e2944f600f1b65657518bde0f4bea4a5b7448424c426` |
+
+The uploaded text includes eight result rows, eight worker-window summaries, and VALID engine log tails for all eight captures. It is a **user-supplied report**, not independent execution by the reviewer. The ZIP, original capture JSON/CSVs, screenshots, local configuration/sidecar manifests and archive hashes were **not supplied or independently inspected**. The archive path above follows the runner's documented naming; archive existence/content is not established merely by this text. Source report times/session labels are preserved without inferring the Windows timezone. Reported elapsed time is not the sum of timed frame windows.
+
+### Reported callback intervals (milliseconds)
+
+| Scenario | Backend | Samples | p50 | p95 | p99 | Maximum |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| idle | direct | 479 | 16.680 | 18.340 | 18.530 | 35.315 |
+| idle | region-mirror | 480 | 16.675 | 18.209 | 18.561 | 20.080 |
+| pan | direct | 478 | 16.682 | 18.224 | 18.573 | 31.238 |
+| pan | region-mirror | 480 | 16.671 | 16.884 | 18.443 | 19.457 |
+| zoom | direct | 478 | 16.679 | 18.367 | 18.646 | 31.783 |
+| zoom | region-mirror | 443 | 16.723 | 31.707 | 31.886 | 31.988 |
+| paint | direct | 457 | 16.691 | 30.490 | 31.791 | 36.456 |
+| paint | region-mirror | 447 | 16.694 | 30.817 | 38.555 | 45.336 |
+
+There are **3,742 reported samples** in total. Medians are about 16.7 ms; that corresponds to roughly a 60 Hz median interval, not a measured mean FPS or GPU execution time. All eight reported p95 values are below the provisional 33.3 ms Eco target, and all eight reported maxima are below 50 ms **within these short windows only**. Neither statement certifies sustained performance.
+
+The larger tails are mirror zoom and both paint captures. A single ordered pass cannot establish a backend regression, an improvement over the previous renderer, or its cause. Both backends used the worker planner; this is not a workers-ON versus workers-OFF comparison.
+
+### Reported paint worker window
+
+| Counter | direct | region-mirror |
+| --- | ---: | ---: |
+| Max retained entries | 2 | 2 |
+| Max reserved array bytes | 8,388,608 | 8,388,608 |
+| Max ready payload bytes | 298,016 | 329,392 |
+| Max admitted upload bytes | 298,016 | 329,392 |
+| Max snapshot time, ms | 1.2105 | 7.5639 |
+| Max publication time, ms | 7.0668 | 7.2867 |
+| Max pump time, ms | 7.0952 | 7.5839 |
+| Soft time-budget overruns | 11 | 23 |
+| Max failed chunks / coast failures | 0 / 0 | 0 / 0 |
+
+All eight summaries report zero failed chunks and zero coast failures. The 8 MiB value is a managed-array reservation counter, **not total RAM/VRAM usage**. These are independently sampled maxima; they must not be added together or assumed to describe the same frame. The existing 4 ms admission target is soft because one snapshot/native operation cannot be preempted; observed overruns require profiling, not silently increasing that target.
+
+Idle/pan/zoom summaries report zero retained/reserved/ready/upload work and zero snapshot/publication cost during sampled windows. All summaries also report max_active=0, including paint. Those snapshots do not prove no worker ever ran between observations, and do not validate sustained streaming through an expanded world. In particular, the mirror zoom tail cannot be assigned to worker publication from this report.
+
+### Decision and next evidence
+
+- **Complete for this run:** the corrected host runner reaches all eight captures, returns PASS and produces a readable copied report. The earlier preflight/locked-log stop did not recur.
+- **Partial physical evidence:** exact host commit/driver and short callback distributions are now known. Keep full acceptance #53 and streaming #55 open; keep `windows_verified_commit` and `user_accepted_visual_commit` unset.
+- **Next engineering priority:** triage the measured paint snapshot/publication costs and mirror zoom tail before resident coast/LOD expansion. Start with the existing ZIP; correlate frames/poses/settings and inspect before/after images. Do not request another identical short run merely to reproduce already available summaries.
+- **Falsifiable investigation:** test whether paint long intervals coincide with owner-thread edit/snapshot/publication work. If correlation is absent or the missing stage timings cannot resolve it, instrument only the missing phase in a separate opt-in PR. Treat zoom independently; no cache/GPU/worker diagnosis is established here.
+- **Still required:** complete raw-bundle integrity/identity review, full-duration repeated matched captures, actual input/live simulation/save/load and visible coverage checks, image review and the user's art/camera verdict. No feature is promoted to default and no visual quality is reduced.
+
+The immediate user action is to attach the **existing ZIP** above in the active project conversation; the same diagnostic need not be rerun first. After raw-bundle review, the already implemented full worker command is `scripts\run-v3-3-acceptance.ps1 -MeshWorkers` (10-second warm-up, 30/60-second windows, three repeats by default). Ordinary-planner comparison omits the switch and must retain all other fixture settings.

@@ -80,6 +80,8 @@ Do not require a completed numerical baseline to begin the harness needed to mea
 - Validate with a fake-clock long stall, scenario reset, ring wrap/overflow, mismatched metadata and missing output cases. Capture screenshots/export outside timed intervals or mark their overhead. Keep sample memory bounded and reject incomplete windows.
 - Verify F2–F12 shortcuts, painting, citizen spawn and meteor, mid-frame camera edits, repeated new-world and failure recovery.
 
+**Target-host evidence update — 2026-11-03:** the first complete short worker diagnostic at `849dc704fd596a654d39741df1d9dea1d9ea1ef9` reports PASS/VALID for all eight windows. [Exact distributions and limits](V3_ACCEPTANCE_MATRIX.md#g-target-host-short-diagnostic--2026-11-03). Full acceptance stays open. The immediate input is the existing ZIP, not another identical short run. Review paint snapshot/publication costs (11/23 soft budget overruns) and the mirror zoom tail before coast/LOD expansion; do not call one short ordered pass a proven backend regression.
+
 **V3.3.2 — Triage any measured regression**
 - Only if measurements indicate a bottleneck, isolate CPU mesh generation, main-thread Godot mesh upload, shader/fill cost, dynamic shadow cost, GLB instancing, image mask rebuild or C# GC.
 - One falsifiable hypothesis per diagnostic PR. Profile first; then make the smallest reversible change, and repeat matched scenarios.
@@ -122,7 +124,7 @@ The first proxy preserves exact per-cell V2 top geometry, palette and coast silh
 
 [#69](https://github.com/tahazarif10/worldforge-sim/issues/69) adds bounded coast-kernel snapshots and one-click worker diagnostics. [Guide](V3_4_COAST_PATCHES_AND_SELF_TEST.md), [ADR 0009](decisions/0009-bounded-coast-patches-and-host-diagnostics.md). The data kernel has exact V2 byte/filter-border tests; current runtime still publishes its bounded small-world texture. Resident water planes/textures, shader placement, distance LOD and GPU seam acceptance remain next. Run RUN-TEST.cmd to collect the current worker mode automatically; its short windows do not replace full V3.3 acceptance.
 
-First inspect V3.4.3 host snapshot/upload/overrun diagnostics. If one native publication unit dominates, scope and measure its split before increasing map size. Maintain near-field art and current fallback through each change.
+First inspect the received target-host diagnostic and its original ZIP: paint snapshot/publication maxima and mirror zoom tails require separate attribution. No dominant cause is established by the summary alone. If one native publication unit is then shown to dominate, scope and measure its split before increasing map size. Maintain near-field art and current fallback through each change.
 - Start with LOD0 (approved near 16×16), LOD1 (moderate distant geometry), LOD2 (low-detail fallback). **Prototype and benchmark thresholds**, do not hardcode arbitrary GPU assumptions.
 - Ensure shared edge heights, LOD seam stitching/skirting and exact near-geometry picking. Current foam requires at least a three-cell input halo, absolute-coordinate noise and separate consideration of texture filtering borders. Compare patch/global masks at boundaries. A whole 8192² BuildMask would use 384 MiB of array payload including 256 MiB output RGBA, before native/GPU copies.
 - Keep opaque V2 shader style, water motion/foam colors and Kenney per-chunk MultiMesh. No old flat-shader V3 fallback.
