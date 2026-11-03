@@ -77,8 +77,9 @@ public partial class VisualTerrain3D
         if(!MeshWorkersEnabled)return;
         AssertWorkerOwner();
         // Hidden native resources cannot survive a world reset. The completed
-        // numeric entry remains reserved until the normal stale-result cleanup.
-        DropPendingWorkerUpload(releaseCompletion:false,discarded:true);
+        // numeric entry remains reserved until normal stale-result cleanup,
+        // which counts its discard once when that completed entry is released.
+        DropPendingWorkerUpload(releaseCompletion:false,discarded:false);
         _meshWorkers??=new(2,4,WorkerReservationLimit);
         _meshWorkers.CancelWhere(_=>true); // Retain reservations until those jobs actually stop.
         _workerFailures.Clear();_coastAttempts=0;

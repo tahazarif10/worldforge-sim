@@ -111,12 +111,16 @@ public partial class EngineProbe
 
             var reset=await BeginStagedCase(terrain,camera);
             long reserved=Pool(terrain).ReservedBytes;
+            long discardedBeforeReset=terrain.WorkerDiagnostics.Discarded;
             Bind(terrain,new WorldState(16,16,1315511749));
             Require(!GodotObject.IsInstanceValid(reset.Hidden) &&
-                terrain.WorkerDiagnostics.StagedChunks==0 && Pool(terrain).ReservedBytes==reserved,
-                "world reset frees hidden natives while preserving completed-entry cleanup accounting");
+                terrain.WorkerDiagnostics.StagedChunks==0 && Pool(terrain).ReservedBytes==reserved &&
+                terrain.WorkerDiagnostics.Discarded==discardedBeforeReset,
+                "world reset frees hidden natives while deferring reservation and discard accounting");
             await ReleaseCanceled(terrain,camera);
-            Require(Pool(terrain).ReservedBytes==0,"old world staged numeric reservation eventually released");
+            Require(Pool(terrain).ReservedBytes==0 &&
+                terrain.WorkerDiagnostics.Discarded==discardedBeforeReset+1,
+                "old world staged completion releases its reservation and counts one discard");
 
             var fail=await BeginStagedCase(terrain,camera,optional);
             Require(fail.Data.Props.ToArray().Any(p=>p.Kind==NumericPropKind.ImportedTree),
