@@ -57,10 +57,43 @@ function Save-Fixture($metadata, [string]$directory) {
     [IO.File]::WriteAllText((Join-Path $directory 'camera.csv'),
         "sequence,elapsed_us,pivot_x,pivot_z,size`n1,100000,60,44,79`n2,200000,60,44,79`n", $utf8)
 }
-function Read-Fixture([string]$directory, [string]$backend = 'direct') {
+function Read-Fixture([string]$directory, [string]$backend = 'direct', [string]$planner = 'legacy-v2') {
     Read-AcceptanceCapture -Directory $directory -ExpectedSession test -ExpectedScenario idle `
-        -ExpectedBackend $backend -ExpectedSeed 1315511732 -AllowHeadless
+        -ExpectedBackend $backend -ExpectedSeed 1315511732 -AllowHeadless -ExpectedPlanner $planner
 }
+
+function Work-Fixture {
+    $m = Fixture 'direct'
+    $m.evidence_schema = 3
+    $m.fixture.streaming_planner = 'viewport-v3-workers'
+    $m.fixture.worker_publication_policy = 'terrain-foliage-staged-v1'
+    $m.fixture.work_trace_schema = 1
+    $m.streaming_settled = $true; $m.worker_failure = $null
+    $m.worker_window = @{ enabled=$true; max_failed_chunks=0; max_coast_failures=0;
+        max_active=1; max_retained=1; max_reserved_bytes=4194304; max_upload_bytes=1000 }
+    $m.work_trace = 'work.csv'
+    $m.work_window = [ordered]@{
+        schema=1; count=2; invalid_rows=0; dropped_rows=0; complete=$true
+        max_callback_ms=5; max_action_ms=1; max_visibility_ms=3; max_flush_ms=0.5
+        max_snapshot_ms=0.5; max_terrain_ms=1; max_foliage_ms=1; max_coast_ms=0; max_pump_ms=2
+        slowest_intervals=@(
+            @{sequence=1; interval_ms=100; callback_ms=5; action_ms=1; visibility_ms=3; flush_ms=0.5;
+                snapshot_ms=0.5; terrain_ms=1; foliage_ms=0; coast_ms=0; pump_ms=2; outside_callback_ms=95},
+            @{sequence=2; interval_ms=100; callback_ms=3; action_ms=0.1; visibility_ms=1.5; flush_ms=0.1;
+                snapshot_ms=0; terrain_ms=0; foliage_ms=1; coast_ms=0; pump_ms=1.2; outside_callback_ms=97}
+        )
+    }
+    return $m
+}
+$workCsv = "sequence,elapsed_us,interval_us,callback_start_us,callback_end_us,callback_ms,action_ms,visibility_ms,flush_ms,snapshot_ms,terrain_ms,foliage_ms,coast_ms,pump_ms,terrain_units,foliage_units,coast_units,staged_chunks,outside_callback_ms" +
+    [Environment]::NewLine + "1,100000,100000,0,5000,5,1,3,0.5,0.5,1,0,0,2,1,0,0,1,95" +
+    [Environment]::NewLine + "2,200000,100000,100000,103000,3,0.1,1.5,0.1,0,0,1,0,1.2,0,1,0,0,97" +
+    [Environment]::NewLine
+function Save-WorkFixture($metadata,[string]$directory,[string]$csv=$workCsv) {
+    Save-Fixture $metadata $directory
+    [IO.File]::WriteAllText((Join-Path $directory 'work.csv'),$csv,$utf8)
+}
+
 try {
     $selection = Resolve-AcceptanceSelection -Scenario PAN -Quality eco
     Check ($selection.Scenario -ceq 'pan' -and $selection.Quality -ceq 'Eco') 'PowerShell choices canonicalized for engine protocol'
@@ -109,6 +142,52 @@ try {
     Save-Fixture (Fixture 'direct') $directDir
     Write-AcceptanceHashes -Directory $directDir
     Check ((Get-Content (Join-Path $directDir 'SHA256SUMS.txt')).Count -eq 3) 'artifact hash manifest'
+    $workDir = Join-Path $tempRoot 'capture\worker-trace'
+    Save-WorkFixture (Work-Fixture) $workDir
+    $work = Read-Fixture $workDir 'direct' 'viewport-v3-workers'
+    Check ($work.work_window.complete -and $work.work_window.count -eq 2) 'schema 3 aligned work, split phases and exact slow interval evidence'
+    $workCases = @(
+        @{name='work summary mismatch'; edit={param($m) $m.work_window.max_terrain_ms=2}},
+        @{name='work invalid row'; edit={param($m) $m.work_window.invalid_rows=1}},
+        @{name='work overflow'; edit={param($m) $m.work_window.dropped_rows=1}},
+        @{name='work unfinished'; edit={param($m) $m.work_window.complete=$false}},
+        @{name='wrong publication policy'; edit={param($m) $m.fixture.worker_publication_policy='combined'}},
+        @{name='wrong trace schema'; edit={param($m) $m.fixture.work_trace_schema=99}},
+        @{name='work filename mismatch'; edit={param($m) $m.work_trace='elsewhere.csv'}},
+        @{name='slow interval shifted'; edit={param($m) $m.work_window.slowest_intervals[0].sequence=2}},
+        @{name='slow work mismatch'; edit={param($m) $m.work_window.slowest_intervals[1].foliage_ms=0}}
+    )
+    foreach ($case in $workCases) {
+        $m = Work-Fixture; & $case.edit $m
+        Save-WorkFixture $m $workDir
+        Reject { Read-Fixture $workDir 'direct' 'viewport-v3-workers' } $case.name
+    }
+    $rawCases = @(
+        @{name='callback attached to ending interval'; from=',0,5000,5,'; to=',100000,105000,5,'},
+        @{name='nonfinite work phase'; from=',0.5,1,0,0,2,'; to=',0.5,NaN,0,0,2,'},
+        @{name='negative work phase'; from=',0.5,1,0,0,2,'; to=',0.5,-1,0,0,2,'},
+        @{name='incorrect callback duration'; from=',5000,5,'; to=',5000,6,'},
+        @{name='incorrect unclassified remainder'; from=',0,0,1,95'; to=',0,0,1,94'},
+        @{name='publication outside measured pump'; from=',0.5,1,0,0,2,'; to=',0.5,9,0,0,2,'},
+        @{name='work admission bound exceeded'; from=',2,1,0,0,1,95'; to=',2,2,1,0,1,95'},
+        @{name='two staged replacements'; from=',0,0,1,95'; to=',0,0,2,95'},
+        @{name='work sequence reordered'; from='2,200000,100000,'; to='1,200000,100000,'}
+    )
+    foreach ($case in $rawCases) {
+        Check ($workCsv.Contains($case.from)) ("active mutation fixture: "+$case.name)
+        Save-WorkFixture (Work-Fixture) $workDir ($workCsv.Replace($case.from,$case.to))
+        Reject { Read-Fixture $workDir 'direct' 'viewport-v3-workers' } $case.name
+    }
+    Save-WorkFixture (Work-Fixture) $workDir
+    Remove-Item -LiteralPath (Join-Path $workDir 'work.csv')
+    Reject { Read-Fixture $workDir 'direct' 'viewport-v3-workers' } 'schema 3 missing work artifact rejected'
+    Save-WorkFixture (Work-Fixture) $workDir
+    Add-Content -LiteralPath (Join-Path $workDir 'work.csv') '3,300000,100000,200000,203000,3,0,0,0,0,0,0,0,0,0,0,0,0,97'
+    Reject { Read-Fixture $workDir 'direct' 'viewport-v3-workers' } 'extra work row rejected'
+    Save-WorkFixture (Work-Fixture) $workDir
+    . (Join-Path $root 'scripts/self-test-report.ps1')
+    $report = New-SelfTestReport -Directory $tempRoot -Status PASS -Failure '' -Seconds 1
+    Check ($report.Contains('Frame work [worker-trace]') -and $report.Contains('"slowest_intervals"')) 'clipboard report retains correlated phase evidence'
     # Verify real Windows argv, working directory and child exit handling.
     $processDir = Join-Path $tempRoot 'native process with spaces'
     New-Item -ItemType Directory -Path $processDir | Out-Null

@@ -37,6 +37,21 @@ foreach ($scenario in @('idle','pan','zoom','paint')) {
             ExpectedBackend = $backend; ExpectedSeed = 1315511732; AllowHeadless = $true; ExpectedPlanner = $planner
         }
         $capture = Read-AcceptanceCapture @captureArgs
+        if ($capture.evidence_schema -ne 3 -or -not $capture.work_window.complete) {
+            throw 'Real engine did not produce complete schema 3 work evidence.'
+        }
+        if ($scenario -ceq 'paint') {
+            if ($capture.work_window.max_action_ms -le 0) { throw 'Paint action was not timed.' }
+            if ($MeshWorkers) {
+                $rows = @(Import-Csv -LiteralPath (Join-Path $output 'work.csv'))
+                foreach ($phase in @('terrain_units','foliage_units','coast_units')) {
+                    if (-not @($rows | Where-Object { [int]($_.$phase) -gt 0 }).Count) {
+                        throw "Paint capture did not exercise $phase."
+                    }
+                }
+            }
+        }
+        Write-Host "PASS correlated work evidence: $planner / $scenario / $backend"
         $pairs[$backend] = $capture
         Assert-AcceptanceWorktreeStable -Baseline $baseline -Current $after
         Write-Host "PASS observed real Godot capture and fixed sidecar identity: $planner / $scenario / $backend"

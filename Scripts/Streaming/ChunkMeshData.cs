@@ -20,7 +20,9 @@ public sealed class ChunkMeshData
     public int LandCells { get; }
     public int PropCount { get; }
     public int CellsVisited { get; }
-    public long PayloadBytes => (long)_positions.Length*40+(long)_props.Length*64;
+    public long TerrainPayloadBytes => (long)_positions.Length*40;
+    public long FoliagePayloadBytes => (long)_props.Length*64;
+    public long PayloadBytes => TerrainPayloadBytes+FoliagePayloadBytes;
     public const int MaximumVertices = 16*16*(12+72+24);
     public const int MaximumProps = 16*16*3;
     public const long MaximumPayloadBytes = (long)MaximumVertices*40+(long)MaximumProps*64;

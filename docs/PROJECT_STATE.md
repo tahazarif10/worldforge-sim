@@ -2,7 +2,7 @@
 state_schema: 3
 reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
 last_verified_date: 2026-11-03
-audited_repository_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
+audited_repository_commit: 7297e3e2ba8e06b53071b8ccbfb60f112e5a99c5
 baseline_core_ci_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
 baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
@@ -19,13 +19,18 @@ surface_fallback_issue: 65
 mesh_workers_issue: 67
 coast_diagnostics_issue: 69
 runner_repair_issue: 71
+staged_publication_issue: 74
+staged_publication_code_commit: 7297e3e2ba8e06b53071b8ccbfb60f112e5a99c5
+staged_publication_core_ci_run: 41703238801
+staged_publication_engine_ci_run: 41703239137
+user_approved_diagnostic_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
 windows_short_diagnostic_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
 windows_short_diagnostic_status: PASS
 latest_diagnostic_status: "2026-11-03 PASS, 168.9s, 3742 samples; exact host commit and driver recorded; raw ZIP review pending"
 last_interactive_feedback: "2026-11-03 positive qualitative report after V3.4.3 worker candidate; exact local SHA not supplied"
 measurement_implementation_pr: 60
-active_status: "V3.4.4 slice 1: bounded coast kernel and one-click worker diagnostics; exact-head CI recorded in #69 / [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70); physical promotion pending"
-next_gate: "Review existing 20261103-135153-e384afbb ZIP; profile paint/zoom tails before coast/LOD expansion; full physical acceptance pending"
+active_status: "V3.4.4 slice 2 implemented: staged native publication and aligned work evidence; exact implementation-head CI passed; final merge evidence in PR #75; host promotion pending"
+next_gate: "New RUN-TEST.cmd report with work.csv; attribute paint/zoom before resident coast/LOD expansion; full physical acceptance pending"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
@@ -33,6 +38,19 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 # WorldForge Sim — factual project state
 
 **Source audit updated 2026-11-03.** This file is the factual status ledger, not the entire history and not a promise of future implementation. The prior chronology is preserved verbatim in [PROJECT_HISTORY_2026-10-30.md](PROJECT_HISTORY_2026-10-30.md). The actionable future plan is [ROADMAP.md](ROADMAP.md).
+
+
+## Current slice — staged publication and work evidence (2026-11-03)
+
+The user explicitly approved the preceding diagnostic milestone and authorized the next slice. This records approval of the short diagnostic at 849dc704fd596a654d39741df1d9dea1d9ea1ef9 and continuation, not new full-duration GPU/input/art evidence. The previous received report and its raw-ZIP limitation remain in the ledger below.
+
+[#74](https://github.com/tahazarif10/worldforge-sim/issues/74) implements [V3.4.4 slice 2](V3_4_STAGED_PUBLICATION.md), under [ADR 0010](decisions/0010-staged-publication-and-frame-work-evidence.md). A worker result now admits terrain creation and foliage/final handoff separately. At most one hidden selected/staged replacement retains its original pool reservation. Generation changes, reset, failure and teardown release native staging without exposing incomplete detail. Hard count/payload values and the 4 ms soft window retain their values; a non-preemptible phase may still overrun.
+
+Schema 3 captures add bounded work.csv aligned to each interval's preceding callback. Action, visibility, flush and nested snapshot/terrain/foliage/coast/pump costs are validated against raw frame identity and included with the slowest three intervals in the copied report. Historical schema 2 bundles still read. The unclassified interval remainder is not labeled GPU execution.
+
+**Verification:** implementation-head core, Windows PowerShell, actual Windows preflight and official Godot engine checks passed; exact identities appear below. Final reviewed-head checks and merge identity are recorded in [PR #75](https://github.com/tahazarif10/worldforge-sim/pull/75) before merge. Physical benefit, old/new art comparison and mirror zoom cause remain PENDING. This slice does not implement resident coast textures or LOD.
+
+**Next user command after a safe fast-forward:** RUN-TEST.cmd, which now gathers the new phase evidence automatically. Interactive play remains scripts/verify-v2-art.ps1 -WorldSeed 1315511732 -MeshWorkers. Inspect the new report's exact commit and phase rows; the previous ZIP is still useful but its absence does not block this authorized bounded instrumentation/admission change.
 
 ## Product status
 
@@ -296,3 +314,17 @@ Idle/pan p99 is 18.443–18.573 ms. Mirror zoom p99 is 31.886 ms; paint p99 is 3
 **Next action:** obtain and inspect the existing `H:\WorldForge-Sim\artifacts\acceptance\self-test\20261103-135153-e384afbb.zip`; no repeat of the same short test is needed first. Separate paint stage cost from mirror zoom behavior before implementing a speculative optimization or enlarging the world. Full-duration repeated scenarios, visual/input/save/live-simulation/coverage review and explicit approval remain pending in #53/#55.
 
 The runner repair's merged-main [CI 41647726158](https://github.com/tahazarif10/worldforge-sim/actions/runs/41647726158) also completed SUCCESS on `849dc704fd596a654d39741df1d9dea1d9ea1ef9`. That is source verification and is recorded separately from this received Windows report. This documentation-only follow-up changes no runtime, defaults, art or camera.
+
+### V3.4.4 slice 2 implementation verification — 2026-11-03
+
+Implementation head `7297e3e2ba8e06b53071b8ccbfb60f112e5a99c5`, tree `136605e5180c066bae76dfa50d4c848453311c72`, passed [core + Windows PowerShell + actual Windows Godot preflight 41703238801](https://github.com/tahazarif10/worldforge-sim/actions/runs/41703238801), [official Linux Godot engine 41703239137](https://github.com/tahazarif10/worldforge-sim/actions/runs/41703239137), and [branch-push core 41703230472](https://github.com/tahazarif10/worldforge-sim/actions/runs/41703230472).
+
+- Pure tests passed separate phase admission and payload accounting, previous-callback joins, real interval vs engine delta, bounded work overflow/missing rows and invalid/nested time rejection. Game compilation completed with zero warnings/errors.
+- Native engine passed one-unit terrain staging, zero-budget retention, atomic terrain/foliage handoff, edit/format/reset invalidation, controlled foliage failure/recovery and teardown on both direct and mirror adapters. Retained art parity: **72 cases and 399,132 compared vertices per backend**.
+- All **eight baseline + eight worker** real-engine captures produced validated schema 3 work evidence, with all paired fixture checks. Worker paint exercised terrain, foliage and coast phases. Controlled window close/Esc retained explicit incomplete evidence and exit code 2.
+- Windows PowerShell 5.1 passed historical schema 2 compatibility and new raw/summary/policy/slow-row failure tests, plus copied report contents and existing process/log/worktree cases.
+- Official Windows Godot 4.7.2 Mono completed actual import, seven art projects, game build and both worker runtime boots: **12 native stages**, with closed logs and immediately readable report/hash manifest/ZIP.
+- Initial engine run [41702811258](https://github.com/tahazarif10/worldforge-sim/actions/runs/41702811258) rejected the new failure fixture because world binding reloaded authored art. The corrected fixture applies its controlled imported-art setup after binding, retains the failing assertion and exercises actual native failure plus recovery. That failed attempt is not counted as success.
+- The evidence-only documentation revision follows the verified implementation; final review additionally corrected reset discard accounting to count a retained completion once when released, with an exact native assertion. [PR #75](https://github.com/tahazarif10/worldforge-sim/pull/75) records the final reviewed head, its exact-head checks and merged-tree identity separately. The implementation runs above are not relabeled as a different commit.
+
+**Host verdict on the staged candidate: PENDING.** The user approved the preceding diagnostic milestone and continuation. New R9 M395X phase data/images and repeated full-duration comparison are still needed; no measured speed improvement, hard 4 ms frame, mirror-zoom cause or GPU seam acceptance is claimed.

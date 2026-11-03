@@ -141,3 +141,7 @@ Ordinary launch never enables `--acceptance-*` mode. Revert the implementation c
 ## V3.4.4 diagnostic wrapper and explicit planner identity
 
 [RUN-TEST.cmd](../RUN-TEST.cmd) selects the new worker path and short 3+8-second windows on all four scenarios/both backends, with a copied report and local evidence ZIP. [Complete guide](V3_4_COAST_PATCHES_AND_SELF_TEST.md). This does not change the full-duration defaults described above. The full runner now accepts -MeshWorkers or -ViewportStreaming, validates the expected planner, records worker window maxima and waits for final current detail before taking images. Close/Esc writes explicit incomplete evidence. Native process timeout/exit outcome is preserved in process.json, and owned Windows process trees are stopped on interruption/timeout. Historical captures missing the planner identity are refused by the current validator.
+
+## Schema 3 work evidence (V3.4.4 slice 2)
+
+New captures additionally require work.csv: one correctly aligned preceding-callback work row per frame interval. Capture JSON carries phase maxima and the three slowest interval rows; the fixture includes publication policy and work-trace schema. Both raw alignment and summarized values are validated; incomplete work fails capture integrity. Historical schema 2 reading remains supported. See [the protocol and host interpretation](V3_4_STAGED_PUBLICATION.md#frame-evidence-protocol). This is owner CPU wall time, with nested phases; the unmeasured remainder is not a GPU timer.

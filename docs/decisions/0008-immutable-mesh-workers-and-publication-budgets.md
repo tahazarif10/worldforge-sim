@@ -79,3 +79,7 @@ Use a new explicit `--mesh-workers` / `-MeshWorkers` flag. It implies viewport c
 The numeric worker path intentionally duplicates the retained detailed formulas under native parity tests so rollback remains independent. Any future art-formula change must update both paths and keep that comparison. Task scheduling, snapshots and extra arrays may cost more than they save on a small world; measurement decides benefit.
 
 V3.4.4 evaluates distance LOD and tiled coast seams only after preserving these contracts. If a single native unit is too expensive on the host, split publication work or reduce independently approved far detail in a later measured change; do not relabel the soft budget as a hard deadline.
+
+## V3.4.4 slice 2 extension
+
+[ADR 0010](0010-staged-publication-and-frame-work-evidence.md) supersedes the single combined native terrain/foliage admission unit. It retains worker ownership and limits while admitting terrain preparation and foliage/final handoff separately, with at most one retained hidden replacement. Per-frame work evidence is aligned to the completed callback. Other constraints here continue to apply.

@@ -132,6 +132,7 @@ jobs:
               -- --world-seed=1315511732 "--terrain-backend=$BACKEND" --mesh-workers \
               2>&1 | tee "$RUNNER_TEMP/workers-$BACKEND.log"
             grep -F 'PASS WORKER ENGINE' "$RUNNER_TEMP/workers-$BACKEND.log"
+            grep -F 'PASS STAGED PUBLICATION' "$RUNNER_TEMP/workers-$BACKEND.log"
           done
       - name: Capture four scenarios through the shared process and snapshot helpers
         shell: pwsh

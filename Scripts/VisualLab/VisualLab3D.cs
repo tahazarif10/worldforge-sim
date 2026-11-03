@@ -3,6 +3,7 @@ using System.IO;
 using Godot;
 using WorldSim;
 using WorldForge.UI;
+using WorldForge.Instrumentation;
 
 namespace WorldForge.VisualLab;
 
@@ -189,6 +190,9 @@ public partial class VisualLab3D : Node3D
         ulong nowUs = Time.GetTicksUsec();
         _frameProbe.Record(nowUs, delta * 1000.0);
         ProcessAcceptance(nowUs, delta);
+        bool recordWork = _reviewPhase == ReviewPhase.Recording;
+        long pumpBefore = recordWork ? _terrain.PublicationFrame.Sequence : 0;
+        double visibilityMs = 0, flushMs = 0;
         Vector2 keys = Vector2.Zero;
         if (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left)) keys.X -= 1f;
         if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right)) keys.X += 1f;
@@ -219,15 +223,19 @@ public partial class VisualLab3D : Node3D
         if (_terrain.ViewportStreamingEnabled || buildDetails)
         {
             if (buildDetails) _visibilityRefresh = 0;
+            ulong visibilityStart = recordWork ? Time.GetTicksUsec() : 0;
             _terrain.UpdateVisibility(_camera,
                 maxNewChunks: buildDetails ? (_ecoMode ? 2 : 4) : 0);
+            if (recordWork) visibilityMs = (Time.GetTicksUsec()-visibilityStart)/1000d;
         }
 
         _terrainRefresh += delta;
         if (_terrainRefresh >= 0.16)
         {
             _terrainRefresh = 0;
+            ulong flushStart = recordWork ? Time.GetTicksUsec() : 0;
             _terrain.FlushChanges();
+            if (recordWork) flushMs = (Time.GetTicksUsec()-flushStart)/1000d;
         }
 
         _hudRefresh += delta;
@@ -246,6 +254,22 @@ public partial class VisualLab3D : Node3D
             _fpsWindow = 0;
             _slowestFrame = 0;
             _frames = 0;
+        }
+
+        if (recordWork && _reviewPhase == ReviewPhase.Recording)
+        {
+            WorkerPublicationFrame worker = _terrain.PublicationFrame;
+            bool pumped = worker.Sequence != pumpBefore;
+            _reviewPreviousWork = new FrameWork(
+                _reviewCallbackStartUs-_reviewStart,Time.GetTicksUsec()-_reviewStart,
+                _reviewActionMs,visibilityMs,flushMs,
+                pumped ? worker.SnapshotMilliseconds : 0,
+                pumped ? worker.TerrainMilliseconds : 0,
+                pumped ? worker.FoliageMilliseconds : 0,
+                pumped ? worker.CoastMilliseconds : 0,
+                pumped ? worker.PumpMilliseconds : 0,
+                pumped ? worker.TerrainStages : 0,pumped ? worker.FoliageStages : 0,
+                pumped ? worker.CoastStages : 0,worker.StagedChunks);
         }
     }
 

@@ -2,7 +2,7 @@
 
 **Original stylized 3D living-world god sandbox** — island terrain, coastal water, forests, mountains, authored CC0 nature, human agents and god powers, with an orthographic/isometric camera. Inspired by the sandbox-simulation **genre**, not WorldBox proprietary art/source/UI.
 
-**Development state — reviewed 2026-11-03:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. The **V3.3 measurement/parity runner is implemented**; actual Windows baseline acceptance remains pending. The **V3.4.3 immutable mesh/scatter/coast workers and measured publication budgets are separately opt-in**, extending the V3.4.2 viewport/fallback path. The preceding interactive candidate received positive qualitative feedback; exact-host worker visual/performance acceptance, distance LOD and authoritative region simulation remain open. A complete small-world gameplay loop precedes optional maximum-map expansion. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
+**Development state — reviewed 2026-11-03:** the user-approved playable experience is the **V2.9+ 3D VisualLab** with subsequent merged regional-cache and summit-rock improvements. **V3 is withdrawn** as a playable release: the standalone regional demo was rejected for degraded visuals and controls, and is **not** the playable successor. The **V3.3 measurement/parity runner is implemented**; actual Windows baseline acceptance remains pending. The **V3.4.3 workers and V3.4.4 staged native publication are separately opt-in**, extending the V3.4.2 viewport/fallback path. The preceding interactive candidate received positive qualitative feedback; exact-host worker visual/performance acceptance, distance LOD and authoritative region simulation remain open. A complete small-world gameplay loop precedes optional maximum-map expansion. A CI-green merge alone does not certify Windows GPU frame time or visual approval.
 
 ## Start the approved 3D game (Windows, H: drive)
 
@@ -51,9 +51,11 @@ Double-click [RUN-TEST.cmd](RUN-TEST.cmd) in the existing H: checkout after a sa
 
 The report is copied for pasting in the active project conversation, and a local ZIP is prepared under artifacts/acceptance/self-test. Failure/cancellation preserves partial evidence. Nothing uploads automatically. This is a short diagnostic; physical performance acceptance remains pending. [Runner and coast-patch guide](docs/V3_4_COAST_PATCHES_AND_SELF_TEST.md).
 
-**Target-host result, 2026-11-03:** the received report at `849dc704fd596a654d39741df1d9dea1d9ea1ef9` passed all eight short worker captures on R9 M395X. [Measured rows, provenance and pending gates](docs/V3_ACCEPTANCE_MATRIX.md#g-target-host-short-diagnostic--2026-11-03). Review the existing ZIP and paint/zoom tails next; full-duration performance and user visual/input acceptance remain open.
+**Target-host result, 2026-11-03:** the received report at `849dc704fd596a654d39741df1d9dea1d9ea1ef9` passed all eight short worker captures on R9 M395X. [Measured rows, provenance and pending gates](docs/V3_ACCEPTANCE_MATRIX.md#g-target-host-short-diagnostic--2026-11-03). The user approved this diagnostic milestone and continuation; full-duration performance and exact-candidate visual/input acceptance remain open.
 
-V3.4.4 slice 1 also proves bounded coast-mask patches against V2; the existing small-world water surface remains. Resident coast rendering and distance LOD are the next slices.
+[V3.4.4 slice 2](docs/V3_4_STAGED_PUBLICATION.md) separates terrain and foliage admission while holding one hidden replacement until matching handoff. New schema 3 diagnostics join per-phase work to the correct frame and include the slowest rows in the copied report. Run RUN-TEST.cmd after updating to collect this new evidence; host speed improvement is not yet established.
+
+Slice 1 proves bounded coast-mask patches against V2; resident coast rendering and distance LOD remain later slices.
 
 ## Current code capabilities and limitations
 
