@@ -103,7 +103,7 @@ Future bounded regional world: make 64×64 data regions authoritative behind thi
 - V2 introduced true stylized 3D, mouse-anchored orthographic camera, animated ocean and real CC0 models.
 - V3.0's alternate region demo proved only logical coordinates and some storage; **the user rejected appearance AND movement**. [Postmortem](docs/V3_REJECTION_POSTMORTEM.md).
 - [PR #47](https://github.com/tahazarif10/worldforge-sim/pull/47) restored approved V2 as the safe default; [PR #49](https://github.com/tahazarif10/worldforge-sim/pull/49) added opt-in exact data-source parity; [PR #50](https://github.com/tahazarif10/worldforge-sim/pull/50) removed dense rock caps from summits; [PR #51](https://github.com/tahazarif10/worldforge-sim/pull/51) added exact screenshot seed replay.
-- **Current:** outstanding V3.3 baseline/QA plus V3.4.3 worker engineering in [PR #68](https://github.com/tahazarif10/worldforge-sim/pull/68). V3.4.4 slice 1 adds bounded coast data and automatic host diagnostics in #69; resident coast rendering and distance LOD remain next, with host profiling before default promotion; see the [roadmap](docs/ROADMAP.md).
+- **Current:** outstanding V3.3 physical baseline/QA plus V3.4.4 bounded coast data and automatic diagnostics in [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70), following the verified V3.4.3 worker baseline. V3.4.4 slice 1 adds bounded coast data and automatic host diagnostics in #69; resident coast rendering and distance LOD remain next, with host profiling before default promotion; see the [roadmap](docs/ROADMAP.md).
 
 ## Rights, CI and product boundaries
 

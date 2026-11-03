@@ -74,7 +74,7 @@ Closing the test or pressing Esc writes incomplete.json and exits 2. A timeout/n
 - Official Godot 4.7.2 Mono: retained baseline regression suite, exact worker geometry and coast consumption, eight baseline plus eight worker captures and paired identity, controlled close/Esc cancellation. Headless dummy texture-update readback retains the documented limitation from V3.4.3.
 - Actual H:-Windows AMD R9 M395X run: pending user execution of the new launcher. CI is not physical GPU acceptance.
 
-Exact candidate-head run links and conclusions are recorded in #69 / [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70) before merge.
+Implementation verification and concrete comparison counts are recorded in [PROJECT_STATE](PROJECT_STATE.md#v344-slice-1-implementation-verification). Final reviewed-head runs and merge identity are recorded in [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70).
 
 ## Next slice
 

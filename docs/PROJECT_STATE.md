@@ -246,3 +246,13 @@ New exact-head validation belongs to #69 / [PR #70](https://github.com/tahazarif
 **Next host command after a safe update:** `Set-Location 'H:\WorldForge-Sim'; .\RUN-TEST.cmd`. Eight short automated windows close themselves. Paste the copied report here; attach the generated ZIP if needed. A canceled/failed run still preserves a report and partial logs. Full-duration worker acceptance is `scripts\run-v3-3-acceptance.ps1 -MeshWorkers`. Normal interactive play remains `scripts\verify-v2-art.ps1 -WorldSeed 1315511732 -MeshWorkers`.
 
 The script performs no Git update/reset/clean/stash or automatic upload. Existing source/configuration safeguards and the H: output policy remain. Actual Windows GPU visuals, physical input and sustained p95/p99 are not inferred from CI or a short diagnostic PASS.
+
+### V3.4.4 slice 1 implementation verification
+
+Implementation head `ca3b3e74ed227f2f7bb19e74496fc8632b16b319`, tree `8754f027c0a9cf58cb41e04ebf5b15737c344b5d`, passed [core/native Windows PowerShell 41642728294](https://github.com/tahazarif10/worldforge-sim/actions/runs/41642728294), [official Godot engine 41642728211](https://github.com/tahazarif10/worldforge-sim/actions/runs/41642728211), and [branch-push core 41642716600](https://github.com/tahazarif10/worldforge-sim/actions/runs/41642716600).
+
+- Coast parity: **1,280 patches, 3,671,360 exact RGBA byte comparisons, 128,000 bilinear channel comparisons**; independent Manhattan halo oracle; logical 8192 source captured only 1,600 local cells.
+- Windows PowerShell 5.1: actual CMD path/exit propagation, hosted disposable H: wrapper parameter routing, ZIP/hash/report contents, early/partial failure recovery, clipboard fallback, existing source/sidecar preservation checks.
+- Official engine: retained 72 native geometry/foliage cases and 399,132 compared vertices per backend; eight baseline plus eight worker captures; paired fixtures for every scenario; close and Esc both wrote explicit incomplete evidence and exited 2.
+- This documentation revision follows the verified implementation. The final reviewed documentation-head SHA, its exact-head checks and merge identity are recorded in [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70); the implementation evidence above is not relabeled as a different HEAD.
+- Actual user H:-Windows AMD R9 M395X run of RUN-TEST.cmd is **PENDING**. Hosted Windows wrapper and headless Godot checks do not certify physical GPU output or sustained performance.
