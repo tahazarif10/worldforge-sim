@@ -122,3 +122,64 @@ Check(AcceptanceOptions.PaintAction(0) == (60, 40, true) &&
       AcceptanceOptions.PaintAction(9) == (60, 41, false),
     "paint trace crosses the 64-cell region border deterministically");
 Console.WriteLine("PASS ALL monotonic capture, failure cases and fixture tests");
+
+
+// The interval ending at callback N contains work from callback N-1.
+var workCapture=new FrameWorkCapture(16);
+capture.Begin("work-join","paint");capture.Record(1_000_000,0);
+var firstWork=new FrameWork(0,5_000,1,3,.5,.5,1,0,0,2,1,0,0,1);
+capture.Record(1_020_000,20);
+Check(workCapture.Record(capture.LastSample,firstWork),"work joins the preceding callback at the exact interval start");
+var secondWork=new FrameWork(20_000,23_000,.1,1.5,.1,0,0,1,0,1.2,0,1,0,0);
+capture.Record(1_520_000,133.333);
+Check(workCapture.Record(capture.LastSample,secondWork),"long interval keeps its actual short owner callback");
+var workSummary=workCapture.Summarize(2);
+Check(workSummary.Complete && workSummary.SlowestIntervals[0].Sequence==2 &&
+      workSummary.SlowestIntervals[0].IntervalMs==500 &&
+      workSummary.SlowestIntervals[0].CallbackMs==3 &&
+      workSummary.SlowestIntervals[0].OutsideCallbackMs==497,
+    "slow-frame correlation preserves elapsed time without labeling the remainder GPU time");
+Check(workSummary.MaxTerrainMs==1 && workSummary.MaxFoliageMs==1 &&
+      workCapture.Snapshot()[0].Work.StagedChunks==1 &&
+      workCapture.Snapshot()[1].Work.StagedChunks==0,
+    "terrain and foliage phases remain separate across callbacks");
+Check(!workCapture.Summarize(3).Complete,"missing work rows cannot pass capture integrity");
+
+void BadWork(FrameWork work,string label)
+{
+    var invalid=new FrameWorkCapture(16);
+    Check(!invalid.Record(new FrameSample(1,20_000,20_000,20),work) &&
+          invalid.InvalidRows==1 && !invalid.Summarize(1).Complete,label);
+}
+BadWork(firstWork with { StartUs=20_000,EndUs=25_000 },"current/new callback cannot be attached to the preceding interval");
+BadWork(firstWork with { EndUs=20_001 },"future callback end rejected");
+BadWork(firstWork with { ActionMs=-1 },"negative phase rejected");
+BadWork(firstWork with { TerrainMs=double.NaN },"nonfinite phase rejected");
+BadWork(firstWork with { PumpMs=.1 },"nested publication cannot exceed its parent pump");
+BadWork(firstWork with { VisibilityMs=20 },"disjoint owner phases cannot exceed callback wall time");
+BadWork(firstWork with { TerrainUnits=int.MaxValue },"overflowing admission counters rejected");
+BadWork(firstWork with { StagedChunks=2 },"unbounded staged ownership rejected");
+var wrongSequence=new FrameWorkCapture(16);
+Check(!wrongSequence.Record(new FrameSample(2,20_000,20_000,20),firstWork),
+    "sequence gaps are rejected rather than shifted by one frame");
+
+workCapture.Reset();
+for(ulong i=0;i<17;i++)
+    workCapture.Record(new FrameSample((long)i+1,(i+1)*20_000,20_000,20),
+        firstWork with { StartUs=i*20_000,EndUs=i*20_000+5_000 });
+Check(workCapture.Count==16 && workCapture.DroppedRows==1 &&
+      !workCapture.Summarize(17).Complete,"bounded work overflow is explicit and cannot pass");
+workCapture.Reset();
+Check(workCapture.Count==0 && workCapture.InvalidRows==0 && workCapture.DroppedRows==0 &&
+      !workCapture.Summarize(0).Complete,"work reset clears evidence without inventing an empty pass");
+priorCulture=System.Globalization.CultureInfo.CurrentCulture;
+try
+{
+    System.Globalization.CultureInfo.CurrentCulture=new System.Globalization.CultureInfo("fr-FR");
+    workCapture.Record(new FrameSample(1,20_000,20_000,20),firstWork);
+    string workCsv=workCapture.ExportCsv();
+    Check(workCsv.Contains("1,20000,20000,0,5000,5,1,3,0.5,0.5,1,0,0,2,1,0,0,1,15"),
+        "work CSV preserves invariant culture, exact sequence and nested phase units");
+}
+finally { System.Globalization.CultureInfo.CurrentCulture=priorCulture; }
+Console.WriteLine("PASS ALL bounded and temporally aligned callback work evidence");

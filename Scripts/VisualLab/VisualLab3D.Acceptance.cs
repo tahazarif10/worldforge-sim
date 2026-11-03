@@ -22,6 +22,10 @@ public partial class VisualLab3D
 #endif
     private AcceptanceOptions? _acceptanceOptions;
     private FrameCapture _acceptanceCapture = null!;
+    private FrameWorkCapture _acceptanceWork = null!;
+    private FrameWork _reviewPreviousWork;
+    private ulong _reviewCallbackStartUs;
+    private double _reviewActionMs;
     private readonly record struct CameraTrace(ulong ElapsedUs, CameraReviewPose Pose);
     private CameraTrace[]? _acceptanceTrace;
     private enum ReviewPhase { Disabled, Warmup, Screenshot, Armed, Recording, Finished }
@@ -52,6 +56,10 @@ public partial class VisualLab3D
         public double MaxUploadMilliseconds { get; set; }
         public double MaxPumpMilliseconds { get; set; }
         public long TimeBudgetOverruns { get; set; }
+        public int MaxStagedChunks { get; set; }
+        public double MaxTerrainMilliseconds { get; set; }
+        public double MaxFoliageMilliseconds { get; set; }
+        public double MaxCoastMilliseconds { get; set; }
     }
 
     private void RecordWorkerReview()
@@ -71,6 +79,10 @@ public partial class VisualLab3D
         _reviewWorkers.MaxUploadMilliseconds = Math.Max(_reviewWorkers.MaxUploadMilliseconds, w.LastUploadMilliseconds);
         _reviewWorkers.MaxPumpMilliseconds = Math.Max(_reviewWorkers.MaxPumpMilliseconds, w.LastPumpMilliseconds);
         _reviewWorkers.TimeBudgetOverruns = w.TimeBudgetOverruns - _reviewStreamingStart.Workers.TimeBudgetOverruns;
+        _reviewWorkers.MaxStagedChunks = Math.Max(_reviewWorkers.MaxStagedChunks,w.StagedChunks);
+        _reviewWorkers.MaxTerrainMilliseconds = Math.Max(_reviewWorkers.MaxTerrainMilliseconds,w.LastTerrainMilliseconds);
+        _reviewWorkers.MaxFoliageMilliseconds = Math.Max(_reviewWorkers.MaxFoliageMilliseconds,w.LastFoliageMilliseconds);
+        _reviewWorkers.MaxCoastMilliseconds = Math.Max(_reviewWorkers.MaxCoastMilliseconds,w.LastCoastMilliseconds);
     }
 
     // Only preparation/final presentation waits; frame timing never includes the drain.
@@ -115,6 +127,7 @@ public partial class VisualLab3D
             _acceptanceOptions = AcceptanceOptions.Parse(OS.GetCmdlineUserArgs());
             if (_acceptanceOptions is null) return;
             _acceptanceCapture = new FrameCapture(AcceptanceCapacity);
+            _acceptanceWork = new FrameWorkCapture(AcceptanceCapacity);
             string root = Path.GetFullPath(ProjectSettings.GlobalizePath("res://"));
             bool ci = System.Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
             _reviewHeadless = DisplayServer.GetName() == "headless";
@@ -130,7 +143,7 @@ public partial class VisualLab3D
             if (!_reviewOutput.StartsWith(allowed, comparison))
                 throw new InvalidOperationException("Acceptance output must be inside project artifacts/acceptance.");
             Directory.CreateDirectory(_reviewOutput);
-            foreach (string name in new[] { "capture.json", "frames.csv", "camera.csv", "before.png", "after.png" })
+            foreach (string name in new[] { "capture.json", "frames.csv", "camera.csv", "work.csv", "before.png", "after.png" })
                 if (File.Exists(Path.Combine(_reviewOutput, name)))
                     throw new InvalidOperationException("Refusing to overwrite an existing capture.");
 
@@ -222,7 +235,9 @@ public partial class VisualLab3D
                 _acceptanceCapture.Begin(_acceptanceOptions.Session, _acceptanceOptions.Scenario);
                 nowUs = Time.GetTicksUsec(); // Metadata/setup are outside the window.
                 _acceptanceCapture.Record(nowUs, delta * 1000); // Origin, not a sample.
-                _reviewStart = nowUs;
+                _reviewStart = _reviewCallbackStartUs = nowUs;
+                _acceptanceWork.Reset();
+                _reviewPreviousWork = default;
                 _reviewPhase = ReviewPhase.Recording;
                 ApplyReviewAction(0);
                 return;
@@ -238,6 +253,8 @@ public partial class VisualLab3D
                 int index = (int)_acceptanceCapture.TotalSamples - 1;
                 _acceptanceTrace![index] = new CameraTrace(
                     _acceptanceCapture.DurationUs, _cameraRig.ReviewPose);
+                if (!_acceptanceWork.Record(_acceptanceCapture.LastSample,_reviewPreviousWork))
+                    _reviewFailure ??= "Callback work trace was incomplete or misaligned.";
             }
             RecordWorkerReview();
             double seconds = (nowUs - _reviewStart) / 1_000_000.0;
@@ -253,6 +270,7 @@ public partial class VisualLab3D
                 FinishAcceptance();
                 return;
             }
+            _reviewCallbackStartUs = nowUs;
             ApplyReviewAction(seconds);
         }
         catch (Exception ex) { FailAcceptance(ex); }
@@ -279,40 +297,47 @@ public partial class VisualLab3D
     private void ApplyReviewAction(double seconds)
     {
         if (_acceptanceOptions is null) return;
-        _terrain.SetReviewWaterTime((float)seconds);
-        Vector2 center = _reviewViewport / 2;
-        switch (_acceptanceOptions.Scenario)
+        ulong startUs=Time.GetTicksUsec();
+        try
         {
-            case "pan":
-                var offset = AcceptanceOptions.PanOffset(seconds);
-                _cameraRig.DragTo(center + new Vector2(offset.X, offset.Y));
-                break;
-            case "zoom":
-                _cameraRig.ZoomAt(center + new Vector2(130, 40),
-                    AcceptanceOptions.ZoomSize(seconds) / _cameraRig.ReviewPose.Size);
-                break;
-            case "paint":
-                int due = (int)Math.Floor(seconds * 4) + 1;
-                int appliedThisFrame = 0;
-                while (_reviewPaintActions < due && appliedThisFrame++ < 4)
-                {
-                    var action = AcceptanceOptions.PaintAction(_reviewPaintActions++);
-                    _brush = action.Forest ? Brush.Forest : Brush.Ocean;
-                    _radius = 2;
-                    float height = _terrain.SurfaceHeightAt(action.X, action.Y, .5f, .5f);
-                    ApplyAtScreen(_camera.UnprojectPosition(
-                        new Vector3(action.X + .5f, height, action.Y + .5f)));
-                }
-                if (_reviewPaintActions < due)
-                    _reviewFailure = "Paint action backlog exceeded four actions per callback.";
-                break;
+            _terrain.SetReviewWaterTime((float)seconds);
+            Vector2 center = _reviewViewport / 2;
+            switch (_acceptanceOptions.Scenario)
+            {
+                case "pan":
+                    var offset = AcceptanceOptions.PanOffset(seconds);
+                    _cameraRig.DragTo(center + new Vector2(offset.X, offset.Y));
+                    break;
+                case "zoom":
+                    _cameraRig.ZoomAt(center + new Vector2(130, 40),
+                        AcceptanceOptions.ZoomSize(seconds) / _cameraRig.ReviewPose.Size);
+                    break;
+                case "paint":
+                    int due = (int)Math.Floor(seconds * 4) + 1;
+                    int appliedThisFrame = 0;
+                    while (_reviewPaintActions < due && appliedThisFrame++ < 4)
+                    {
+                        var action = AcceptanceOptions.PaintAction(_reviewPaintActions++);
+                        _brush = action.Forest ? Brush.Forest : Brush.Ocean;
+                        _radius = 2;
+                        float height = _terrain.SurfaceHeightAt(action.X, action.Y, .5f, .5f);
+                        ApplyAtScreen(_camera.UnprojectPosition(
+                            new Vector3(action.X + .5f, height, action.Y + .5f)));
+                    }
+                    if (_reviewPaintActions < due)
+                        _reviewFailure = "Paint action backlog exceeded four actions per callback.";
+                    break;
+            }
         }
+        finally { _reviewActionMs=(Time.GetTicksUsec()-startUs)/1000d; }
     }
 
     private object FixtureMetadata() => new
     {
         version = AcceptanceOptions.FixtureVersion,
         streaming_planner = _terrain.StreamingPlannerName,
+        worker_publication_policy = _terrain.WorkerPublicationPolicy,
+        work_trace_schema = 1,
         seed = _world.Seed,
         width = _world.Width,
         height = _world.Height,
@@ -371,10 +396,12 @@ public partial class VisualLab3D
                 _reviewPaintActions != (int)Math.Ceiling(_acceptanceOptions.DurationSeconds * 4))
                 _reviewFailure ??= "Paint trace did not execute every scheduled action.";
             CaptureStatistics stats = _acceptanceCapture.Summarize();
-            bool valid = stats.Complete &&
+            FrameWorkSummary work = _acceptanceWork.Summarize(stats.TotalSamples);
+            bool valid = stats.Complete && work.Complete &&
                 stats.DurationUs / 1_000_000.0 >= _acceptanceOptions.DurationSeconds &&
                 !_reviewInterference && !_reviewFocusLost && _reviewFailure is null;
             WriteNew("frames.csv", _acceptanceCapture.ExportCsv());
+            WriteNew("work.csv", _acceptanceWork.ExportCsv());
             var trace = new StringBuilder("sequence,elapsed_us,pivot_x,pivot_z,size\n");
             int retained = Math.Min((int)_acceptanceCapture.TotalSamples, AcceptanceCapacity);
             for (int i = 0; i < retained; i++)
@@ -388,7 +415,7 @@ public partial class VisualLab3D
             string fixtureHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(fixtureJson)));
             WriteNew("capture.json", JsonSerializer.Serialize(new
             {
-                evidence_schema = 2,
+                evidence_schema = 3,
                 session_id = _acceptanceOptions.Session,
                 scenario_id = _acceptanceOptions.Scenario,
                 backend = _terrain.TerrainBackendName,
@@ -414,6 +441,9 @@ public partial class VisualLab3D
                 streaming_end = _reviewStreamingEnd,
                 streaming_settled = _reviewStreamingSettled,
                 worker_window = _reviewWorkers,
+                work_window = work,
+                work_trace = "work.csv",
+                work_alignment = "Work from preceding callback joins the interval ending at the next callback; nested phases overlap.",
                 worker_failure = _terrain.LastMeshWorkerFailure,
                 screenshot_before = _reviewHeadless ? null : "before.png",
                 screenshot_after = _reviewHeadless ? null : "after.png",

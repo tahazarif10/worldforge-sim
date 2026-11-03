@@ -175,6 +175,14 @@ clock=0;budget=new PublicationBudget(0,1000,4,()=>clock);
 Check(!budget.TryBegin(0),"zero count budget never publishes");
 clock=2;budget=new PublicationBudget(1,1000,4,()=>clock);clock=1;
 Reject(()=>_ = budget.ElapsedMilliseconds,"backward budget clock fails closed");
-Console.WriteLine("PASS ALL V3.4.3 immutable numeric work, bounded tasks, cancellation, teardown and budget tests");
+clock=0;budget=new PublicationBudget(2,1000,4,()=>clock);
+Check(budget.TryBegin(800),"terrain phase admitted within its own payload");
+clock=4;
+Check(!budget.TryBegin(200),"foliage phase waits when terrain reaches the soft deadline");
+clock=0;budget=new PublicationBudget(1,1000,4,()=>clock);
+Check(budget.TryBegin(800)&&!budget.TryBegin(200),"one-unit admission forces a distinct foliage update");
+clock=10;budget=new PublicationBudget(1,1000,4,()=>clock);
+Check(budget.TryBegin(200)&&budget.Bytes==200,"resumed phase charges remaining payload, not terrain twice");
+Console.WriteLine("PASS ALL immutable work, retained ownership and separate phase admission budgets");
 
 internal sealed record Box(int Value);

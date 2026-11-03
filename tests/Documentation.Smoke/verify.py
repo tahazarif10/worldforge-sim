@@ -17,6 +17,8 @@ documents = [
     "docs/V3_3_ACCEPTANCE_RUNNER.md",
     "docs/V3_4_VIEWPORT_STREAMING.md",
     "docs/V3_4_MESH_WORKERS.md",
+    "docs/V3_4_STAGED_PUBLICATION.md",
+    "docs/decisions/0010-staged-publication-and-frame-work-evidence.md",
     "docs/V3_4_COAST_PATCHES_AND_SELF_TEST.md",
     "docs/decisions/0009-bounded-coast-patches-and-host-diagnostics.md",
     "docs/decisions/0008-immutable-mesh-workers-and-publication-budgets.md",

@@ -45,6 +45,9 @@ function New-SelfTestReport {
             try {
                 $m = Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
                 $lines.Add("Worker window [$($file.Directory.Name)]: $($m.worker_window | ConvertTo-Json -Compress)")
+                if ($m.PSObject.Properties.Name -contains 'work_window') {
+                    $lines.Add("Frame work [$($file.Directory.Name)]: $($m.work_window | ConvertTo-Json -Depth 5 -Compress)")
+                }
             } catch { $lines.Add("Capture metadata error: $($file.Directory.Name): $($_.Exception.Message)") }
         }
     }

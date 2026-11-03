@@ -75,6 +75,10 @@ public sealed class FrameCapture
         _stopped = true;
     }
 
+    public FrameSample LastSample => _count>0
+        ? _samples[(_next-1+_samples.Length)%_samples.Length]
+        : throw new InvalidOperationException("No complete frame interval.");
+
     public FrameSample[] Snapshot()
     {
         var result = new FrameSample[_count];

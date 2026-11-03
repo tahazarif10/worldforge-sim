@@ -1,3 +1,97 @@
+# Schema 3 joins completed owner work to the interval START, not its ending callback.
+# Parent/child timings overlap; outside_callback_ms is an unclassified remainder.
+function Test-AcceptanceFrameWork {
+    param([string]$Directory, $Metadata, [object[]]$Frames, [string]$ExpectedPlanner)
+    $invariant = [Globalization.CultureInfo]::InvariantCulture
+    $m = $Metadata
+    $expectedPolicy = if ($ExpectedPlanner -ceq 'viewport-v3-workers') { 'terrain-foliage-staged-v1' } else { 'synchronous-v2' }
+    if ($m.work_trace -cne 'work.csv' -or $m.fixture.work_trace_schema -ne 1 -or
+        $m.fixture.worker_publication_policy -cne $expectedPolicy -or
+        $m.work_window.schema -ne 1 -or $m.work_window.complete -isnot [bool] -or
+        -not $m.work_window.complete -or $m.work_window.count -ne $Frames.Count -or
+        $m.work_window.invalid_rows -ne 0 -or $m.work_window.dropped_rows -ne 0) {
+        throw 'Invalid work-trace identity, completeness or publication policy.'
+    }
+    $path = Join-Path $Directory 'work.csv'
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'Missing required work.csv.' }
+    $rows = @(Import-Csv -LiteralPath $path)
+    if ($rows.Count -ne $Frames.Count) { throw 'Work/frame row counts do not agree.' }
+    $durations = @('callback_ms','action_ms','visibility_ms','flush_ms','snapshot_ms',
+        'terrain_ms','foliage_ms','coast_ms','pump_ms','outside_callback_ms')
+    $maxima = @{}
+    foreach ($key in $durations) { $maxima[$key] = 0.0 }
+    $ranked = New-Object 'System.Collections.Generic.List[object]'
+    $unitLimit = if ($m.fixture.quality -ceq 'Eco') { 2 } else { 4 }
+    for ($i=0; $i -lt $rows.Count; $i++) {
+        $r = $rows[$i]; $f = $Frames[$i]
+        [long]$sequence = [long]::Parse($r.sequence,$invariant)
+        [long]$elapsed = [long]::Parse($r.elapsed_us,$invariant)
+        [long]$interval = [long]::Parse($r.interval_us,$invariant)
+        [long]$start = [long]::Parse($r.callback_start_us,$invariant)
+        [long]$end = [long]::Parse($r.callback_end_us,$invariant)
+        if ($sequence -ne [long]$f.sequence -or $elapsed -ne [long]$f.elapsed_us -or
+            $interval -ne [long]$f.interval_us -or $start -ne ($elapsed-$interval) -or
+            $end -lt $start -or $end -gt $elapsed) {
+            throw "Work trace is shifted, reordered or outside its interval at row $i."
+        }
+        $values = @{}
+        foreach ($key in $durations) {
+            [double]$value = [double]::Parse($r.$key,$invariant)
+            if ($value -lt 0 -or [double]::IsNaN($value) -or [double]::IsInfinity($value)) {
+                throw "Nonfinite or negative work duration: $key at row $i."
+            }
+            $values[$key] = $value
+            $maxima[$key] = [Math]::Max($maxima[$key],$value)
+        }
+        [double]$callback = ($end-$start)/1000.0
+        if ([Math]::Abs($values.callback_ms-$callback) -gt 0.000001 -or
+            [Math]::Abs($values.outside_callback_ms-($interval/1000.0-$callback)) -gt 0.000001 -or
+            $values.action_ms+$values.visibility_ms+$values.flush_ms -gt $callback+0.25 -or
+            $values.snapshot_ms+$values.terrain_ms+$values.foliage_ms+$values.coast_ms -gt $values.pump_ms+0.25 -or
+            $values.pump_ms -gt $values.visibility_ms+0.25) {
+            throw "Work duration arithmetic/nesting mismatch at row $i."
+        }
+        [long]$units = 0
+        foreach ($key in @('terrain_units','foliage_units','coast_units')) {
+            [int]$value = [int]::Parse($r.$key,$invariant)
+            if ($value -lt 0 -or $value -gt $unitLimit) { throw 'Invalid publication admission count.' }
+            $units += $value
+        }
+        [int]$staged = [int]::Parse($r.staged_chunks,$invariant)
+        if ($units -gt $unitLimit -or $staged -lt 0 -or $staged -gt 1) {
+            throw 'Work trace violates publication/staged ownership bounds.'
+        }
+        if ($ExpectedPlanner -cne 'viewport-v3-workers' -and
+            ($units -ne 0 -or $staged -ne 0 -or $values.pump_ms -ne 0)) {
+            throw 'Synchronous fixture cannot claim worker publication activity.'
+        }
+        $values['sequence'] = $sequence
+        $values['interval_ms'] = $interval/1000.0
+        $ranked.Add([pscustomobject]$values)
+    }
+    foreach ($key in @('callback_ms','action_ms','visibility_ms','flush_ms','snapshot_ms',
+        'terrain_ms','foliage_ms','coast_ms','pump_ms')) {
+        [double]$actual = $m.work_window.("max_"+$key)
+        if ([double]::IsNaN($actual) -or [double]::IsInfinity($actual) -or
+            [Math]::Abs($actual-$maxima[$key]) -gt 0.000001) {
+            throw "Work summary disagrees with raw rows: max_$key"
+        }
+    }
+    $slow = @($ranked | Sort-Object @{Expression='interval_ms';Descending=$true},@{Expression='sequence';Descending=$false} | Select-Object -First 3)
+    $reported = @($m.work_window.slowest_intervals)
+    if ($reported.Count -ne $slow.Count) { throw 'Slow-interval evidence count mismatch.' }
+    for ($i=0; $i -lt $slow.Count; $i++) {
+        if ($reported[$i].sequence -ne $slow[$i].sequence) { throw 'Slow-interval sequence identity mismatch.' }
+        foreach ($key in @('interval_ms')+$durations) {
+            [double]$actual = $reported[$i].$key
+            if ([double]::IsNaN($actual) -or [double]::IsInfinity($actual) -or
+                [Math]::Abs($actual-$slow[$i].$key) -gt 0.000001) {
+                throw "Slow-interval work disagrees with raw row: $key"
+            }
+        }
+    }
+}
+
 # Shared PS 5.1-compatible validation. No engine launch or filesystem writes
 # occur when this file is dot-sourced.
 function Read-AcceptanceCapture {
@@ -21,7 +115,7 @@ function Read-AcceptanceCapture {
     $m = Get-Content -LiteralPath (Join-Path $Directory 'capture.json') -Raw | ConvertFrom-Json
     if ($m.capture_valid -isnot [bool] -or $m.headless -isnot [bool] -or
         $m.statistics.complete -isnot [bool]) { throw 'Invalid boolean evidence fields.' }
-    if ($m.evidence_schema -ne 2 -or $m.capture_valid -ne $true -or
+    if ($m.evidence_schema -notin @(2,3) -or $m.capture_valid -ne $true -or
         $m.statistics.complete -ne $true -or $m.physical_acceptance -ne 'PENDING') {
         throw 'Capture is invalid, unfinished or claims unsupported physical approval.'
     }
@@ -99,6 +193,9 @@ function Read-AcceptanceCapture {
         $intervals.Add($ms)
         if ($ms -gt 50) { $over50++ }
         if ($ms -gt 100) { $over100++ }
+    }
+    if ($m.evidence_schema -eq 3) {
+        Test-AcceptanceFrameWork -Directory $Directory -Metadata $m -Frames $frames -ExpectedPlanner $ExpectedPlanner
     }
     [double]$required = $m.fixture.duration_seconds
     if ([double]::IsNaN($required) -or [double]::IsInfinity($required) -or

@@ -13,7 +13,13 @@ public readonly record struct MeshWorkerDiagnostics(bool Enabled,int Active,int 
     double LastSnapshotMilliseconds,double LastPumpMilliseconds,double LastComputeMilliseconds,
     long TimeBudgetOverruns,long Discarded,long Published,int LastWorkerThreadId,
     string? LastCoastPayloadSha256,long CoastPublications,
-    int WorkerLimit,int RetainedLimit,long ReservationLimit,long UploadByteLimit,double SoftMilliseconds);
+    int WorkerLimit,int RetainedLimit,long ReservationLimit,long UploadByteLimit,double SoftMilliseconds,
+    int StagedChunks,long StagedPayloadBytes,double LastTerrainMilliseconds,double LastFoliageMilliseconds,
+    double LastCoastMilliseconds,int LastTerrainStages,int LastFoliageStages,int LastCoastStages);
+
+public readonly record struct WorkerPublicationFrame(long Sequence,double SnapshotMilliseconds,
+    double TerrainMilliseconds,double FoliageMilliseconds,double CoastMilliseconds,double PumpMilliseconds,
+    int TerrainStages,int FoliageStages,int CoastStages,int StagedChunks);
 
 public partial class VisualTerrain3D
 {
@@ -29,6 +35,13 @@ public partial class VisualTerrain3D
     private int _coastAttempts,_lastWorkerThread,_lastUploadCount;
     private long _lastUploadBytes;
     private double _lastUploadMs,_lastSnapshotMs,_lastPumpMs,_lastComputeMs;
+    private double _lastTerrainMs,_lastFoliageMs,_lastCoastMs;
+    private int _lastTerrainStages,_lastFoliageStages,_lastCoastStages;
+    private long _workerPumpSequence;
+    public string WorkerPublicationPolicy => MeshWorkersEnabled ? "terrain-foliage-staged-v1" : "synchronous-v2";
+    public WorkerPublicationFrame PublicationFrame => new(_workerPumpSequence,_lastSnapshotMs,
+        _lastTerrainMs,_lastFoliageMs,_lastCoastMs,_lastPumpMs,
+        _lastTerrainStages,_lastFoliageStages,_lastCoastStages,_pendingWorkerUpload is null?0:1);
     private string? _lastCoastPayloadSha256;
     private long _coastPublications;
     public string? LastMeshWorkerFailure { get; private set; }
@@ -52,7 +65,10 @@ public partial class VisualTerrain3D
                 _lastUploadMs,_lastSnapshotMs,_lastPumpMs,_lastComputeMs,_workerOverruns,
                 _workerDiscarded,_workerPublished,_lastWorkerThread,_lastCoastPayloadSha256,_coastPublications,
                 2,4,WorkerReservationLimit,
-                WorkerUploadBytes,WorkerSoftMilliseconds);
+                WorkerUploadBytes,WorkerSoftMilliseconds,
+                _pendingWorkerUpload is null?0:1,_pendingWorkerUpload?.Data.PayloadBytes??0,
+                _lastTerrainMs,_lastFoliageMs,_lastCoastMs,
+                _lastTerrainStages,_lastFoliageStages,_lastCoastStages);
         }
     }
 
@@ -60,6 +76,9 @@ public partial class VisualTerrain3D
     {
         if(!MeshWorkersEnabled)return;
         AssertWorkerOwner();
+        // Hidden native resources cannot survive a world reset. The completed
+        // numeric entry remains reserved until the normal stale-result cleanup.
+        DropPendingWorkerUpload(releaseCompletion:false,discarded:true);
         _meshWorkers??=new(2,4,WorkerReservationLimit);
         _meshWorkers.CancelWhere(_=>true); // Retain reservations until those jobs actually stop.
         _workerFailures.Clear();_coastAttempts=0;
@@ -104,19 +123,63 @@ public partial class VisualTerrain3D
         GD.PushWarning("Mesh worker replacement retained fallback: "+error);
     }
 
+    private void ContinueWorkerUpload(PublicationBudget budget)
+    {
+        WorkerChunkUpload? staged=_pendingWorkerUpload;
+        if(staged is null)return;
+        if(!CurrentWorkerRequest(staged.Request))
+        {
+            DropPendingWorkerUpload(releaseCompletion:true,discarded:true);return;
+        }
+        bool terrainPhase=staged.Terrain is null;
+        long bytes=terrainPhase?staged.Data.TerrainPayloadBytes:staged.Data.FoliagePayloadBytes;
+        if(!budget.TryBegin(bytes))return;
+        if(terrainPhase)_lastTerrainStages++;else _lastFoliageStages++;
+        long start=Stopwatch.GetTimestamp();
+        try
+        {
+            if(terrainPhase)PrepareWorkerTerrain(staged);
+            else
+            {
+                bool published=FinishWorkerChunk(staged);
+                if(published)_workerPublished++;
+                DropPendingWorkerUpload(releaseCompletion:true,discarded:!published);
+            }
+        }
+        catch(Exception ex)
+        {
+            WorkerFailed(staged.Request,ex.GetType().Name+": "+ex.Message);
+            DropPendingWorkerUpload(releaseCompletion:true,discarded:false);
+        }
+        finally
+        {
+            double ms=Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            _lastUploadMs+=ms;
+            if(terrainPhase)_lastTerrainMs+=ms;else _lastFoliageMs+=ms;
+        }
+    }
+
     private void UpdateMeshWorkers(int maxNewChunks,GroundBounds bounds)
     {
         AssertWorkerOwner();
         if(_meshWorkers is null)throw new InvalidOperationException("Worker owner is not initialized.");
         _lastUploadMs=_lastSnapshotMs=0;_lastUploadCount=0;_lastUploadBytes=0;
+        _lastTerrainMs=_lastFoliageMs=_lastCoastMs=0;
+        _lastTerrainStages=_lastFoliageStages=_lastCoastStages=0;
+        _workerPumpSequence=checked(_workerPumpSequence+1);
         var budget=new PublicationBudget(Math.Min(maxNewChunks,_ecoMode?2:4),
             WorkerUploadBytes,WorkerSoftMilliseconds,WorkerClock);
         _meshWorkers.CancelWhere(r=>!CurrentWorkerRequest(r));
         foreach(ChunkCoord key in new List<ChunkCoord>(_workerFailures.Keys))
             if(_viewportPlan?.Desired.Contains(key)!=true)_workerFailures.Remove(key);
 
+        // Resume a selected replacement before admitting another detail.
+        ContinueWorkerUpload(budget);
+        if(_pendingWorkerUpload?.Terrain is not null)ContinueWorkerUpload(budget);
+
         foreach(var done in _meshWorkers.Ready())
         {
+            if(_pendingWorkerUpload?.CompletionId==done.Id)continue;
             _lastComputeMs=done.ComputeMilliseconds;_lastWorkerThread=done.WorkerThreadId;
             if(!CurrentWorkerRequest(done.Tag) || done.Canceled)
             {
@@ -134,21 +197,23 @@ public partial class VisualTerrain3D
                 WorkerFailed(done.Tag,"Worker output violated its payload contract.");
                 _meshWorkers.Release(done.Id);continue;
             }
-            if(!budget.TryBegin(result.PayloadBytes))continue;
-            long uploadStart=Stopwatch.GetTimestamp();
-            try
+            if(result.Mesh is not null)
             {
-                if(result.Mesh is not null)
-                {
-                    if(UploadWorkerChunk(done.Tag,result.Mesh))_workerPublished++;
-                    else _workerDiscarded++;
-                }
-                else UploadWorkerCoast(result);
+                if(_pendingWorkerUpload is not null)continue;
+                _pendingWorkerUpload=new WorkerChunkUpload(done.Id,done.Tag,result.Mesh);
+                ContinueWorkerUpload(budget);
+                if(_pendingWorkerUpload?.Terrain is not null)ContinueWorkerUpload(budget);
+                continue; // Reservation belongs to the staged replacement until handoff/discard.
             }
+            if(!budget.TryBegin(result.PayloadBytes))continue;
+            _lastCoastStages++;
+            long uploadStart=Stopwatch.GetTimestamp();
+            try { UploadWorkerCoast(result); }
             catch(Exception ex){WorkerFailed(done.Tag,ex.GetType().Name+": "+ex.Message);}
             finally
             {
-                _lastUploadMs+=Stopwatch.GetElapsedTime(uploadStart).TotalMilliseconds;
+                double ms=Stopwatch.GetElapsedTime(uploadStart).TotalMilliseconds;
+                _lastUploadMs+=ms;_lastCoastMs+=ms;
                 _meshWorkers.Release(done.Id);
             }
         }

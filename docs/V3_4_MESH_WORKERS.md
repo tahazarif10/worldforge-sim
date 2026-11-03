@@ -67,7 +67,7 @@ F10 prints `StreamingDiagnostics`, including the nested `Workers` record. F9 inc
 | MissingVisibleChunks | Must be zero after a successful coverage update |
 | MissingDetailedVisibleChunks / FallbackChunks | May be nonzero while replacement detail is pending |
 
-A publication unit includes foliage instancing and imported mesh references; its numeric byte count is not actual GPU upload traffic. An admitted native operation may itself exceed 4 ms. The next operation then waits; there is no promise of a 4 ms total frame or higher FPS.
+[V3.4.4 slice 2](V3_4_STAGED_PUBLICATION.md) / [ADR 0010](decisions/0010-staged-publication-and-frame-work-evidence.md) now splits a detail result into terrain and foliage/final-handoff units. Each is admitted separately; one hidden selected/staged replacement retains its pool reservation. LastTerrain/Foliage/CoastMilliseconds and stage counts expose the split; StagedChunks is at most one. Numeric byte count is not actual GPU upload traffic. An admitted native operation may itself exceed 4 ms. The next operation then waits; there is no promise of a 4 ms total frame or higher FPS.
 
 ## Focused host review
 

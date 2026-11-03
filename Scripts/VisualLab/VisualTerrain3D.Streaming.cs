@@ -187,6 +187,7 @@ public partial class VisualTerrain3D
 
     public override void _ExitTree()
     {
+        DropPendingWorkerUpload(releaseCompletion:false,discarded:true);
         _meshWorkers?.Dispose(); // Cancel and join pure jobs before releasing the owner.
         _meshWorkers = null;
         _viewportQueue.Dispose();

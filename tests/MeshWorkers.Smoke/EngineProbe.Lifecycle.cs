@@ -25,6 +25,10 @@ public partial class EngineProbe
             w.ReadyPayloadBytes<=w.ReservedArrayBytes,"running and retained numeric payloads remain bounded");
         Require(w.LastUploadCount<=2 && w.LastUploadPayloadBytes<=2*1024*1024,
             "actual main-thread publication respects hard count and payload admission");
+        Require(w.StagedChunks is >=0 and <=1 && w.StagedPayloadBytes<=ChunkMeshData.MaximumPayloadBytes &&
+            w.LastUploadCount==w.LastTerrainStages+w.LastFoliageStages+w.LastCoastStages &&
+            w.LastTerrainMilliseconds>=0 && w.LastFoliageMilliseconds>=0 && w.LastCoastMilliseconds>=0,
+            "single staged ownership and phase accounting remain bounded");
         Require(double.IsFinite(w.LastUploadMilliseconds) && double.IsFinite(w.LastSnapshotMilliseconds) &&
             w.LastPumpMilliseconds>=w.LastUploadMilliseconds-.01,"upload time is separately measured within pump");
     }
@@ -217,8 +221,10 @@ public partial class EngineProbe
         typeof(VisualLab3D).GetField("_visibilityRefresh",Hidden)!.SetValue(lab,0d);
         lab._Process(.001);
         Require(Pool(terrain).Count>0,"sub-50ms playable frame submits workers");
+        var exitStage=await BeginStagedCase(terrain,camera);
         var pending=Pool(terrain);
         lab.Free();
+        Require(!GodotObject.IsInstanceValid(exitStage.Hidden),"teardown frees hidden native replacement");
         Require(pending.Count==0 && pending.ReservedBytes==0,"scene teardown cancels and joins all retained jobs");
     }
 }

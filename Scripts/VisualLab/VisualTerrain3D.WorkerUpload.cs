@@ -63,14 +63,58 @@ public partial class VisualTerrain3D
         catch { chunk.Free(); throw; }
     }
 
-    private bool UploadWorkerChunk(ChunkRequest request,ChunkMeshData data)
+    // A completed result retains its pool reservation while one hidden native
+    // replacement waits between admission phases. No active node owns it yet.
+    private sealed class WorkerChunkUpload(long completionId,ChunkRequest request,ChunkMeshData data)
+    {
+        public long CompletionId { get; }=completionId;
+        public ChunkRequest Request { get; }=request;
+        public ChunkMeshData Data { get; }=data;
+        public ArrayMesh? Mesh;
+        public MeshInstance3D? Terrain;
+        public Node3D? Foliage;
+        public bool Published;
+    }
+    private WorkerChunkUpload? _pendingWorkerUpload;
+
+    private void PrepareWorkerTerrain(WorkerChunkUpload staged)
     {
         AssertWorkerOwner();
+        if(staged.Terrain is not null)throw new InvalidOperationException("Terrain phase already completed.");
+        ChunkMeshData data=staged.Data;
+        if(data.LandCells>0)
+        {
+            var vertices=new Vector3[data.Positions.Length];
+            var normals=new Vector3[vertices.Length];
+            var colors=new Color[vertices.Length];
+            for(int i=0;i<vertices.Length;i++)
+            {vertices[i]=Native(data.Positions[i]);normals[i]=Native(data.Normals[i]);colors[i]=Native(data.Colors[i]);}
+            using var arrays=new Godot.Collections.Array();
+            arrays.Resize((int)Mesh.ArrayType.Max);
+            arrays[(int)Mesh.ArrayType.Vertex]=vertices;
+            arrays[(int)Mesh.ArrayType.Normal]=normals;
+            arrays[(int)Mesh.ArrayType.Color]=colors;
+            staged.Mesh=new ArrayMesh();
+            staged.Mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles,arrays);
+            if(staged.Mesh.GetSurfaceCount()!=1)throw new InvalidOperationException("Worker mesh upload failed.");
+            staged.Mesh.SurfaceSetMaterial(0,_earthMaterial);
+        }
+        staged.Terrain=new MeshInstance3D
+        {
+            Name=$"TerrainChunk_{staged.Request.Key.X}_{staged.Request.Key.Z}",
+            Mesh=staged.Mesh,Visible=false
+        };
+    }
+
+    private bool FinishWorkerChunk(WorkerChunkUpload staged)
+    {
+        AssertWorkerOwner();
+        ChunkRequest request=staged.Request;
         if(!_viewportQueue.IsCurrent(request))return false;
-        ArrayMesh? mesh=null;
-        MeshInstance3D? terrain=null;
-        Node3D? foliage=null;
-        bool published=false;
+        MeshInstance3D terrain=staged.Terrain??throw new InvalidOperationException("Terrain phase is missing.");
+        Node3D foliage=BuildWorkerFoliage(request.Key,staged.Data);
+        staged.Foliage=foliage;
+        if(!_viewportQueue.IsCurrent(request))return false;
         var key=(request.Key.X,request.Key.Z);
         _chunks.TryGetValue(key,out MeshInstance3D? oldTerrain);
         _foliageChunks.TryGetValue(key,out Node3D? oldFoliage);
@@ -78,51 +122,61 @@ public partial class VisualTerrain3D
         int oldCount=_propCounts.GetValueOrDefault(key);
         try
         {
-            if(data.LandCells>0)
-            {
-                var vertices=new Vector3[data.Positions.Length];
-                var normals=new Vector3[vertices.Length];
-                var colors=new Color[vertices.Length];
-                for(int i=0;i<vertices.Length;i++)
-                {vertices[i]=Native(data.Positions[i]);normals[i]=Native(data.Normals[i]);colors[i]=Native(data.Colors[i]);}
-                using var arrays=new Godot.Collections.Array();
-                arrays.Resize((int)Mesh.ArrayType.Max);
-                arrays[(int)Mesh.ArrayType.Vertex]=vertices;
-                arrays[(int)Mesh.ArrayType.Normal]=normals;
-                arrays[(int)Mesh.ArrayType.Color]=colors;
-                mesh=new ArrayMesh();
-                mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles,arrays);
-                if(mesh.GetSurfaceCount()!=1)throw new InvalidOperationException("Worker mesh upload failed.");
-                mesh.SurfaceSetMaterial(0,_earthMaterial);
-            }
-            terrain=new MeshInstance3D {Name=$"TerrainChunk_{key.Item1}_{key.Item2}",Mesh=mesh,Visible=false};
-            foliage=BuildWorkerFoliage(request.Key,data);
-            if(!_viewportQueue.IsCurrent(request))return false;
             AddChild(terrain);_vegetation.AddChild(foliage);
             _chunks[key]=terrain;_foliageChunks[key]=foliage;
-            _propCounts[key]=data.PropCount;
-            RecordViewportDetail(key.Item1,key.Item2,terrain,data.LandCells);
+            _propCounts[key]=staged.Data.PropCount;
+            RecordViewportDetail(key.Item1,key.Item2,terrain,staged.Data.LandCells);
             CompleteViewportDetail(request);
-            published=true;
-            LastPropCount+=data.PropCount-oldCount;
-            FoliageCellsVisited+=data.CellsVisited;FoliageChunksRebuilt++;TotalTerrainChunkBuilds++;
+            staged.Published=true;
+            LastPropCount+=staged.Data.PropCount-oldCount;
+            FoliageCellsVisited+=staged.Data.CellsVisited;
+            FoliageChunksRebuilt++;TotalTerrainChunkBuilds++;
             if(oldTerrain is not null){oldTerrain.Visible=false;oldTerrain.QueueFree();}
             if(oldFoliage is not null){oldFoliage.Visible=false;oldFoliage.QueueFree();}
             return true;
         }
         finally
         {
-            if(!published)
+            if(!staged.Published)
             {
                 if(oldTerrain is null)_chunks.Remove(key);else _chunks[key]=oldTerrain;
                 if(oldFoliage is null)_foliageChunks.Remove(key);else _foliageChunks[key]=oldFoliage;
                 if(oldSurface is null)_viewportDetails.Remove(request.Key);else _viewportDetails[request.Key]=oldSurface;
                 if(oldTerrain is null)_propCounts.Remove(key);else _propCounts[key]=oldCount;
-                terrain?.Free();foliage?.Free();
-                // A staged mesh has no remaining scene owner on failure.
-                mesh?.Dispose();
             }
         }
+    }
+
+    private void DisposeWorkerUpload(WorkerChunkUpload staged)
+    {
+        AssertWorkerOwner();
+        if(staged.Published)return; // Ownership transferred together to the active scene.
+        staged.Terrain?.Free();staged.Foliage?.Free();staged.Mesh?.Dispose();
+        staged.Terrain=null;staged.Foliage=null;staged.Mesh=null;
+    }
+
+    private void DropPendingWorkerUpload(bool releaseCompletion,bool discarded)
+    {
+        WorkerChunkUpload? staged=_pendingWorkerUpload;
+        if(staged is null)return;
+        _pendingWorkerUpload=null;
+        try { DisposeWorkerUpload(staged); }
+        finally
+        {
+            if(discarded)_workerDiscarded++;
+            if(releaseCompletion)_meshWorkers!.Release(staged.CompletionId);
+        }
+    }
+
+    // Retained immediate adapter for the native parity probe. Production pumps
+    // the same two primitives through separate PublicationBudget admissions.
+    private bool UploadWorkerChunk(ChunkRequest request,ChunkMeshData data)
+    {
+        AssertWorkerOwner();
+        if(!_viewportQueue.IsCurrent(request))return false;
+        var staged=new WorkerChunkUpload(0,request,data);
+        try { PrepareWorkerTerrain(staged);return FinishWorkerChunk(staged); }
+        finally { DisposeWorkerUpload(staged); }
     }
 
     private void UploadWorkerCoast(VisualBuildResult result)

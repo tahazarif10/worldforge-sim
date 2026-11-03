@@ -101,3 +101,7 @@ An unavailable log is explicitly marked in REPORT.txt; it cannot prevent the bas
 Windows CI now runs the official engine's real import, seven art tests, C# game build, post-build import and both worker boots, then checks all 12 native stage exits/EOF, exclusive access to the closed logs and immediate evidence packaging. Synthetic native tests also fill both pipes beyond pipe capacity, emit stderr without failing, exit nonzero, time out and hold a log exclusively during report collection. Hosted CI remains distinct from the user GPU gate.
 
 Process API references: [Microsoft Process.WaitForExit](https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.process.waitforexit?view=netframework-4.8.1) and [Stream.CopyToAsync](https://learn.microsoft.com/en-us/dotnet/api/system.io.stream.copytoasync?view=netframework-4.8.1).
+
+## Staged publication and richer copied reports
+
+[V3.4.4 slice 2](V3_4_STAGED_PUBLICATION.md) extends the same RUN-TEST.cmd workflow with schema 3 work.csv and correlated action/visibility/flush/snapshot/terrain/foliage/coast timing. The copied report includes three slowest interval rows per capture; full raw work stays in the ZIP. The user approved the preceding diagnostic milestone. A new run is needed to assess this changed candidate; host performance/visual acceptance and resident coast/LOD remain open.

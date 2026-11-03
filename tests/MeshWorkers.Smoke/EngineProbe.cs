@@ -39,6 +39,7 @@ public partial class EngineProbe : Node
             GetWindow().ContentScaleMode=Window.ContentScaleModeEnum.Disabled;
             await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
             await CompareRetainedRenderer(terrain,camera);
+            await ExerciseStaging(terrain,camera);
             await ExercisePipeline(lab,terrain,camera);
             GD.Print($"PASS WORKER ENGINE / {(_mirror?"region-mirror":"direct")}: " +
                 $"{_parityCases} native geometry/foliage parity cases; {_comparedVertices} vertices; " +

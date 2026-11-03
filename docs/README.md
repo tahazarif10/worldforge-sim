@@ -6,6 +6,7 @@
 
 | Question | Canonical document |
 | --- | --- |
+| How are native phases staged and correlated to frame stalls? | [V3.4.4 staged publication](V3_4_STAGED_PUBLICATION.md) |
 | How do the new worker jobs, budgets and rollback work? | [V3.4.3 mesh workers](V3_4_MESH_WORKERS.md) |
 | How do the opt-in V3.4 planner, surface fallback and launch work? | [Viewport demand, coverage and handoff](V3_4_VIEWPORT_STREAMING.md) |
 | What is implemented, verified, blocked or still unknown? | [Project state](PROJECT_STATE.md) |
@@ -56,3 +57,5 @@ On 2026-11-02 the user authorized the OFF-by-default V3.4.1 engineering slice wh
 ## Latest engineering slice
 
 [V3.4.4 coast patches and one-click host diagnostics](V3_4_COAST_PATCHES_AND_SELF_TEST.md) describes RUN-TEST.cmd, local evidence/clipboard behavior, bounded coast data, remaining LOD work and test limits. [ADR 0009](decisions/0009-bounded-coast-patches-and-host-diagnostics.md) records the decision.
+
+The user approved the short diagnostic milestone; [slice 2](V3_4_STAGED_PUBLICATION.md) / [ADR 0010](decisions/0010-staged-publication-and-frame-work-evidence.md) now separates terrain/foliage admission and adds schema 3 work evidence. Required CI and a new host phase report precede any claim of improved speed. Resident coast and distance LOD remain subsequent work.

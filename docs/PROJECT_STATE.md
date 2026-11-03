@@ -2,7 +2,7 @@
 state_schema: 3
 reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
 last_verified_date: 2026-11-03
-audited_repository_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
+audited_repository_commit: 6c59317cc03122f8a4de0f6589a31607825b725a
 baseline_core_ci_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
 baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
@@ -19,13 +19,15 @@ surface_fallback_issue: 65
 mesh_workers_issue: 67
 coast_diagnostics_issue: 69
 runner_repair_issue: 71
+staged_publication_issue: 74
+user_approved_diagnostic_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
 windows_short_diagnostic_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
 windows_short_diagnostic_status: PASS
 latest_diagnostic_status: "2026-11-03 PASS, 168.9s, 3742 samples; exact host commit and driver recorded; raw ZIP review pending"
 last_interactive_feedback: "2026-11-03 positive qualitative report after V3.4.3 worker candidate; exact local SHA not supplied"
 measurement_implementation_pr: 60
-active_status: "V3.4.4 slice 1: bounded coast kernel and one-click worker diagnostics; exact-head CI recorded in #69 / [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70); physical promotion pending"
-next_gate: "Review existing 20261103-135153-e384afbb ZIP; profile paint/zoom tails before coast/LOD expansion; full physical acceptance pending"
+active_status: "V3.4.4 slice 2: separately admitted terrain/foliage native phases and correlated work traces; exact-head CI required before merge"
+next_gate: "Exact-head CI then a new RUN-TEST.cmd report with work.csv; attribute paint/zoom before resident coast/LOD expansion; full physical acceptance pending"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
@@ -33,6 +35,19 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 # WorldForge Sim — factual project state
 
 **Source audit updated 2026-11-03.** This file is the factual status ledger, not the entire history and not a promise of future implementation. The prior chronology is preserved verbatim in [PROJECT_HISTORY_2026-10-30.md](PROJECT_HISTORY_2026-10-30.md). The actionable future plan is [ROADMAP.md](ROADMAP.md).
+
+
+## Current slice — staged publication and work evidence (2026-11-03)
+
+The user explicitly approved the preceding diagnostic milestone and authorized the next slice. This records approval of the short diagnostic at 849dc704fd596a654d39741df1d9dea1d9ea1ef9 and continuation, not new full-duration GPU/input/art evidence. The previous received report and its raw-ZIP limitation remain in the ledger below.
+
+[#74](https://github.com/tahazarif10/worldforge-sim/issues/74) implements [V3.4.4 slice 2](V3_4_STAGED_PUBLICATION.md), under [ADR 0010](decisions/0010-staged-publication-and-frame-work-evidence.md). A worker result now admits terrain creation and foliage/final handoff separately. At most one hidden selected/staged replacement retains its original pool reservation. Generation changes, reset, failure and teardown release native staging without exposing incomplete detail. Hard count/payload values and the 4 ms soft window retain their values; a non-preemptible phase may still overrun.
+
+Schema 3 captures add bounded work.csv aligned to each interval's preceding callback. Action, visibility, flush and nested snapshot/terrain/foliage/coast/pump costs are validated against raw frame identity and included with the slowest three intervals in the copied report. Historical schema 2 bundles still read. The unclassified interval remainder is not labeled GPU execution.
+
+**Verification:** exact-head CI is required before merge; the implementation evidence subsection/PR records actual runs after completion. Physical benefit, old/new art comparison and mirror zoom cause remain PENDING. This slice does not implement resident coast textures or LOD.
+
+**Next user command after a safe fast-forward:** RUN-TEST.cmd, which now gathers the new phase evidence automatically. Interactive play remains scripts/verify-v2-art.ps1 -WorldSeed 1315511732 -MeshWorkers. Inspect the new report's exact commit and phase rows; the previous ZIP is still useful but its absence does not block this authorized bounded instrumentation/admission change.
 
 ## Product status
 
