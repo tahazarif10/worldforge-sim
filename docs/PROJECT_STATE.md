@@ -271,3 +271,14 @@ The first run failure is preserved if final hash collection also fails. Report g
 The preceding Windows CI exercised a launcher stub and report behavior; it did **not** execute the real Windows Godot import/build path. This repair adds native output-pressure/timeout/locked-file regression tests and the actual official Windows Godot 4.7.2 Mono preflight (seven art correctness projects, game build and both worker runtime boots) under PowerShell 5.1, followed immediately by exclusive log reopen, hashes, report and ZIP. Existing Linux engine integration remains a separate gate.
 
 Exact repair-head checks are recorded in #71 / its PR before merge. The next user command remains RUN-TEST.cmd after a safe fast-forward. A successful hosted Windows preflight does not establish physical R9 M395X capture, art or performance approval; the user's corrected run remains **PENDING**.
+
+
+### Windows preflight/log repair implementation verification
+
+Implementation head `8e1369bf98cf82d1e84c1f6570a4901dfc373664`, tree `d487267bc61917e47872f15b2a260de5445eae7a`, passed [core/native Windows PowerShell and real Windows Godot preflight 41646089763](https://github.com/tahazarif10/worldforge-sim/actions/runs/41646089763), [official Linux Godot engine 41646089852](https://github.com/tahazarif10/worldforge-sim/actions/runs/41646089852), and [branch-push core 41645980260](https://github.com/tahazarif10/worldforge-sim/actions/runs/41645980260).
+
+- Windows PowerShell 5.1 regressions fully drained **262,144 bytes per stream** for both exit 0 and exit 7, preserved the native nonzero exit and timeout, and immediately reopened the logs exclusively. A deliberately locked log did not replace the primary execution error or prevent the plain report; secondary hash/archive errors were recorded separately.
+- Official Windows Godot 4.7.2 Mono ran the actual import, **seven art correctness projects**, Debug game build, post-build import and direct/mirror worker boots: **12 completed native stages**, every exit zero with output EOF. The compiled game, preserved source/configuration, exclusive log reopen, SHA256 manifest and ZIP were checked.
+- Official Linux Godot retained the baseline/worker geometry probes, **eight baseline plus eight worker captures**, paired fixtures for all four scenarios, and explicit incomplete evidence for controlled close/Esc cancellation.
+- This documentation revision follows the verified implementation. Its final reviewed-head SHA, exact-head checks and merge identity are recorded in [PR #72](https://github.com/tahazarif10/worldforge-sim/pull/72); the implementation runs above are not relabeled as another HEAD.
+- The underlying native exit-1 reason on the user's machine is still unavailable in the supplied report. A corrected host rerun of **RUN-TEST.cmd** is required; physical H:-Windows/R9 M395X acceptance remains **PENDING**.
