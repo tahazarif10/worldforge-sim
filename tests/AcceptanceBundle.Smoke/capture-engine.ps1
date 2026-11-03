@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Executable,
-    [Parameter(Mandatory = $true)][string]$Directory
+    [Parameter(Mandatory = $true)][string]$Directory,
+    [switch]$MeshWorkers
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -10,29 +11,36 @@ $directoryFull = [IO.Path]::GetFullPath($Directory)
 . (Join-Path $root 'scripts/acceptance-worktree.ps1')
 . (Join-Path $root 'scripts/acceptance-runtime.ps1')
 $baseline = Get-Content -LiteralPath (Join-Path $directoryFull 'worktree-prepared.json') -Raw | ConvertFrom-Json
+$prefix = if ($MeshWorkers) { 'workers-' } else { '' }
+$planner = if ($MeshWorkers) { 'viewport-v3-workers' } else { 'legacy-v2' }
 foreach ($scenario in @('idle','pan','zoom','paint')) {
+    $pairs = @{}
     foreach ($backend in @('direct','region-mirror')) {
         Assert-AcceptanceWorktreeStable -Baseline $baseline -Current (Get-AcceptanceWorktreeState -Root $root)
-        $output = Join-Path $directoryFull "$scenario-$backend"
+        $output = Join-Path $directoryFull "$prefix$scenario-$backend"
         New-Item -ItemType Directory -Path $output | Out-Null
         $arguments = @('--headless','--path',$root,'--scene','res://Scenes/VisualLab3D.tscn',
             '--rendering-method','gl_compatibility','--resolution','1280x800','--max-fps','120',
             '--log-file',(Join-Path $output 'godot.log'),'--',
             '--world-seed=1315511732',"--terrain-backend=$backend",
-            "--acceptance-session=ci-$scenario","--acceptance-scenario=$scenario",
+            "--acceptance-session=ci-$prefix$scenario","--acceptance-scenario=$scenario",
             "--acceptance-output=$output",'--acceptance-duration=1.1',
             '--acceptance-warmup=0.1','--acceptance-quality=Eco')
+        if ($MeshWorkers) { $arguments += '--mesh-workers' }
         $processArgs = @{
             Executable = $Executable; Arguments = $arguments; WorkingDirectory = $root
-            OutputDirectory = $output; TimeoutSeconds = 50
+            OutputDirectory = $output; TimeoutSeconds = 90
         }
         $after = Invoke-AcceptanceObservedProcess @processArgs
         $captureArgs = @{
-            Directory = $output; ExpectedSession = "ci-$scenario"; ExpectedScenario = $scenario
-            ExpectedBackend = $backend; ExpectedSeed = 1315511732; AllowHeadless = $true
+            Directory = $output; ExpectedSession = "ci-$prefix$scenario"; ExpectedScenario = $scenario
+            ExpectedBackend = $backend; ExpectedSeed = 1315511732; AllowHeadless = $true; ExpectedPlanner = $planner
         }
         $capture = Read-AcceptanceCapture @captureArgs
+        $pairs[$backend] = $capture
         Assert-AcceptanceWorktreeStable -Baseline $baseline -Current $after
-        Write-Host "PASS observed real Godot capture and fixed sidecar identity: $scenario / $backend"
+        Write-Host "PASS observed real Godot capture and fixed sidecar identity: $planner / $scenario / $backend"
     }
+    Test-AcceptancePair -Direct $pairs.direct -Mirror $pairs['region-mirror']
+    Write-Host "PASS paired real capture: $planner / $scenario"
 }

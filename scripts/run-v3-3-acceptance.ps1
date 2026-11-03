@@ -6,7 +6,11 @@ param(
     [int]$WorldSeed = 1315511732,
     [ValidateSet('Eco','Balanced')][string]$Quality = 'Eco',
     [ValidateRange(1,3)][int]$Repeats = 3,
-    [ValidateRange(0,240)][int]$MaxFps = 60
+    [ValidateRange(0,240)][int]$MaxFps = 60,
+    [switch]$Quick,
+    [switch]$ViewportStreaming,
+    [switch]$MeshWorkers,
+    [string]$EvidenceDirectory = ''
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -38,7 +42,19 @@ $projectHash = $initialWorktree.project_godot_sha256
 Write-Host "Recognized $($initialWorktree.godot_sidecars.Count) Godot sidecars; preserving their contents and hashes."
 $session = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
 $bundle = Join-Path $root ("artifacts\acceptance\v3-3\" + $session)
+if ($EvidenceDirectory) {
+    $bundle = [IO.Path]::GetFullPath($EvidenceDirectory)
+    $allowed = [IO.Path]::GetFullPath((Join-Path $root 'artifacts\acceptance')) + '\'
+    if (-not $bundle.StartsWith($allowed, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'EvidenceDirectory must be inside this checkout artifacts\acceptance.'
+    }
+}
+if (Test-Path -LiteralPath $bundle) { throw "Refusing to overwrite evidence: $bundle" }
 New-Item -ItemType Directory -Path $bundle | Out-Null
+$planner = if ($MeshWorkers) { 'viewport-v3-workers' } elseif ($ViewportStreaming) { 'viewport-v2-fallback' } else { 'legacy-v2' }
+$featureArgs = if ($MeshWorkers) { @('--mesh-workers') } elseif ($ViewportStreaming) { @('--viewport-streaming') } else { @() }
+$warmup = if ($Quick) { 3 } else { 10 }
+$profile = if ($Quick) { 'short-diagnostic' } else { 'acceptance-window' }
 $utf8 = New-Object Text.UTF8Encoding($false)
 $rows = New-Object 'System.Collections.Generic.List[string]'
 $report = Join-Path $bundle 'result.md'
@@ -48,16 +64,23 @@ try {
         ($initialWorktree | ConvertTo-Json -Depth 8), $utf8)
     Export-AcceptanceSidecars -Root $root -State $initialWorktree -Directory (Join-Path $bundle 'godot-sidecars/before-import')
     # Rebuild once using the repository's existing H: import/build preflight.
-    & (Join-Path $PSScriptRoot 'verify-v2-art.ps1') -NoLaunch 2>&1 |
-        Out-File -LiteralPath (Join-Path $bundle 'preflight.log') -Encoding utf8
-    if ($LASTEXITCODE -ne 0) { throw 'V2 preflight failed.' }
-    foreach ($project in @('FrameTime.Smoke','TerrainBackendParity.Smoke')) {
-        & $sdk run --project (Join-Path $root ("tests\$project\$project.csproj")) -c Release 2>&1 |
-            Out-File -LiteralPath (Join-Path $bundle ($project + '.log')) -Encoding utf8
-        if ($LASTEXITCODE -ne 0) { throw "Acceptance correctness test failed: $project" }
+    $preflight = Join-Path $bundle 'preflight'
+    New-Item -ItemType Directory -Path $preflight | Out-Null
+    Write-Host 'Preparing assets and building the game (up to 10 minutes; see preflight logs).'
+    Invoke-AcceptanceProcess -Executable (Join-Path $PSHOME 'powershell.exe') -Arguments @(
+        '-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',
+        (Join-Path $PSScriptRoot 'verify-v2-art.ps1'),'-NoLaunch') -WorkingDirectory $root -OutputDirectory $preflight -TimeoutSeconds 600
+    $correctness = @('FrameTime.Smoke','TerrainBackendParity.Smoke')
+    if ($MeshWorkers) { $correctness += @('MeshWorkers.Smoke','CoastPatches.Smoke') }
+    foreach ($project in $correctness) {
+        $output = Join-Path $bundle $project
+        New-Item -ItemType Directory -Path $output | Out-Null
+        Write-Host "Correctness test: $project"
+        Invoke-AcceptanceProcess -Executable $sdk -Arguments @('run','--project',
+            (Join-Path $root ("tests\$project\$project.csproj")),'-c','Release') -WorkingDirectory $root -OutputDirectory $output -TimeoutSeconds 120
     }
     # Load the newly built C# assembly before sealing companion identity.
-    Initialize-AcceptanceRuntime -Executable $editor -Root $root -Directory (Join-Path $bundle 'preparation') -WorldSeed $WorldSeed
+    Initialize-AcceptanceRuntime -Executable $editor -Root $root -Directory (Join-Path $bundle 'preparation') -WorldSeed $WorldSeed -FeatureArguments $featureArgs
     # Preparation may generate/refresh companions. Source/config must stay fixed.
     $captureWorktree = Get-AcceptanceWorktreeState -Root $root
     Assert-AcceptanceResourcesReady -State $captureWorktree
@@ -85,6 +108,7 @@ try {
         powershell_version = $PSVersionTable.PSVersion.ToString()
         requested_seed = $WorldSeed; quality = $Quality; max_fps = $MaxFps
         repeats = $Repeats; gpu_driver = $driver
+        evidence_profile = $profile; streaming_planner = $planner; quick_diagnostic = [bool]$Quick
         physical_acceptance = 'PENDING'
         notes = 'Paused deterministic renderer fixtures. User input, live simulation and art approval require separate review.'
     }
@@ -100,7 +124,7 @@ try {
     }
     $scenarios = if ($Scenario -eq 'all') { @('idle','pan','zoom','paint') } else { @($Scenario) }
     foreach ($name in $scenarios) {
-        $seconds = if ($name -eq 'pan') { 60 } else { 30 }
+        $seconds = if ($Quick) { 8 } elseif ($name -eq 'pan') { 60 } else { 30 }
         for ($repeat = 1; $repeat -le $Repeats; $repeat++) {
             $captures = @{}
             # Alternate order across repeats to reduce systematic first-run bias.
@@ -117,13 +141,13 @@ try {
                     "--world-seed=$seedText", "--terrain-backend=$backend",
                     "--acceptance-session=$runId", "--acceptance-scenario=$name",
                     "--acceptance-output=$directory", "--acceptance-duration=$seconds",
-                    '--acceptance-warmup=10', "--acceptance-quality=$Quality")
-                Write-Host "AUTOMATED TEST: $name / $backend / pass $repeat. Controls are paused. Wait for automatic close (10s warm-up + ${seconds}s capture); Esc cancels."
+                    "--acceptance-warmup=$warmup", "--acceptance-quality=$Quality") + $featureArgs
+                Write-Host "AUTOMATED TEST: $name / $backend / pass $repeat. Controls are paused. Wait for automatic close (${warmup}s warm-up + ${seconds}s capture, plus settling/saving); Esc cancels."
                 $afterCapture = Invoke-AcceptanceObservedProcess -Executable $editor -Arguments $arguments `
                     -WorkingDirectory $root -OutputDirectory $directory -TimeoutSeconds ($seconds + 130)
                 # Missing output is reported before identity drift; the post-run manifest is already saved.
                 $capture = Read-AcceptanceCapture -Directory $directory -ExpectedSession $runId `
-                    -ExpectedScenario $name -ExpectedBackend $backend -ExpectedSeed $WorldSeed
+                    -ExpectedScenario $name -ExpectedBackend $backend -ExpectedSeed $WorldSeed -ExpectedPlanner $planner
                 Assert-HostCaptureIdentity -CurrentWorktree $afterCapture
                 $captures[$backend] = $capture
                 $s = $capture.statistics
@@ -133,7 +157,7 @@ try {
         }
     }
     $text = "# V3.3 capture bundle`n`nCapture integrity: VALID`nPhysical acceptance: PENDING`n" +
-        "Commit: $commit`nSession: $session`n`n" +
+        "Commit: $commit`nSession: $session`nProfile: $profile`nPlanner: $planner`n`n" +
         "Paused simulation; continuous scripted traces. Timing is callback intervals, not GPU or physical input latency.`n`n" +
         "| Scenario | Pass | Backend | Samples | p50 ms | p95 ms | p99 ms | Max ms |`n" +
         "| --- | --- | --- | --- | --- | --- | --- | --- |`n" +

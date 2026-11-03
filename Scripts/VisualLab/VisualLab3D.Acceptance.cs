@@ -4,6 +4,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Godot;
 using WorldForge.Camera3D;
 using WorldForge.Instrumentation;
@@ -33,6 +34,64 @@ public partial class VisualLab3D
     private string? _reviewFailure;
     private object? _reviewFixture;
     private Vector2 _reviewViewport;
+    private ViewportStreamingDiagnostics _reviewStreamingStart, _reviewStreamingEnd;
+    private bool _reviewStreamingSettled;
+    private readonly WorkerReviewSummary _reviewWorkers = new();
+    private sealed class WorkerReviewSummary
+    {
+        public bool Enabled { get; set; }
+        public long Samples { get; set; }
+        public int MaxActive { get; set; }
+        public int MaxRetained { get; set; }
+        public long MaxReservedBytes { get; set; }
+        public long MaxReadyPayloadBytes { get; set; }
+        public long MaxUploadBytes { get; set; }
+        public int MaxFailedChunks { get; set; }
+        public int MaxCoastFailures { get; set; }
+        public double MaxSnapshotMilliseconds { get; set; }
+        public double MaxUploadMilliseconds { get; set; }
+        public double MaxPumpMilliseconds { get; set; }
+        public long TimeBudgetOverruns { get; set; }
+    }
+
+    private void RecordWorkerReview()
+    {
+        MeshWorkerDiagnostics w = _terrain.WorkerDiagnostics;
+        if (!w.Enabled) return;
+        _reviewWorkers.Enabled = true;
+        _reviewWorkers.Samples++;
+        _reviewWorkers.MaxActive = Math.Max(_reviewWorkers.MaxActive, w.Active);
+        _reviewWorkers.MaxRetained = Math.Max(_reviewWorkers.MaxRetained, w.Retained);
+        _reviewWorkers.MaxReservedBytes = Math.Max(_reviewWorkers.MaxReservedBytes, w.ReservedArrayBytes);
+        _reviewWorkers.MaxReadyPayloadBytes = Math.Max(_reviewWorkers.MaxReadyPayloadBytes, w.ReadyPayloadBytes);
+        _reviewWorkers.MaxUploadBytes = Math.Max(_reviewWorkers.MaxUploadBytes, w.LastUploadPayloadBytes);
+        _reviewWorkers.MaxFailedChunks = Math.Max(_reviewWorkers.MaxFailedChunks, w.FailedChunks);
+        _reviewWorkers.MaxCoastFailures = Math.Max(_reviewWorkers.MaxCoastFailures, w.CoastFailures);
+        _reviewWorkers.MaxSnapshotMilliseconds = Math.Max(_reviewWorkers.MaxSnapshotMilliseconds, w.LastSnapshotMilliseconds);
+        _reviewWorkers.MaxUploadMilliseconds = Math.Max(_reviewWorkers.MaxUploadMilliseconds, w.LastUploadMilliseconds);
+        _reviewWorkers.MaxPumpMilliseconds = Math.Max(_reviewWorkers.MaxPumpMilliseconds, w.LastPumpMilliseconds);
+        _reviewWorkers.TimeBudgetOverruns = w.TimeBudgetOverruns - _reviewStreamingStart.Workers.TimeBudgetOverruns;
+    }
+
+    // Only preparation/final presentation waits; frame timing never includes the drain.
+    private async Task WaitForAcceptanceStreaming()
+    {
+        if (!_terrain.MeshWorkersEnabled) return;
+        ulong start = Time.GetTicksUsec();
+        while (IsInsideTree())
+        {
+            var state = _terrain.StreamingDiagnostics;
+            var w = state.Workers;
+            if (w.FailedChunks > 0 || w.CoastFailures > 0 || _terrain.LastMeshWorkerFailure is not null)
+                throw new InvalidOperationException("Worker failed before stable presentation: " + _terrain.LastMeshWorkerFailure);
+            if (state.PendingChunks == 0 && state.MissingDetailedVisibleChunks == 0 &&
+                w.Retained == 0 && !w.CoastPending) return;
+            if ((Time.GetTicksUsec() - start) / 1_000_000.0 > 30)
+                throw new TimeoutException("Worker settling exceeded 30 seconds; inspect streaming diagnostics.");
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        }
+        throw new InvalidOperationException("Scene exited before worker settling completed.");
+    }
     private static readonly JsonSerializerOptions ReviewJson = new()
     {
         WriteIndented = true,
@@ -87,6 +146,7 @@ public partial class VisualLab3D
             _reviewWarmupStart = Time.GetTicksUsec();
             _reviewPhase = ReviewPhase.Warmup;
             SetAcceptanceTitle($"Preparing {_acceptanceOptions.WarmupSeconds.ToString(CultureInfo.InvariantCulture)} s");
+            GetTree().AutoAcceptQuit = false; // Record operator window closure before quitting.
             RefreshHud();
             GD.Print("Acceptance fixture " + AcceptanceOptions.FixtureVersion +
                 ": " + _acceptanceOptions.Scenario + " / " + _terrain.TerrainBackendName);
@@ -112,11 +172,33 @@ public partial class VisualLab3D
         GetViewport().SetInputAsHandled();
         if (input is InputEventKey { Pressed: true, Keycode: Key.Escape })
         {
-            _reviewFailure = "Operator cancelled.";
-            _acceptanceCapture.Stop();
-            _reviewPhase = ReviewPhase.Finished;
-            GetTree().Quit(2);
+            CancelAcceptance("Operator pressed Esc before automatic completion.");
         }
+    }
+
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest && _acceptanceOptions is not null)
+            CancelAcceptance("Operator closed the test window before automatic completion.");
+    }
+
+    private void CancelAcceptance(string reason)
+    {
+        _reviewFailure = reason;
+        _acceptanceCapture?.Stop();
+        _reviewPhase = ReviewPhase.Finished;
+        GD.Print("ACCEPTANCE_INCOMPLETE " + reason);
+        try
+        {
+            if (Directory.Exists(_reviewOutput) && !File.Exists(Path.Combine(_reviewOutput, "incomplete.json")))
+                WriteNew("incomplete.json", JsonSerializer.Serialize(new
+                {
+                    capture_valid = false, physical_acceptance = "PENDING",
+                    failure = reason, streaming = _terrain.StreamingDiagnostics
+                }, ReviewJson));
+        }
+        catch (Exception ex) { GD.PushWarning("Incomplete report could not be saved: " + ex.Message); }
+        if (IsInsideTree()) GetTree().Quit(2);
     }
 
     private void ProcessAcceptance(ulong nowUs, double delta)
@@ -133,6 +215,7 @@ public partial class VisualLab3D
             if (_reviewPhase == ReviewPhase.Armed)
             {
                 _reviewFixture = FixtureMetadata();
+                _reviewStreamingStart = _terrain.StreamingDiagnostics;
                 if (_acceptanceOptions.Scenario == "pan")
                     _cameraRig.BeginDrag(_reviewViewport / 2);
                 SetAcceptanceTitle($"Recording {_acceptanceOptions.DurationSeconds.ToString(CultureInfo.InvariantCulture)} s; closes automatically");
@@ -156,6 +239,7 @@ public partial class VisualLab3D
                 _acceptanceTrace![index] = new CameraTrace(
                     _acceptanceCapture.DurationUs, _cameraRig.ReviewPose);
             }
+            RecordWorkerReview();
             double seconds = (nowUs - _reviewStart) / 1_000_000.0;
             if (seconds >= _acceptanceOptions.DurationSeconds)
             {
@@ -163,6 +247,7 @@ public partial class VisualLab3D
                 _acceptanceCapture.Stop();
                 _reviewEndActiveChunks = _terrain.ActiveTerrainChunks;
                 _reviewEndPendingChunks = _terrain.PendingVisibleChunks;
+                _reviewStreamingEnd = _terrain.StreamingDiagnostics;
                 _cameraRig.EndDrag();
                 _reviewPhase = ReviewPhase.Finished;
                 FinishAcceptance();
@@ -177,6 +262,8 @@ public partial class VisualLab3D
     {
         try
         {
+            await WaitForAcceptanceStreaming();
+            if (!IsInsideTree() || _reviewPhase != ReviewPhase.Screenshot) return;
             if (!_reviewHeadless)
             {
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
@@ -271,6 +358,9 @@ public partial class VisualLab3D
             // The image must represent final edits, not a transient stale mesh.
             _terrain.FlushChanges();
             _terrain.UpdateVisibility(_camera, maxNewChunks: 64);
+            await WaitForAcceptanceStreaming();
+            if (!IsInsideTree()) return;
+            _reviewStreamingSettled = true;
             if (!_reviewHeadless)
             {
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
@@ -320,6 +410,11 @@ public partial class VisualLab3D
                 graphics_api_version = _reviewHeadless ? null : RenderingServer.GetVideoAdapterApiVersion(),
                 active_terrain_chunks = _reviewEndActiveChunks,
                 pending_visible_chunks = _reviewEndPendingChunks,
+                streaming_start = _reviewStreamingStart,
+                streaming_end = _reviewStreamingEnd,
+                streaming_settled = _reviewStreamingSettled,
+                worker_window = _reviewWorkers,
+                worker_failure = _terrain.LastMeshWorkerFailure,
                 screenshot_before = _reviewHeadless ? null : "before.png",
                 screenshot_after = _reviewHeadless ? null : "after.png",
                 notes = "Paused simulation fixture; application callbacks, not GPU or physical input latency. " +

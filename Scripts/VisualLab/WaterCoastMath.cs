@@ -17,6 +17,11 @@ public static class WaterCoastMath
 
     public static byte[] BuildMask(int width, int height,
         Func<int, int, Terrain> tileAt, int seed)
+        => BuildMask(width, height, tileAt, seed, 0, 0);
+
+    // Preserve absolute tint phase when the same kernel runs on a local halo.
+    internal static byte[] BuildMask(int width, int height,
+        Func<int, int, Terrain> tileAt, int seed, int originX, int originZ)
     {
         if (width <= 0 || height <= 0)
             throw new ArgumentOutOfRangeException(nameof(width));
@@ -77,7 +82,7 @@ public static class WaterCoastMath
                 Terrain.DeepWater => (byte)28,
                 _ => (byte)0
             };
-            rgba[i + 2] = (byte)(EnvironmentArtMath.Hash(x, y, seed + 191) & 255);
+            rgba[i + 2] = (byte)(EnvironmentArtMath.Hash(x + originX, y + originZ, seed + 191) & 255);
             rgba[i + 3] = 255;
         }
         return rgba;

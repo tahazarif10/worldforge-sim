@@ -45,6 +45,14 @@ The [V3.4 guide](docs/V3_4_VIEWPORT_STREAMING.md) documents `verify-v2-art.ps1 -
 
 For the new [V3.4.3 worker path](docs/V3_4_MESH_WORKERS.md), run `verify-v2-art.ps1 -WorldSeed 1315511732 -MeshWorkers`. It includes surface fallback, at most two numeric workers/four retained results, and main-thread count/payload plus soft time admission. F10/F9 include worker diagnostics. `-ViewportStreaming` alone preserves the previous synchronous streaming path. Native upload duration, final GPU pixels and target-host performance still require physical review.
 
+### One-click game test and copied report
+
+Double-click [RUN-TEST.cmd](RUN-TEST.cmd) in the existing H: checkout after a safe update. It builds/imports, runs correctness checks, then automatically captures idle/pan/zoom/paint on both backends with mesh workers enabled. Eight windows run for 3 seconds of warm-up + 8 seconds recording each, plus startup/settling; let them close automatically.
+
+The report is copied for pasting in the active project conversation, and a local ZIP is prepared under artifacts/acceptance/self-test. Failure/cancellation preserves partial evidence. Nothing uploads automatically. This is a short diagnostic; physical performance acceptance remains pending. [Runner and coast-patch guide](docs/V3_4_COAST_PATCHES_AND_SELF_TEST.md).
+
+V3.4.4 slice 1 also proves bounded coast-mask patches against V2; the existing small-world water surface remains. Resident coast rendering and distance LOD are the next slices.
+
 ## Current code capabilities and limitations
 
 | Implemented | Not yet implemented / not yet physically verified |
@@ -95,7 +103,7 @@ Future bounded regional world: make 64×64 data regions authoritative behind thi
 - V2 introduced true stylized 3D, mouse-anchored orthographic camera, animated ocean and real CC0 models.
 - V3.0's alternate region demo proved only logical coordinates and some storage; **the user rejected appearance AND movement**. [Postmortem](docs/V3_REJECTION_POSTMORTEM.md).
 - [PR #47](https://github.com/tahazarif10/worldforge-sim/pull/47) restored approved V2 as the safe default; [PR #49](https://github.com/tahazarif10/worldforge-sim/pull/49) added opt-in exact data-source parity; [PR #50](https://github.com/tahazarif10/worldforge-sim/pull/50) removed dense rock caps from summits; [PR #51](https://github.com/tahazarif10/worldforge-sim/pull/51) added exact screenshot seed replay.
-- **Current:** outstanding V3.3 baseline/QA plus V3.4.3 worker engineering in [PR #68](https://github.com/tahazarif10/worldforge-sim/pull/68). Next architecture slice is V3.4.4 distance LOD/coast seams, with host profiling before default promotion; see the [roadmap](docs/ROADMAP.md).
+- **Current:** outstanding V3.3 baseline/QA plus V3.4.3 worker engineering in [PR #68](https://github.com/tahazarif10/worldforge-sim/pull/68). V3.4.4 slice 1 adds bounded coast data and automatic host diagnostics in #69; resident coast rendering and distance LOD remain next, with host profiling before default promotion; see the [roadmap](docs/ROADMAP.md).
 
 ## Rights, CI and product boundaries
 

@@ -44,3 +44,5 @@ CI tests, H:-Windows physical scenarios, failure/rollback gates.
 ## Evidence
 PRs, commit SHAs, user acceptance, external sources.
 ```
+
+| [0009](0009-bounded-coast-patches-and-host-diagnostics.md) | Accepted for V3.4.4 slice 1 | Bounded coast halo/gutter, exact data parity and automatic failure-preserving host diagnostics |

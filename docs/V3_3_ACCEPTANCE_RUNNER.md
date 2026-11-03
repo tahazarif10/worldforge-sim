@@ -137,3 +137,7 @@ Related: [state](PROJECT_STATE.md), [roadmap](ROADMAP.md), [#53](https://github.
 ## Rollback
 
 Ordinary launch never enables `--acceptance-*` mode. Revert the implementation commit if source rollback is needed. Keep already captured evidence and user-local files; do not reset project.godot or delete artifacts to obtain a clean-looking report.
+
+## V3.4.4 diagnostic wrapper and explicit planner identity
+
+[RUN-TEST.cmd](../RUN-TEST.cmd) selects the new worker path and short 3+8-second windows on all four scenarios/both backends, with a copied report and local evidence ZIP. [Complete guide](V3_4_COAST_PATCHES_AND_SELF_TEST.md). This does not change the full-duration defaults described above. The full runner now accepts -MeshWorkers or -ViewportStreaming, validates the expected planner, records worker window maxima and waits for final current detail before taking images. Close/Esc writes explicit incomplete evidence. Native process timeout/exit outcome is preserved in process.json, and owned Windows process trees are stopped on interruption/timeout. Historical captures missing the planner identity are refused by the current validator.

@@ -11,6 +11,7 @@
     <Compile Include="Scripts/**/*.cs" />
     <Compile Include="tests/ViewportStreaming.Smoke/EngineProbe*.cs" />
     <Compile Include="tests/MeshWorkers.Smoke/EngineProbe*.cs" />
+    <Compile Include="tests/AcceptanceBundle.Smoke/CancelProbe.cs" />
     <ProjectReference Include="src/WorldSim/WorldSim.csproj" />
   </ItemGroup>
 </Project>

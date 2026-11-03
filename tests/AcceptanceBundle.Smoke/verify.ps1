@@ -32,6 +32,7 @@ function Fixture([string]$backend) {
         input_interference = $false; focus_lost = $false; failure = $null
         fixture_sha256 = ('A' * 64); os = 'Linux'; paint_actions = 0
         fixture = [ordered]@{
+            streaming_planner = 'legacy-v2'
             version = 'v3.3-reference-1'; seed = 1315511732; scenario = 'idle'
             duration_seconds = 0.2; warmup_seconds = 0; quality = 'Eco'
             width = 120; height = 88; viewport_width = 1280; viewport_height = 800
@@ -78,6 +79,7 @@ try {
     $cases = @(
         @{name='overflow'; edit={param($m) $m.statistics.dropped_samples=1}},
         @{name='unfinished'; edit={param($m) $m.statistics.complete=$false}},
+        @{name='wrong planner'; edit={param($m) $m.fixture.streaming_planner='viewport-v3-workers'}},
         @{name='wrong seed'; edit={param($m) $m.fixture.seed=99}},
         @{name='wrong session'; edit={param($m) $m.session_id='another'}},
         @{name='false physical approval'; edit={param($m) $m.physical_acceptance='PASS'}},

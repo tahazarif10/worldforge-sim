@@ -118,7 +118,9 @@ The first proxy preserves exact per-cell V2 top geometry, palette and coast silh
 - Current generation/unique lease rejects stale work. Two failures stop retrying that generation while fallback remains; edits/re-entry permit retry. Teardown cancels and joins pure jobs.
 - `-MeshWorkers` implies viewport fallback; `-ViewportStreaming` alone retains V3.4.2. Exact-head core/engine/PowerShell results belong to #67/PR #68. User-host screenshots, input and p95/p99 remain pending.
 
-**V3.4.4 — LOD, seams and coast parity (next architecture slice)**
+**V3.4.4 — LOD, seams and coast parity (slice 1 implemented; remaining architecture open)**
+
+[#69](https://github.com/tahazarif10/worldforge-sim/issues/69) adds bounded coast-kernel snapshots and one-click worker diagnostics. [Guide](V3_4_COAST_PATCHES_AND_SELF_TEST.md), [ADR 0009](decisions/0009-bounded-coast-patches-and-host-diagnostics.md). The data kernel has exact V2 byte/filter-border tests; current runtime still publishes its bounded small-world texture. Resident water planes/textures, shader placement, distance LOD and GPU seam acceptance remain next. Run RUN-TEST.cmd to collect the current worker mode automatically; its short windows do not replace full V3.3 acceptance.
 
 First inspect V3.4.3 host snapshot/upload/overrun diagnostics. If one native publication unit dominates, scope and measure its split before increasing map size. Maintain near-field art and current fallback through each change.
 - Start with LOD0 (approved near 16×16), LOD1 (moderate distant geometry), LOD2 (low-detail fallback). **Prototype and benchmark thresholds**, do not hardcode arbitrary GPU assumptions.
