@@ -36,6 +36,8 @@ jobs:
         run: dotnet run --project tests/VisibleChunks.Smoke/VisibleChunks.Smoke.csproj -c Release
       - name: Finite viewport coverage and bounded generation-safe residency
         run: dotnet run --project tests/ViewportStreaming.Smoke/ViewportStreaming.Smoke.csproj -c Release
+      - name: Immutable numeric workers, bounded memory, cancellation and publication budgets
+        run: dotnet run --project tests/MeshWorkers.Smoke/MeshWorkers.Smoke.csproj -c Release
       - name: Authored nature species scatter tests
         run: dotnet run --project tests/NatureScatter.Smoke/NatureScatter.Smoke.csproj -c Release
       - name: Summit cap removal, mountain accent bounds and real-map density

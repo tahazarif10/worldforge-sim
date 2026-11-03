@@ -10,7 +10,7 @@ namespace WorldForge.VisualLab;
 public readonly record struct ViewportStreamingDiagnostics(
     string Planner, long WorldEpoch, int DesiredChunks, int VisibleChunks,
     int PendingChunks, int MissingVisibleChunks, long MissingVisibleCellUpperBound,
-    int Capacity, int FallbackChunks, int MissingDetailedVisibleChunks);
+    int Capacity, int FallbackChunks, int MissingDetailedVisibleChunks, MeshWorkerDiagnostics Workers);
 
 public partial class VisualTerrain3D
 {
@@ -21,8 +21,9 @@ public partial class VisualTerrain3D
     public const float ViewportMaximumY = 5f + ElevationRegionStore.MaxAbsoluteOffset;
 
     public bool ViewportStreamingEnabled { get; } =
-        Array.Exists(OS.GetCmdlineUserArgs(), arg => arg == "--viewport-streaming");
-    public string StreamingPlannerName => ViewportStreamingEnabled ? "viewport-v2-fallback" : "legacy-v2";
+        Array.Exists(OS.GetCmdlineUserArgs(), arg => arg is "--viewport-streaming" or "--mesh-workers");
+    public string StreamingPlannerName => MeshWorkersEnabled ? "viewport-v3-workers" :
+        ViewportStreamingEnabled ? "viewport-v2-fallback" : "legacy-v2";
     private readonly ChunkResidencyQueue _viewportQueue = new(ViewportCapacity);
     private readonly Dictionary<ChunkCoord, long> _viewportRevisions = new();
     private ViewportChunkPlan? _viewportPlan;
@@ -38,11 +39,12 @@ public partial class VisualTerrain3D
     {
         if (!ViewportStreamingEnabled) return;
         _viewportWorldEpoch = checked(_viewportWorldEpoch + 1);
+        ResetMeshWorkers();
         ResetViewportSurfaces();
         _viewportQueue.Reset();
         _viewportRevisions.Clear();
         _viewportPlan = null;
-        GD.Print("Experimental viewport planner: viewport-v2-fallback; world epoch " + _viewportWorldEpoch);
+        GD.Print("Experimental viewport planner: " + StreamingPlannerName + "; world epoch " + _viewportWorldEpoch);
     }
 
     public ViewportStreamingDiagnostics StreamingDiagnostics
@@ -65,7 +67,7 @@ public partial class VisualTerrain3D
             return new ViewportStreamingDiagnostics(StreamingPlannerName, _viewportWorldEpoch,
                 _viewportPlan?.Desired.Count ?? 0, _viewportPlan?.Visible.Count ?? 0,
                 _viewportQueue.PendingCount, missing, cells, ViewportCapacity,
-                _viewportFallbacks.Count, missingDetail);
+                _viewportFallbacks.Count, missingDetail, WorkerDiagnostics);
         }
     }
 
@@ -123,6 +125,11 @@ public partial class VisualTerrain3D
         }
 
         GroundBounds bounds = plan.Bounds ?? default;
+        if (MeshWorkersEnabled)
+        {
+            UpdateMeshWorkers(maxNewChunks, bounds);
+            return;
+        }
         for (int i = 0; i < maxNewChunks &&
             _viewportQueue.TryTake((bounds.MinX + bounds.MaxX) * .5,
                 (bounds.MinZ + bounds.MaxZ) * .5, ChunkSize, out ChunkRequest request); i++)
@@ -180,6 +187,8 @@ public partial class VisualTerrain3D
 
     public override void _ExitTree()
     {
+        _meshWorkers?.Dispose(); // Cancel and join pure jobs before releasing the owner.
+        _meshWorkers = null;
         _viewportQueue.Dispose();
         // The scene owns and frees child resources at teardown.
         _viewportDetails.Clear();

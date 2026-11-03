@@ -213,9 +213,9 @@ public partial class VisualLab3D : Node3D
         }
 
         // Coverage follows camera motion every rendered frame in opt-in mode.
-        // Detailed forest construction retains the existing 50ms 2/4 budget.
+        // Synchronous modes keep their 50ms cadence; workers use per-frame publication budgets.
         _visibilityRefresh += delta;
-        bool buildDetails = _visibilityRefresh >= 0.05;
+        bool buildDetails = _terrain.MeshWorkersEnabled || _visibilityRefresh >= 0.05;
         if (_terrain.ViewportStreamingEnabled || buildDetails)
         {
             if (buildDetails) _visibilityRefresh = 0;

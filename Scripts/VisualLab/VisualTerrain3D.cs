@@ -110,6 +110,11 @@ public partial class VisualTerrain3D : Node3D
     private void RebuildResidentGeometry()
     {
         InvalidateViewportGeometry();
+        if (MeshWorkersEnabled)
+        {
+            RefreshViewportFallbacks();
+            return; // Quality/load edits use the same worker and publication budgets.
+        }
         // Debug quality toggle only: the usual view-driven loading remains
         // bounded. Snapshot dictionary keys before replacing foliage batches.
         foreach (var key in new List<(int X, int Y)>(_chunks.Keys))
@@ -214,6 +219,8 @@ public partial class VisualTerrain3D : Node3D
 
     public void BindWorld(WorldState world, ITerrainTileSource? terrainSource = null)
     {
+        if (MeshWorkersEnabled && (long)world.Width * world.Height > CoastBuildSnapshot.MaximumCells)
+            throw new ArgumentOutOfRangeException(nameof(world), "Mesh-worker preview supports at most 16384 coast cells.");
         _world = world;
         // Keep the original direct WorldState path as the default. Region
         // parity mode uses the same shader, water, foliage and camera code.
@@ -358,11 +365,18 @@ public partial class VisualTerrain3D : Node3D
             MarkViewportChunkDirty(cx, cy);
         }
         _coastDirty = true;
+        MarkWorkerCoastDirty();
     }
 
     public void FlushChanges()
     {
         if (_changedChunks.Count == 0 && !_coastDirty) return;
+        if (MeshWorkersEnabled)
+        {
+            _changedChunks.Clear();
+            RefreshViewportFallbacks();
+            return; // Dirty detail and coast publication are pumped by visibility updates.
+        }
         foreach (var (x, y) in _changedChunks)
         {
             // A hidden region retains edits in the authoritative WorldState;

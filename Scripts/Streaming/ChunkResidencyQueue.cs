@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace WorldForge.Streaming;
 
-public enum ChunkResidencyState { Unloaded, Queued, Generating, Ready, Stale, Disposed }
+public enum ChunkResidencyState { Unloaded, Queued, Generating, Ready, Stale, Failed, Disposed }
 
 /// <summary>World epochs are monotonic within one queue owner. Camera motion is not data validity.</summary>
 public readonly record struct ChunkGeneration(long WorldEpoch, long DataRevision, int Lod, int FormatVersion);
@@ -148,6 +148,15 @@ public sealed class ChunkResidencyQueue : IDisposable
         entry!.State = entry.HasResident ? ChunkResidencyState.Stale : ChunkResidencyState.Queued;
         entry.Ticket = 0;
         return true;
+    }
+
+    public bool IsCurrent(ChunkRequest request) => Matches(request,out _);
+
+    public bool Abandon(ChunkRequest request)
+    {
+        if(!Matches(request,out Entry? entry))return false;
+        entry!.State=ChunkResidencyState.Failed;entry.Ticket=0;
+        return true; // A new data generation or re-entry can retry; no spinning failure loop.
     }
 
     private bool Matches(ChunkRequest request, out Entry? entry)
