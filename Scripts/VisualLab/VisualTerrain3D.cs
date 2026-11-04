@@ -34,6 +34,8 @@ public partial class VisualTerrain3D : Node3D
     private bool _ecoMode;
     private bool _interactiveEditBatch;
     private bool _batchedCoastDirty;
+    private double _interactivePreviewSeconds;
+    private const double InteractivePreviewIntervalSeconds = 0.08;
     private readonly HashSet<(int X, int Y)> _batchedViewportDirty = new();
     public bool EcoMode => _ecoMode;
     private readonly HashSet<(int X, int Y)> _changedChunks = new();
@@ -265,6 +267,7 @@ public partial class VisualTerrain3D : Node3D
         _changedChunks.Clear();
         _interactiveEditBatch = false;
         _batchedCoastDirty = false;
+        _interactivePreviewSeconds = 0;
         _batchedViewportDirty.Clear();
         foreach (Node3D chunk in _foliageChunks.Values)
         {
@@ -314,11 +317,9 @@ public partial class VisualTerrain3D : Node3D
     public void UpdateVisibility(Godot.Camera3D camera, int maxNewChunks = 4)
     {
         if (_world is null) return;
-        // While an interactive paint stroke is held, freeze the rendered
-        // terrain/foliage scene exactly as-is. World data may change underneath,
-        // but no fallback build, worker publication, eviction or visibility
-        // handoff is allowed until mouse release commits the batch.
-        if (_interactiveEditBatch) return;
+        // Worker mode publishes bounded live previews during a held stroke.
+        // Synchronous modes retain their existing commit-on-release behavior.
+        if (_interactiveEditBatch && !MeshWorkersEnabled) return;
         if (ViewportStreamingEnabled)
         {
             UpdateViewportVisibility(camera, maxNewChunks);
@@ -386,13 +387,53 @@ public partial class VisualTerrain3D : Node3D
         if (_interactiveEditBatch) return;
         _interactiveEditBatch = true;
         _batchedCoastDirty = false;
+        _interactivePreviewSeconds = 0;
         _batchedViewportDirty.Clear();
+    }
+
+    /// <summary>
+    /// Admit the latest interactive edits at a bounded cadence, while allowing
+    /// existing worker generations to complete. Publishing remains an atomic
+    /// terrain+foliage handoff; repeated mouse motion never cancels an
+    /// in-flight chunk just to start another copy of the same work.
+    /// </summary>
+    public void PreviewInteractiveEditBatch(double delta)
+    {
+        if (!_interactiveEditBatch || !MeshWorkersEnabled) return;
+        if (!double.IsFinite(delta) || delta < 0)
+            throw new ArgumentOutOfRangeException(nameof(delta));
+
+        _interactivePreviewSeconds += Math.Min(delta, 0.1);
+        if (_interactivePreviewSeconds < InteractivePreviewIntervalSeconds) return;
+        _interactivePreviewSeconds = 0;
+
+        foreach (var key in new List<(int X, int Y)>(_batchedViewportDirty))
+        {
+            var chunk = new ChunkCoord(key.X, key.Y);
+            // A generating lease owns a captured snapshot. Let it publish
+            // before invalidating it with edits made later in this stroke.
+            if (_viewportQueue.StateOf(chunk) == ChunkResidencyState.Generating)
+                continue;
+            MarkViewportChunkDirty(key.X, key.Y);
+            _batchedViewportDirty.Remove(key);
+        }
+
+        // Coast work is also coalesced. Do not repeatedly cancel a running
+        // coastline build while painting through adjacent water cells.
+        if (_batchedCoastDirty &&
+            (_meshWorkers is null || !_meshWorkers.Any(r => r.Key.X < 0)))
+        {
+            _coastDirty = true;
+            MarkWorkerCoastDirty();
+            _batchedCoastDirty = false;
+        }
     }
 
     public void CommitInteractiveEditBatch()
     {
         if (!_interactiveEditBatch) return;
         _interactiveEditBatch = false;
+        _interactivePreviewSeconds = 0;
 
         foreach (var key in _batchedViewportDirty)
             MarkViewportChunkDirty(key.X, key.Y);
