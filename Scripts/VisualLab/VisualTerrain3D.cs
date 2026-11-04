@@ -371,7 +371,8 @@ public partial class VisualTerrain3D : Node3D
     }
 
     /// <summary>Defer all geometry changes until end of simulation frame.</summary>
-    public void MarkChanged(int x, int y, int radius)
+    public void MarkChanged(int x, int y, int radius, bool coastlineChanged = true,
+        bool retainPreviousVisibleDetail = false)
     {
         if (_world is null) return;
         // Apply changed simulation cells to the region mirror BEFORE any
@@ -386,9 +387,14 @@ public partial class VisualTerrain3D : Node3D
         {
             _changedChunks.Add((cx, cy));
             MarkViewportChunkDirty(cx, cy);
+            if (retainPreviousVisibleDetail)
+                RetainPreviousViewportDetail(cx, cy);
         }
-        _coastDirty = true;
-        MarkWorkerCoastDirty();
+        if (coastlineChanged)
+        {
+            _coastDirty = true;
+            MarkWorkerCoastDirty();
+        }
     }
 
     public void FlushChanges()
