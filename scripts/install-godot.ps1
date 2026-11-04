@@ -8,9 +8,11 @@ if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
 . (Join-Path $PSScriptRoot 'enter-dev.ps1')
 if (-not [Environment]::Is64BitOperatingSystem) { throw 'Requires 64-bit Windows' }
 $dest = Join-Path $root 'Tools\Godot'
+Assert-WorldForgePortableTree -Root $root -Directory $dest
 $downloads = Join-Path $root 'Cache\Downloads'
 $zip = Join-Path $downloads 'Godot_v4.7.2-stable_mono_win64.zip'
 $url = 'https://downloads.godotengine.org/?flavor=stable&platform=windows.64&slug=mono_win64.zip&version=4.7.2'
+Assert-WorldForgePortablePath -Root $root -Path $zip -Kind File -AllowMissing
 New-Item -ItemType Directory -Force -Path $dest,$downloads | Out-Null
 $editor = Get-ChildItem -LiteralPath $dest -Recurse -File -Filter 'Godot_v4.7.2-stable_mono_win64.exe' |
     Select-Object -First 1
@@ -33,17 +35,17 @@ if ($null -eq $editor) {
         Select-Object -First 1
 }
 if ($null -eq $editor) { throw 'Expected Godot .NET editor binary was not found after extraction' }
-if (-not $editor.FullName.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
-    throw "Blocked: editor binary outside H: ($($editor.FullName))"
-}
+Assert-WorldForgePortablePath -Root $root -Path $editor.FullName -Kind File
 $signature = Get-AuthenticodeSignature -LiteralPath $editor.FullName
 Write-Host "Authenticode status: $($signature.Status); signer: $($signature.SignerCertificate.Subject)"
 if ($signature.Status -ne 'Valid') { throw 'Official Godot editor signature did not verify. Do not execute unverified download.' }
 $marker = Join-Path $editor.DirectoryName '_sc_'
+Assert-WorldForgePortablePath -Root $root -Path $marker -Kind File -AllowMissing
+$editorData = Join-Path $editor.DirectoryName 'editor_data'
+Assert-WorldForgePortablePath -Root $root -Path $editorData -Kind Directory -AllowMissing
 if (-not (Test-Path -LiteralPath $marker)) {
     New-Item -ItemType File -Force -Path $marker | Out-Null
 }
-$editorData = Join-Path $editor.DirectoryName 'editor_data'
 New-Item -ItemType Directory -Force -Path $editorData | Out-Null
 Write-Host "Verified portable Godot editor: $($editor.FullName)"
 Write-Host "Self-contained marker: $marker"

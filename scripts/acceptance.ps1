@@ -3,8 +3,10 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 . (Join-Path $PSScriptRoot 'enter-dev.ps1')
 $out = Join-Path $root 'artifacts\acceptance'
+Assert-WorldForgePortablePath -Root $root -Path $out -Kind Directory -AllowMissing
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 $report = Join-Path $out 'result.txt'
+Assert-WorldForgePortablePath -Root $root -Path $report -Kind File -AllowMissing
 "WorldForge acceptance - $(Get-Date -Format o)" | Set-Content -LiteralPath $report
 
 # Windows PowerShell 5.1 turns redirected native stderr into RemoteException
@@ -20,6 +22,8 @@ function Invoke-LoggedStep {
     )
     $stdout = Join-Path $out "$Name.stdout.txt"
     $stderr = Join-Path $out "$Name.stderr.txt"
+    Assert-WorldForgePortablePath -Root $root -Path $stdout -Kind File -AllowMissing
+    Assert-WorldForgePortablePath -Root $root -Path $stderr -Kind File -AllowMissing
     if (Test-Path -LiteralPath $stdout) { Remove-Item -LiteralPath $stdout -Force }
     if (Test-Path -LiteralPath $stderr) { Remove-Item -LiteralPath $stderr -Force }
 
@@ -56,13 +60,9 @@ function Invoke-LoggedStep {
 Push-Location $root
 try {
     $sdkExe = Join-Path $root 'Tools\dotnet\dotnet.exe'
-    if (-not (Test-Path -LiteralPath $sdkExe)) {
-        throw "H:-based .NET SDK missing at $sdkExe. Do not use the C: installation."
-    }
+    Assert-WorldForgePortablePath -Root $root -Path $sdkExe -Kind File
     $sdk = (Get-Command dotnet -ErrorAction Stop).Source
-    if (-not $sdk.StartsWith('H:\', [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "Blocked: dotnet on non-H: drive: $sdk. Dot-source scripts/enter-dev.ps1 first."
-    }
+    Assert-WorldForgePortablePath -Root $root -Path $sdk -Kind File
 
     Invoke-LoggedStep -Name 'dotnet-info' -Exe $sdkExe -Arguments @('--info')
     Invoke-LoggedStep -Name 'core-build' -Exe $sdkExe -Arguments @('build', '.\src\WorldSim\WorldSim.csproj', '-c', 'Release')
@@ -71,13 +71,10 @@ try {
 
     if ($GodotPath) {
         $godotExe = (Resolve-Path -LiteralPath $GodotPath).Path
-        if (-not $godotExe.StartsWith('H:\', [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "Blocked: Godot executable outside H: $godotExe"
-        }
-        if (-not (Test-Path -LiteralPath (Join-Path (Split-Path $godotExe -Parent) '_sc_'))) {
-            throw 'Blocked: self-contained Godot _sc_ marker missing'
-        }
-        Invoke-LoggedStep -Name 'godot-headless-import' -Exe $godotExe -Arguments @('--headless', '--editor', '--path', $root, '--quit')
+        Assert-WorldForgePortableGodot -Root $root -Executable $godotExe
+        $godotLog = Join-Path $out 'godot.log'
+        Assert-WorldForgePortablePath -Root $root -Path $godotLog -Kind File -AllowMissing
+        Invoke-LoggedStep -Name 'godot-headless-import' -Exe $godotExe -Arguments @('--headless', '--editor', '--path', $root, '--log-file', $godotLog, '--quit')
     } else {
         'SKIP: Godot headless import (no GodotPath supplied)' | Add-Content -LiteralPath $report
     }

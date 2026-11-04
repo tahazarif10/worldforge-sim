@@ -10,7 +10,7 @@ if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
 Set-Location $root
 . (Join-Path $PSScriptRoot 'enter-dev.ps1')
 $sdk = Join-Path $root 'Tools\dotnet\dotnet.exe'
-if (-not (Test-Path -LiteralPath $sdk)) { throw "H:-based .NET missing: $sdk" }
+Assert-WorldForgePortablePath -Root $root -Path $sdk -Kind File
 & $sdk run --project (Join-Path $root 'tests\TerrainBackendParity.Smoke\TerrainBackendParity.Smoke.csproj') -c Release
 if ($LASTEXITCODE -ne 0) { throw "Region-to-approved-V2 art parity smoke failed" }
 # Import existing CC0 GLBs, run previous V2 tests, and compile C# on H:.
@@ -21,15 +21,11 @@ if ($NoLaunch) { return }
 $editor = Get-ChildItem -Path (Join-Path $root 'Tools\Godot') -Recurse -File -Filter 'Godot_v4.7.2-stable_mono_win64.exe' -ErrorAction Stop |
     Select-Object -First 1
 if (-not $editor) { throw "Missing portable Godot Mono under H:" }
-if (-not $editor.FullName.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
-    throw "Godot executable is outside H:."
-}
-if (-not (Test-Path (Join-Path $editor.DirectoryName '_sc_'))) {
-    throw "Godot portable _sc_ marker missing; refusing C:-profile cache"
-}
+Assert-WorldForgePortableGodot -Root $root -Executable $editor.FullName
 $folder = Join-Path $root 'artifacts\visual-lab'
-New-Item -ItemType Directory -Force -Path $folder | Out-Null
 $log = Join-Path $folder 'godot-v2-region-parity.log'
+Assert-WorldForgePortablePath -Root $root -Path $log -Kind File -AllowMissing
+New-Item -ItemType Directory -Force -Path $folder | Out-Null
 Write-Host 'Running APPROVED V2 scene with experimental REGION DATA only. Right-drag and water visuals must look identical.'
 Write-Host "Engine log: $log"
 $godotArgs = @('--path', $root, '--scene', 'res://Scenes/VisualLab3D.tscn',

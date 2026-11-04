@@ -1,5 +1,5 @@
 # Verify the new V2 camera/region/foliage integration on the user H: machine.
-# Never touches project.godot, C: or any Git working-tree changes.
+# Preserves project.godot and Git changes; controlled tool/cache writes use the H: environment.
 param([switch]$NoLaunch)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -9,7 +9,7 @@ if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
 Set-Location $root
 . (Join-Path $PSScriptRoot 'enter-dev.ps1')
 $sdk = Join-Path $root 'Tools\dotnet\dotnet.exe'
-if (-not (Test-Path -LiteralPath $sdk)) { throw "Missing H:-based .NET SDK at $sdk" }
+Assert-WorldForgePortablePath -Root $root -Path $sdk -Kind File
 $tests = @(
     'tests\Camera3D.Smoke\Camera3D.Smoke.csproj',
     'tests\WorldRegion.Smoke\WorldRegion.Smoke.csproj',

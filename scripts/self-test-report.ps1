@@ -15,6 +15,16 @@ function New-SelfTestReport {
     if ($Failure) { $lines.Add("Failure: $Failure") }
     $lines.Add('The game closes automatically. Manual closure or Esc means INCOMPLETE, not a game crash verdict.')
     $lines.Add('No files were uploaded. Paste this report into the active project conversation.')
+    $portable = Join-Path $Directory 'portable-environment.json'
+    if (Test-Path -LiteralPath $portable -PathType Leaf) {
+        try {
+            $environment = Get-Content -LiteralPath $portable -Raw -Encoding UTF8 | ConvertFrom-Json
+            $lines.Add("Portable tool configuration: $($environment.root); scope: $($environment.scope)")
+            $lines.Add("Temp: $($environment.bindings.TEMP); NuGet: $($environment.bindings.NUGET_PACKAGES)")
+            $lines.Add("Tool app data: $($environment.bindings.APPDATA); .NET home: $($environment.bindings.DOTNET_CLI_HOME)")
+            $lines.Add('Configuration evidence only, not a filesystem trace or proof of zero Windows/driver writes. Full bindings: portable-environment.json')
+        } catch { $lines.Add("Portable configuration unavailable: $($_.Exception.Message)") }
+    }
     $metadata = Join-Path $Directory 'capture\metadata.json'
     if (Test-Path -LiteralPath $metadata) {
         try {

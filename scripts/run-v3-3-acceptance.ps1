@@ -1,5 +1,5 @@
 #requires -Version 5.1
-# Runs fresh same-scene direct/mirror fixtures. Writes only under H:.
+# Runs fresh same-scene direct/mirror fixtures. Controlled project writes stay under H:.
 # No Git update, reset, stash, download, project.godot edit or product auto-approval.
 param(
     [ValidateSet('all','idle','pan','zoom','paint')][string]$Scenario = 'all',
@@ -32,11 +32,9 @@ $seedText = $WorldSeed.ToString([Globalization.CultureInfo]::InvariantCulture)
 $sdk = Join-Path $root 'Tools\dotnet\dotnet.exe'
 $editor = Join-Path $root 'Tools\Godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64.exe'
 foreach ($tool in @($sdk, $editor)) {
-    if (-not (Test-Path -LiteralPath $tool -PathType Leaf)) { throw "Missing H: tool: $tool" }
+    Assert-WorldForgePortablePath -Root $root -Path $tool -Kind File
 }
-if (-not (Test-Path -LiteralPath (Join-Path (Split-Path $editor -Parent) '_sc_'))) {
-    throw 'Portable Godot _sc_ marker missing; refusing a profile cache outside H:.'
-}
+Assert-WorldForgePortableGodot -Root $root -Executable $editor
 $initialWorktree = Get-AcceptanceWorktreeState -Root $root
 $commit = $initialWorktree.commit_sha
 $projectHash = $initialWorktree.project_godot_sha256
@@ -51,6 +49,7 @@ if ($EvidenceDirectory) {
     }
 }
 if (Test-Path -LiteralPath $bundle) { throw "Refusing to overwrite evidence: $bundle" }
+Assert-WorldForgePortablePath -Root $root -Path $bundle -Kind Directory -AllowMissing
 New-Item -ItemType Directory -Path $bundle | Out-Null
 $planner = if ($MeshWorkers) { 'viewport-v3-workers' } elseif ($ViewportStreaming) { 'viewport-v2-fallback' } else { 'legacy-v2' }
 $featureArgs = if ($MeshWorkers) { @('--mesh-workers') } elseif ($ViewportStreaming) { @('--viewport-streaming') } else { @() }

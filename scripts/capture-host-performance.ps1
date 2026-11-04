@@ -11,8 +11,9 @@ if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
 }
 . (Join-Path $PSScriptRoot 'enter-dev.ps1')
 $out = Join-Path $root 'artifacts\performance'
-New-Item -ItemType Directory -Force -Path $out | Out-Null
 $dest = Join-Path $out ('godot-host-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.csv')
+Assert-WorldForgePortablePath -Root $root -Path $dest -Kind File -AllowMissing
+New-Item -ItemType Directory -Force -Path $out | Out-Null
 $previous = @{}
 $coreCount = [Math]::Max(1, [Environment]::ProcessorCount)
 $sampleCount = [int][Math]::Ceiling($Seconds / $IntervalSeconds) + 1

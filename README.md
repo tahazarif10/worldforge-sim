@@ -8,6 +8,21 @@
 
 This project was configured for **Godot 4.7.2 Mono/.NET 10**, AMD Radeon R9 M395X, **Compatibility/OpenGL**. Tools, .NET packages, game assets, builds, cache and screenshots intentionally stay under **H:\WorldForge-Sim**. Third-party/Windows system activity on C: cannot be globally prevented.
 
+The portable launch environment ([#77](https://github.com/tahazarif10/worldforge-sim/issues/77)) validates configured destinations before creating them and refuses existing junctions, symbolic links or wrong file/directory kinds along those paths. Godot launchers require a real `_sc_` file beside the portable editor and validate its `editor_data` path. The environment applies only to the current process and its children; it does not change Windows user/machine environment or registry settings.
+
+| Controlled data | Destination under the checkout |
+| --- | --- |
+| Temporary files, NuGet scratch, .NET bundle extraction | `Temp`, `Temp\NuGetScratch`, `Temp\DotNetBundle` |
+| NuGet packages / HTTP cache / plugin cache | `Cache\NuGet`, `Cache\NuGetHttp`, `Cache\NuGetPlugins` |
+| .NET first-run state and MSBuild user extensions | `Cache\DotNetHome`, `Cache\MSBuild` |
+| Tool roaming/local application data, including NuGet user config | `Cache\AppData\Roaming`, `Cache\AppData\Local` |
+| SDK, editor and portable editor data | `Tools\dotnet`, `Tools\Godot` |
+| Game/editor logs, captures and reports | `artifacts` |
+
+Supported .NET switches disable first-run ASP.NET certificate creation, global-tool PATH modification, telemetry and background workload update notification. The obsolete `DOTNET_SKIP_FIRST_TIME_EXPERIENCE` flag is no longer relied on. [Microsoft environment reference](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-environment-variables) and [NuGet cache controls](https://learn.microsoft.com/en-us/nuget/consume-packages/managing-the-global-packages-and-cache-folders) describe these controls. NuGet's .NET implementation honors the scoped APPDATA/LOCALAPPDATA values for its user settings and migration data; Godot also uses these environment paths in Windows, alongside its [self-contained mode](https://docs.godotengine.org/en/4.7/tutorials/io/data_paths.html#self-contained-mode).
+
+`RUN-TEST.cmd` additionally disables the PowerShell module-analysis file cache **before** starting a fresh shell. Dot-sourcing `enter-dev.ps1` in an already-open shell cannot change that shell's startup cache selection; see [Windows PowerShell 5.1](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_windows_powershell_5.1?view=powershell-5.1#module-analysis-cache). The copied diagnostic report includes resolved portable paths, with full bindings in `portable-environment.json`. These are configuration checks, not a machine-wide filesystem trace or a guarantee about OS/driver-managed writes.
+
 From Windows PowerShell (safe Git update **only if local modifications do not block it**):
 
 ```powershell
@@ -51,9 +66,9 @@ Double-click [RUN-TEST.cmd](RUN-TEST.cmd) in the existing H: checkout after a sa
 
 The report is copied for pasting in the active project conversation, and a local ZIP is prepared under artifacts/acceptance/self-test. Failure/cancellation preserves partial evidence. Nothing uploads automatically. This is a short diagnostic; physical performance acceptance remains pending. [Runner and coast-patch guide](docs/V3_4_COAST_PATCHES_AND_SELF_TEST.md).
 
-**Target-host result, 2026-11-03:** the received report at `849dc704fd596a654d39741df1d9dea1d9ea1ef9` passed all eight short worker captures on R9 M395X. [Measured rows, provenance and pending gates](docs/V3_ACCEPTANCE_MATRIX.md#g-target-host-short-diagnostic--2026-11-03). The user approved this diagnostic milestone and continuation; full-duration performance and exact-candidate visual/input acceptance remain open.
+**Latest target-host result, 2026-11-04:** the received report at `a0fd5131fab345792f6b957b5c98c316d3d52a52` passed all eight short worker captures on R9 M395X (3,750 samples). [Measured rows, provenance and pending gates](docs/V3_ACCEPTANCE_MATRIX.md#i-received-staged-publication-host-report--2026-11-04). Paint p95 was 18.538 ms direct / 21.647 ms mirror; mirror zoom p95 remained 31.858 ms. Its slow paint rows place substantial work in visibility outside the pump, with zero native publication in those particular rows. The zoom interval remainder remains unclassified. These short summaries do not establish repeated performance benefit or full visual/input acceptance.
 
-[V3.4.4 slice 2](docs/V3_4_STAGED_PUBLICATION.md) is **engineering complete and merged in [PR #75](https://github.com/tahazarif10/worldforge-sim/pull/75)**. It separates terrain and foliage admission while holding one hidden replacement until matching handoff. New schema 3 diagnostics join per-phase work to the correct frame and include the slowest rows in the copied report. **The next gate is a new phase-enabled RUN-TEST.cmd report from the H: checkout** after a safe update; host speed improvement is not yet established.
+[V3.4.4 slice 2](docs/V3_4_STAGED_PUBLICATION.md) is **engineering complete and merged in [PR #75](https://github.com/tahazarif10/worldforge-sim/pull/75)**. It separates terrain and foliage admission while holding one hidden replacement until matching handoff. The requested schema 3 host report has now arrived. **Next:** portable-tool hardening [#77](https://github.com/tahazarif10/worldforge-sim/issues/77), then the measured-path picker correction [#78](https://github.com/tahazarif10/worldforge-sim/issues/78). Re-run RUN-TEST.cmd after a changed candidate is safely updated; do not repeat the unchanged old diagnostic merely to restate its metrics. Host speed improvement and full physical acceptance remain open.
 
 Slice 1 proves bounded coast-mask patches against V2; resident coast rendering and distance LOD remain later slices.
 
@@ -107,7 +122,7 @@ Future bounded regional world: make 64×64 data regions authoritative behind thi
 - V2 introduced true stylized 3D, mouse-anchored orthographic camera, animated ocean and real CC0 models.
 - V3.0's alternate region demo proved only logical coordinates and some storage; **the user rejected appearance AND movement**. [Postmortem](docs/V3_REJECTION_POSTMORTEM.md).
 - [PR #47](https://github.com/tahazarif10/worldforge-sim/pull/47) restored approved V2 as the safe default; [PR #49](https://github.com/tahazarif10/worldforge-sim/pull/49) added opt-in exact data-source parity; [PR #50](https://github.com/tahazarif10/worldforge-sim/pull/50) removed dense rock caps from summits; [PR #51](https://github.com/tahazarif10/worldforge-sim/pull/51) added exact screenshot seed replay.
-- **Current:** V3.4.4 slice 2 staged native publication and schema 3 phase evidence are merged in [PR #75](https://github.com/tahazarif10/worldforge-sim/pull/75), following the bounded coast data/diagnostics slice in [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70). Final reviewed-head and merged-main checks passed; the next step is a new phase-enabled `RUN-TEST.cmd` host report. V3.3 physical baseline/QA, resident coast rendering and distance LOD remain open; inspect the correlated paint/zoom evidence before coast/LOD expansion. See the [state](docs/PROJECT_STATE.md) and [roadmap](docs/ROADMAP.md).
+- **Current:** V3.4.4 slice 2 staged native publication and schema 3 phase evidence are merged in [PR #75](https://github.com/tahazarif10/worldforge-sim/pull/75), following the bounded coast data/diagnostics slice in [PR #70](https://github.com/tahazarif10/worldforge-sim/pull/70). The new phase-enabled short host report is recorded; portable-tool hardening and a narrow picker correction precede coast/LOD expansion. V3.3 physical baseline/QA, resident coast rendering and distance LOD remain open. See the [state](docs/PROJECT_STATE.md) and [roadmap](docs/ROADMAP.md).
 
 ## Rights, CI and product boundaries
 

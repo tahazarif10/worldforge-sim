@@ -21,6 +21,11 @@ if (-not $zip.EndsWith('.zip', [StringComparison]::OrdinalIgnoreCase)) {
 . (Join-Path $PSScriptRoot 'enter-dev.ps1')
 $expand = Join-Path $root 'Temp\V2NatureImport'
 $target = Join-Path $root 'Assets\Nature'
+Assert-WorldForgePortablePath -Root $root -Path $expand -Kind Directory -AllowMissing
+Assert-WorldForgePortablePath -Root $root -Path $target -Kind Directory -AllowMissing
+foreach ($name in @('Tree.glb','Rock.glb','SOURCE_NOTES.md')) {
+    Assert-WorldForgePortablePath -Root $root -Path (Join-Path $target $name) -Kind File -AllowMissing
+}
 if (Test-Path -LiteralPath $expand) {
     throw "Existing staging folder: $expand. To prevent data loss, move or remove it explicitly."
 }
