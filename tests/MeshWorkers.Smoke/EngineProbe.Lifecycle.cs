@@ -155,7 +155,8 @@ public partial class EngineProbe
                 bool dry=true;
                 for(int dz=-1;dz<=1;dz++)
                 for(int dx=-1;dx<=1;dx++)
-                    if(world.Tile(x+dx,z+dz) is Terrain.DeepWater or Terrain.ShallowWater)
+                    if(!world.Contains(x+dx,z+dz) ||
+                        world.Tile(x+dx,z+dz) is Terrain.DeepWater or Terrain.ShallowWater)
                         dry=false;
                 if(!dry)continue;
                 px=x;pz=z;retainedKey=key;break;
