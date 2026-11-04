@@ -53,11 +53,15 @@ public static class TerrainGridPicker
 {
     private const float Epsilon = 0.0001f;
     public readonly record struct Hit(int X, int Y, Vector3 Point);
+    /// <summary>Heights of the existing A/B/C/D/center triangle fan, acquired
+    /// together once per visited cell. No geometry or traversal is cached.</summary>
+    public readonly record struct SurfaceFan(float A, float B, float C, float D, float Center);
 
     public static bool TryPick(Vector3 origin, Vector3 direction,
         int width, int height, Func<int, int, float> heightAt, out Hit hit,
         Func<int, int, float>? liftAt = null,
-        Func<int, int, float, float, float>? surfaceHeightAt = null)
+        Func<int, int, float, float, float>? surfaceHeightAt = null,
+        Func<int, int, SurfaceFan>? surfaceFanAt = null)
     {
         hit = default;
         if (width <= 0 || height <= 0 || !CameraRayMath.IsFinite(origin) ||
@@ -96,7 +100,7 @@ public static class TerrainGridPicker
 
             float lift = liftAt?.Invoke(x, z) ?? 0f;
             if (TrySurfaceHit(origin, direction, x, z, surface, lift,
-                t, exit, out Vector3 topPoint, surfaceHeightAt))
+                t, exit, out Vector3 topPoint, surfaceHeightAt, surfaceFanAt))
             {
                 hit = new Hit(x, z, topPoint);
                 return true;
@@ -105,7 +109,7 @@ public static class TerrainGridPicker
             // The ray entered this cell through an exposed high cliff wall.
             // Do not select cliffs if the ray entered from outside world
             // underneath the visible base plane.
-            if (surfaceHeightAt is null && t >= 0 && t <= exit + Epsilon)
+            if (surfaceHeightAt is null && surfaceFanAt is null && t >= 0 && t <= exit + Epsilon)
             {
                 Vector3 entry = origin + direction * t;
                 if (entry.Y >= 0.12f - Epsilon && entry.Y <= surface + Epsilon)
@@ -136,11 +140,12 @@ public static class TerrainGridPicker
         Vector3 origin, Vector3 direction, int x, int z,
         float baseY, float centerLift, float firstT, float lastT,
         out Vector3 intersection,
-        Func<int, int, float, float, float>? surfaceHeightAt)
+        Func<int, int, float, float, float>? surfaceHeightAt,
+        Func<int, int, SurfaceFan>? surfaceFanAt)
     {
         intersection = default;
         // Keep original inexpensive flat pick when smooth terrain is off.
-        if (surfaceHeightAt is null && centerLift <= 0.000001f)
+        if (surfaceHeightAt is null && surfaceFanAt is null && centerLift <= 0.000001f)
         {
             if (MathF.Abs(direction.Y) < 0.000001f) return false;
             float t = (baseY - origin.Y) / direction.Y;
@@ -152,16 +157,19 @@ public static class TerrainGridPicker
 
         // Four triangles match VisualTerrain3D.AddTopFace EXACTLY:
         // a,b,mid; b,d,mid; d,c,mid; c,a,mid.
-        float aY = surfaceHeightAt?.Invoke(x,z,0f,0f) ?? baseY;
-        float bY = surfaceHeightAt?.Invoke(x,z,0f,1f) ?? baseY;
-        float cY = surfaceHeightAt?.Invoke(x,z,1f,0f) ?? baseY;
-        float dY = surfaceHeightAt?.Invoke(x,z,1f,1f) ?? baseY;
-        float midY = surfaceHeightAt?.Invoke(x,z,.5f,.5f) ?? baseY + centerLift;
-        Vector3 a = new(x, aY, z);
-        Vector3 b = new(x, bY, z + 1);
-        Vector3 c = new(x + 1, cY, z);
-        Vector3 d = new(x + 1, dY, z + 1);
-        Vector3 mid = new(x + .5f, midY, z + .5f);
+        // An explicitly supplied fan takes precedence over scalar sampling.
+        // Keep that scalar path intact as the legacy/parity reference.
+        SurfaceFan fan = surfaceFanAt is not null ? surfaceFanAt(x,z) : new(
+            surfaceHeightAt?.Invoke(x,z,0f,0f) ?? baseY,
+            surfaceHeightAt?.Invoke(x,z,0f,1f) ?? baseY,
+            surfaceHeightAt?.Invoke(x,z,1f,0f) ?? baseY,
+            surfaceHeightAt?.Invoke(x,z,1f,1f) ?? baseY,
+            surfaceHeightAt?.Invoke(x,z,.5f,.5f) ?? baseY + centerLift);
+        Vector3 a = new(x, fan.A, z);
+        Vector3 b = new(x, fan.B, z + 1);
+        Vector3 c = new(x + 1, fan.C, z);
+        Vector3 d = new(x + 1, fan.D, z + 1);
+        Vector3 mid = new(x + .5f, fan.Center, z + .5f);
         float best = float.PositiveInfinity;
         if (HitTriangle(origin,direction,a,b,mid,out float t0)) best = MathF.Min(best,t0);
         if (HitTriangle(origin,direction,b,d,mid,out float t1)) best = MathF.Min(best,t1);

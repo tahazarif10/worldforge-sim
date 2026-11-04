@@ -57,3 +57,75 @@ _ = TerrainGridPicker.TryPick(new Vector3(-1, 120, 0.5f),
 Check(visited < 1005, "cost bounded by crossed cells, not distance/.22");
 
 Console.WriteLine("PASS ALL camera 3D ray and terrain picking tests");
+
+// The scalar vertex callback is the retained oracle. Acquiring the same five
+// values together must not change triangles, DDA ordering or edge tolerances.
+static float Vertex(TerrainGridPicker.SurfaceFan fan, float u, float v) => (u, v) switch
+{
+    (0f, 0f) => fan.A, (0f, 1f) => fan.B,
+    (1f, 0f) => fan.C, (1f, 1f) => fan.D,
+    (.5f, .5f) => fan.Center,
+    _ => throw new InvalidOperationException("Picker requested a non-vertex scalar sample.")
+};
+
+var fanCases = new[]
+{
+    new TerrainGridPicker.SurfaceFan(.12f, .12f, .12f, .12f, .12f),
+    new TerrainGridPicker.SurfaceFan(.2f, 2.3f, 4.1f, -1.1f, 7.2f),
+    new TerrainGridPicker.SurfaceFan(-7.39f, 8.61f, -7.39f, 8.61f, .61f),
+    new TerrainGridPicker.SurfaceFan(4f, 4f, 4f, 4f, 4.000001f)
+};
+int fanComparisons = 0;
+foreach (TerrainGridPicker.SurfaceFan fan in fanCases)
+{
+    bool Matches(Vector3 origin, Vector3 direction)
+    {
+        bool scalar = TerrainGridPicker.TryPick(origin, direction, 3, 3, Flat,
+            out var a, surfaceHeightAt: (_, _, u, v) => Vertex(fan, u, v));
+        bool batched = TerrainGridPicker.TryPick(origin, direction, 3, 3, Flat,
+            out var b, surfaceFanAt: (_, _) => fan);
+        fanComparisons++;
+        return scalar == batched && (!scalar || a == b);
+    }
+    foreach (float u in new[] { 0f, .000001f, .1f, .25f, .499999f, .5f, .500001f, .75f, .999999f })
+    foreach (float v in new[] { 0f, .000001f, .1f, .5f, .9f, .999999f })
+        if (!Matches(new Vector3(1 + u, 20, 1 + v), -Vector3.UnitY))
+            throw new InvalidOperationException("Batched fan changed a triangle interior, shared edge or center epsilon.");
+    foreach (Vector3 direction in new[]
+    {
+        Vector3.Normalize(new Vector3(1f, -2f, .3f)),
+        Vector3.Normalize(new Vector3(-.3f, -2f, -1f)),
+        Vector3.Normalize(new Vector3(1f, -.01f, 1f)),
+        Vector3.UnitY, Vector3.UnitX, Vector3.Zero
+    })
+    foreach (Vector3 origin in new[]
+    {
+        new Vector3(-1f, 3f, .5f), new Vector3(3.000001f, 3f, 1.5f),
+        new Vector3(.5f, -8f, .5f), new Vector3(1.5f, 12f, 1.5f),
+        new Vector3(float.NaN, 1f, 1f)
+    })
+        if (!Matches(origin, direction))
+            throw new InvalidOperationException("Batched fan changed oblique, below-surface, outside-map or invalid-ray behavior.");
+}
+Check(fanComparisons>300,"batched and scalar fans preserve every differential ray and surface edge case");
+
+int scalarReads = 0, fanReads = 0;
+var countFan = new TerrainGridPicker.SurfaceFan(1f, 1f, 1f, 1f, 2f);
+Check(TerrainGridPicker.TryPick(new Vector3(.25f, 10f, .75f), -Vector3.UnitY,
+    1, 1, Flat, out var scalarCountHit, surfaceHeightAt: (_, _, u, v) =>
+    { scalarReads++; return Vertex(countFan, u, v); }), "scalar count fixture hits land");
+Check(TerrainGridPicker.TryPick(new Vector3(.25f, 10f, .75f), -Vector3.UnitY,
+    1, 1, Flat, out var fanCountHit,
+    surfaceHeightAt: (_, _, _, _) => throw new InvalidOperationException("Scalar path used despite supplied fan."),
+    surfaceFanAt: (_, _) => { fanReads++; return countFan; }) &&
+    scalarCountHit == fanCountHit && scalarReads == 5 && fanReads == 1,
+    "one fan acquisition replaces five scalar calls without changing the hit");
+
+int traversedCells = 0, acquiredFans = 0;
+_ = TerrainGridPicker.TryPick(new Vector3(-1, 120, .5f),
+    Vector3.Normalize(new Vector3(1, -.02f, 0)), 1000, 2,
+    (_, _) => { traversedCells++; return .12f; }, out _,
+    surfaceFanAt: (_, _) => { acquiredFans++; return fanCases[0]; });
+Check(traversedCells < 1005 && acquiredFans == traversedCells,
+    "fan acquisition stays once per crossed cell without changing DDA bounds");
+Console.WriteLine($"PASS SINGLE-FAN PICKER: {fanComparisons} scalar-oracle rays; five-to-one sampling and unchanged traversal");

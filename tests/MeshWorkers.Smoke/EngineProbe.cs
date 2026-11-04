@@ -38,6 +38,7 @@ public partial class EngineProbe : Node
             _mirror=terrain.TerrainBackendName=="region-mirror";
             GetWindow().ContentScaleMode=Window.ContentScaleModeEnum.Disabled;
             await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+            ExercisePicking(lab,terrain,camera);
             await CompareRetainedRenderer(terrain,camera);
             await ExerciseStaging(terrain,camera);
             await ExercisePipeline(lab,terrain,camera);
@@ -71,7 +72,8 @@ public partial class EngineProbe : Node
     private void Bind(VisualTerrain3D terrain,WorldState world)=>terrain.BindWorld(world,
         _mirror?new RegionMirrorTerrainSource(world,maxResidentRegions:8):new DirectWorldTerrainSource(world));
     private static StrategyCameraRig Rig(VisualTerrain3D t,Godot.Camera3D c,int width,int height)=>
-        new(c,t.HeightAt,width,height,t.ReliefAt,()=>t.SmoothLandEnabled,t.SurfaceHeightAt);
+        new(c,t.HeightAt,width,height,t.ReliefAt,()=>t.SmoothLandEnabled,t.SurfaceHeightAt,
+            t.MeshWorkersEnabled?t.SurfaceFanAt:null);
     private static void Format(VisualTerrain3D t,bool rich,bool facets,bool smooth)
     {
         if(t.RichTerrainDetails!=rich)t.ToggleRichTerrainDetails();
