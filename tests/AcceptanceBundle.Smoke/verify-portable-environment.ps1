@@ -126,6 +126,12 @@ function Write-ProbeStage([string]$Stage) {
     [Console]::Out.WriteLine('PORTABLE_STAGE ' + [DateTime]::UtcNow.ToString('o') + ': ' + $Stage)
     [Console]::Out.Flush()
 }
+Write-ProbeStage 'before explicit built-in Management import'
+Import-Module ([IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1')) -ErrorAction Stop
+Write-ProbeStage 'after explicit built-in Management import'
+Write-ProbeStage 'before explicit built-in Utility import'
+Import-Module ([IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1')) -ErrorAction Stop
+Write-ProbeStage 'after explicit built-in Utility import'
 function Get-ProbeEnvironment {
     $state = [ordered]@{}
     foreach ($name in @('WORLDFORGE_HOME','TEMP','TMP','TMPDIR','NUGET_PACKAGES','NUGET_HTTP_CACHE_PATH',
@@ -257,6 +263,11 @@ try {
     $userConfig = Join-Path $hostileEnvironment.APPDATA 'NuGet\NuGet.Config'
     [IO.Directory]::CreateDirectory((Split-Path -Parent $userConfig)) | Out-Null
     [IO.File]::WriteAllText($userConfig, '<configuration><!-- existing user configuration --></configuration>', $utf8)
+    # A normal Windows profile already has its standard roaming directory. Without
+    # it, shell startup provisions two empty profile directories before enter-dev.
+    $profileNuGetConfig = Join-Path $hostileEnvironment.USERPROFILE 'AppData\Roaming\NuGet\NuGet.Config'
+    [IO.Directory]::CreateDirectory((Split-Path -Parent $profileNuGetConfig)) | Out-Null
+    [IO.File]::WriteAllText($profileNuGetConfig, '<configuration><!-- existing profile fallback configuration --></configuration>', $utf8)
     $userFilesBefore = Get-FixtureTreeSnapshot $userDirectory
     & $subst H: $driveDirectory
     if ($LASTEXITCODE -ne 0) { throw 'Could not create the disposable H: mapping.' }
@@ -265,12 +276,15 @@ try {
     New-ProjectFixture
     $projectConfigBefore = Get-FileHash -LiteralPath (Join-Path $fixtureProject 'project.godot') -Algorithm SHA256
     $positive = Invoke-EnvironmentProbe -Code @'
+Write-ProbeStage 'before entry-path Join-Path'
+$entryScript = Join-Path $env:WORLDFORGE_PORTABLE_TEST_ROOT 'scripts\enter-dev.ps1'
+Write-ProbeStage 'after entry-path Join-Path'
 Write-ProbeStage 'before first enter-dev'
-. (Join-Path $env:WORLDFORGE_PORTABLE_TEST_ROOT 'scripts\enter-dev.ps1')
+. $entryScript
 Write-ProbeStage 'after first enter-dev'
 $first = Get-ProbeEnvironment
 Write-ProbeStage 'before second enter-dev'
-. (Join-Path $env:WORLDFORGE_PORTABLE_TEST_ROOT 'scripts\enter-dev.ps1')
+. $entryScript
 Write-ProbeStage 'after second enter-dev'
 Write-ProbeResult ([ordered]@{ first=$first; second=(Get-ProbeEnvironment) })
 '@
@@ -454,7 +468,13 @@ exit 7
     Check ($refusedLauncher.ExitCode -ne 0 -and -not $refusedLauncher.Output.Contains('PORTABLE_PROBE:') -and
         (Get-FixtureTreeSnapshot $offDrive) -ceq $offDriveBefore) 'non-H CMD entry rejects before launching its PowerShell script or writing project data'
 
-    Check ((Get-FixtureTreeSnapshot $userDirectory) -ceq $userFilesBefore) 'all subprocess probes preserve inherited user NuGet configuration, profiles and cache files'
+    $userFilesAfter = Get-FixtureTreeSnapshot $userDirectory
+    if ($userFilesAfter -cne $userFilesBefore) {
+        foreach ($difference in @(Compare-Object ($userFilesBefore -split "`n") ($userFilesAfter -split "`n"))) {
+            Write-Host ('Inherited user fixture change ' + $difference.SideIndicator + ': ' + $difference.InputObject)
+        }
+    }
+    Check ($userFilesAfter -ceq $userFilesBefore) 'all subprocess probes preserve inherited user NuGet configuration, profiles and cache files'
     Check ((Get-EnvironmentSnapshot Process) -ceq $processEnvironmentBefore -and
         (Get-EnvironmentSnapshot User) -ceq $userEnvironmentBefore -and
         (Get-EnvironmentSnapshot Machine) -ceq $machineEnvironmentBefore -and

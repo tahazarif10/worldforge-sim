@@ -20,7 +20,13 @@ if (-not $PortableChild) {
         [Environment]::GetLogicalDrives() -contains 'H:\') {
         throw 'Hosted portable preflight requires an unused H: drive.'
     }
-    $prefix = [IO.Path]::GetFullPath($root).TrimEnd('\') + '\'
+    $checkoutPath = [IO.Path]::GetFullPath($root).TrimEnd('\')
+    $driveTarget = [IO.Directory]::GetParent($checkoutPath)
+    if ($null -eq $driveTarget) { throw 'Hosted preflight needs a named checkout directory.' }
+    # Match the real H:\WorldForge-Sim layout instead of making the project a
+    # drive root. The drive-root fixture returned empty Godot resource scans.
+    $portableCheckout = [IO.Path]::Combine('H:\', [IO.Path]::GetFileName($checkoutPath))
+    $prefix = $checkoutPath + '\'
     function ConvertTo-HostedHPath([string]$Path) {
         $full = [IO.Path]::GetFullPath($Path)
         if (-not $full.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) -or
@@ -29,7 +35,7 @@ if (-not $PortableChild) {
         }
         # H: deliberately does not exist until subst below; Join-Path resolves
         # PowerShell drives even for composition, so use the filesystem API.
-        return [IO.Path]::Combine('H:\', $full.Substring($prefix.Length))
+        return [IO.Path]::Combine($portableCheckout, $full.Substring($prefix.Length))
     }
     $childSdk = ConvertTo-HostedHPath $Sdk
     $childGodot = ConvertTo-HostedHPath $Executable
@@ -39,7 +45,9 @@ if (-not $PortableChild) {
     $profileExisted = [IO.File]::Exists($profileConfig)
     [byte[]]$profileBytes = @()
     if ($profileExisted) { $profileBytes = [IO.File]::ReadAllBytes($profileConfig) }
-    $bootstrap = [ordered]@{ TEMP='H:\'; TMP='H:\'; TMPDIR='H:\'; PSModuleAnalysisCachePath='nul' }
+    $bootstrap = [ordered]@{
+        TEMP=$portableCheckout; TMP=$portableCheckout; TMPDIR=$portableCheckout; PSModuleAnalysisCachePath='nul'
+    }
     $savedEnvironment = @{}
     foreach ($name in $bootstrap.Keys) {
         $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
@@ -49,21 +57,21 @@ if (-not $PortableChild) {
     $cleanupFailures = @()
     $childOutput = $null
     try {
-        & (Join-Path $env:SystemRoot 'System32\subst.exe') H: $root
+        & (Join-Path $env:SystemRoot 'System32\subst.exe') H: $driveTarget.FullName
         if ($LASTEXITCODE -ne 0) { throw 'Could not create the disposable hosted H: drive.' }
         $mapped = $true
         # These values must precede fresh PowerShell startup. enter-dev will
-        # replace the existing H: root temp with project subdirectories later.
+        # replace the existing H: checkout temp with project subdirectories later.
         foreach ($entry in $bootstrap.GetEnumerator()) {
             [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'Process')
         }
-        $childOutput = Join-Path 'H:\artifacts\acceptance' ('portable-preflight-parent-' + [Guid]::NewGuid().ToString('N'))
+        $childOutput = Join-Path (Join-Path $portableCheckout 'artifacts\acceptance') ('portable-preflight-parent-' + [Guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $childOutput -Force | Out-Null
         Invoke-AcceptanceProcess -Executable (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -Arguments @(
             '-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',
-            'H:\tests\AcceptanceBundle.Smoke\verify-windows-preflight.ps1',
+            (Join-Path $portableCheckout 'tests\AcceptanceBundle.Smoke\verify-windows-preflight.ps1'),
             '-Executable',$childGodot,'-Sdk',$childSdk,'-PortableChild') `
-            -WorkingDirectory 'H:\' -OutputDirectory $childOutput -TimeoutSeconds 720
+            -WorkingDirectory $portableCheckout -OutputDirectory $childOutput -TimeoutSeconds 720
     }
     catch { $primaryFailure = $_ }
     finally {
@@ -71,10 +79,42 @@ if (-not $PortableChild) {
             foreach ($name in @('stdout.log','stderr.log')) {
                 try {
                     $log = Join-Path $childOutput $name
-                    if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 120 }
+                    if (Test-Path -LiteralPath $log) {
+                        # Keep initial environment/result headers as well as the
+                        # ending native diagnostics; a tail alone can hide cause.
+                        $preview = @(Get-Content -LiteralPath $log -TotalCount 201)
+                        Write-Host "Child $name (bounded head/tail):"
+                        if ($preview.Count -le 200) { $preview }
+                        else {
+                            $preview | Select-Object -First 80
+                            Write-Host '[Middle omitted; complete child log is retained in the failure artifact.]'
+                            Get-Content -LiteralPath $log -Tail 120
+                        }
+                    }
                 } catch { Write-Warning "Could not display child $name; original evidence remains in the checkout." }
             }
         }
+        # The child may return a generic bundle exception after a long report.
+        # Read its separately persisted primary failure before unmapping H:.
+        try {
+            $artifactRoot = Join-Path $root 'artifacts\acceptance'
+            if (Test-Path -LiteralPath $artifactRoot -PathType Container) {
+                $bundles = @(Get-ChildItem -LiteralPath $artifactRoot -Directory -Filter 'windows-preflight-*' |
+                    Sort-Object LastWriteTime -Descending | Select-Object -First 3)
+                foreach ($bundle in $bundles) {
+                    $statusPath = Join-Path $bundle.FullName 'status.json'
+                    if (Test-Path -LiteralPath $statusPath -PathType Leaf) {
+                        $saved = Get-Content -LiteralPath $statusPath -Raw -Encoding UTF8 | ConvertFrom-Json
+                        Write-Host ("Saved child bundle {0}: {1}" -f $bundle.Name, $saved.status)
+                        if ($saved.failure) { Write-Host ("Primary bundle failure: {0}" -f $saved.failure) }
+                    }
+                    $warningsPath = Join-Path $bundle.FullName 'collection-warnings.txt'
+                    if (Test-Path -LiteralPath $warningsPath -PathType Leaf) {
+                        Get-Content -LiteralPath $warningsPath -TotalCount 20
+                    }
+                }
+            }
+        } catch { Write-Warning ("Could not display saved child status: {0}" -f $_.Exception.Message) }
         foreach ($name in $bootstrap.Keys) {
             try { [Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name], 'Process') }
             catch { $cleanupFailures += "Could not restore parent environment variable: $name" }
@@ -102,12 +142,13 @@ if (-not $PortableChild) {
     return
 }
 
-if (-not $root.Equals('H:\', [StringComparison]::OrdinalIgnoreCase)) {
-    throw 'Portable child must execute from the disposable H: checkout root.'
+if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase) -or
+    $root.TrimEnd('\').Equals('H:', [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Portable child must execute from a named directory on the disposable H: drive.'
 }
 foreach ($name in @('TEMP','TMP','TMPDIR')) {
-    if ([Environment]::GetEnvironmentVariable($name, 'Process') -ine 'H:\') {
-        throw "Fresh PowerShell did not receive the H: bootstrap: $name"
+    if ([Environment]::GetEnvironmentVariable($name, 'Process') -ine $root) {
+        throw "Fresh PowerShell did not receive the H: checkout bootstrap: $name"
     }
 }
 if ($env:PSModuleAnalysisCachePath -ine 'nul') { throw 'PowerShell module-cache bootstrap was not applied before child launch.' }
