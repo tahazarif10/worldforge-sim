@@ -143,12 +143,12 @@ public partial class EngineProbe
             .Where(p=>p.Value.IsVisibleInTree()).ToDictionary(p=>p.Key,p=>p.Value);
         int px=-1,pz=-1;
         (int,int) retainedKey=default;
-        foreach(var key in visibleTerrainBefore.Keys)
+        foreach(var candidateKey in visibleTerrainBefore.Keys)
         {
-            if(!visibleFoliageBefore.TryGetValue(key,out Node3D? resident) ||
+            if(!visibleFoliageBefore.TryGetValue(candidateKey,out Node3D? resident) ||
                 resident.GetChildCount()==0)continue;
-            for(int z=key.Item2*16+3;z<Math.Min(world.Height,key.Item2*16+13) && px<0;z++)
-            for(int x=key.Item1*16+3;x<Math.Min(world.Width,key.Item1*16+13);x++)
+            for(int z=candidateKey.Item2*16+3;z<Math.Min(world.Height,candidateKey.Item2*16+13) && px<0;z++)
+            for(int x=candidateKey.Item1*16+3;x<Math.Min(world.Width,candidateKey.Item1*16+13);x++)
             {
                 if(world.Tile(x,z) is not (Terrain.Grass or Terrain.Forest or Terrain.Sand))
                     continue;
@@ -159,7 +159,7 @@ public partial class EngineProbe
                         world.Tile(x+dx,z+dz) is Terrain.DeepWater or Terrain.ShallowWater)
                         dry=false;
                 if(!dry)continue;
-                px=x;pz=z;retainedKey=key;break;
+                px=x;pz=z;retainedKey=candidateKey;break;
             }
             if(px>=0)break;
         }
