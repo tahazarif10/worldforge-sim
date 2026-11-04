@@ -14,10 +14,8 @@ public partial class VisualTerrain3D
 
     private readonly Dictionary<ChunkCoord, ViewportSurface> _viewportDetails = new();
     private readonly Dictionary<ChunkCoord, ViewportSurface> _viewportFallbacks = new();
-    // For land-to-land worker edits, keep the last complete detailed mesh
-    // visible until its replacement is ready. This prevents synchronous
-    // fallback rebuilding on every brush event and avoids visible jitter.
-    private readonly HashSet<ChunkCoord> _retainedDirtyDetails = new();
+    // Worker generations use stale-while-revalidate: a complete resident
+    // surface remains visible until the next generation is fully published.
     public int ActiveFallbackChunks => _viewportFallbacks.Count;
     public long TotalFallbackBuilds { get; private set; }
 
@@ -58,11 +56,16 @@ public partial class VisualTerrain3D
             surface.Generation == ViewportGeneration(key) && CoversSurface(surface);
     }
 
-    private bool HasRetainedViewportDetail(ChunkCoord key) =>
-        MeshWorkersEnabled && _retainedDirtyDetails.Contains(key) &&
-        _viewportDetails.TryGetValue(key, out ViewportSurface? surface) &&
-        HasLandMesh(surface, requireVisible: false) &&
-        (surface.WaterCells == 0 || HasOceanCoverage);
+    private bool HasRetainedViewportDetail(ChunkCoord key)
+    {
+        if (!MeshWorkersEnabled) return false;
+        ChunkResidencyState state = _viewportQueue.StateOf(key);
+        if (state is not (ChunkResidencyState.Stale or ChunkResidencyState.Generating))
+            return false;
+        return _viewportDetails.TryGetValue(key, out ViewportSurface? surface) &&
+            HasLandMesh(surface, requireVisible: false) &&
+            (surface.WaterCells == 0 || HasOceanCoverage);
+    }
 
     private void RetainPreviousViewportDetail(int x, int z)
     {
@@ -72,14 +75,15 @@ public partial class VisualTerrain3D
             !HasLandMesh(surface, requireVisible: false) ||
             (surface.WaterCells > 0 && !HasOceanCoverage))
             return;
-        _retainedDirtyDetails.Add(key);
         if (surface.Node is not null) surface.Node.Visible = surface.LandCells > 0;
         if (_foliageChunks.TryGetValue((x, z), out Node3D? foliage))
             foliage.Visible = true;
     }
 
-    private void DiscardRetainedViewportDetail(ChunkCoord key) =>
-        _retainedDirtyDetails.Remove(key);
+    private void DiscardRetainedViewportDetail(ChunkCoord key)
+    {
+        // Retention is derived from queue state; completion/eviction ends it.
+    }
 
     private void RecordViewportDetail(int x, int z, MeshInstance3D node, int landCells)
     {
@@ -265,6 +269,5 @@ public partial class VisualTerrain3D
         foreach (ViewportSurface surface in _viewportFallbacks.Values) RetireSurfaceNode(surface);
         _viewportFallbacks.Clear();
         _viewportDetails.Clear();
-        _retainedDirtyDetails.Clear();
     }
 }
