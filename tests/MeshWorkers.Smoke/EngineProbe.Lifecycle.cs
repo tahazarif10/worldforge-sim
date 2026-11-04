@@ -204,6 +204,31 @@ public partial class EngineProbe
         }
         Require(publishedWhileHeld,
             "live Mountain preview publishes a new detailed mesh before mouse release");
+
+        // A second stroke segment must also become visible before mouse-up,
+        // rather than leaving the remainder of the drag for final commit.
+        MeshInstance3D firstPreview=Details(terrain)[retainedKey];
+        int nextX=px+1;
+        world.Paint(nextX,pz,0,Terrain.Mountain);
+        terrain.MarkChanged(nextX,pz,0,false);
+        terrain.PreviewInteractiveEditBatch(.10);
+        bool secondPreview=false;
+        for(int frame=0;frame<300;frame++)
+        {
+            terrain.UpdateVisibility(camera,2);
+            Require(terrain.TotalFallbackBuilds==fallbackBuildsBefore &&
+                Foliage(terrain)[retainedKey].IsVisibleInTree(),
+                "continued live Mountain stroke never blanks adjacent foliage");
+            if(!ReferenceEquals(Details(terrain)[retainedKey],firstPreview))
+            {
+                Require(Details(terrain)[retainedKey].IsVisibleInTree(),
+                    "second live terrain segment publishes atomically");
+                secondPreview=true;
+                break;
+            }
+            await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+        }
+        Require(secondPreview,"moving the mouse creates a second live preview before release");
         terrain.CommitInteractiveEditBatch();
         await Drain(terrain,camera);
         Require(Foliage(terrain)[retainedKey].IsVisibleInTree() &&
