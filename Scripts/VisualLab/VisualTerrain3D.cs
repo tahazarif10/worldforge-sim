@@ -314,6 +314,11 @@ public partial class VisualTerrain3D : Node3D
     public void UpdateVisibility(Godot.Camera3D camera, int maxNewChunks = 4)
     {
         if (_world is null) return;
+        // While an interactive paint stroke is held, freeze the rendered
+        // terrain/foliage scene exactly as-is. World data may change underneath,
+        // but no fallback build, worker publication, eviction or visibility
+        // handoff is allowed until mouse release commits the batch.
+        if (_interactiveEditBatch) return;
         if (ViewportStreamingEnabled)
         {
             UpdateViewportVisibility(camera, maxNewChunks);
