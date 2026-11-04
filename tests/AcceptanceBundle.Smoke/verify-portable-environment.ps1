@@ -263,6 +263,11 @@ try {
     $userConfig = Join-Path $hostileEnvironment.APPDATA 'NuGet\NuGet.Config'
     [IO.Directory]::CreateDirectory((Split-Path -Parent $userConfig)) | Out-Null
     [IO.File]::WriteAllText($userConfig, '<configuration><!-- existing user configuration --></configuration>', $utf8)
+    # A normal Windows profile already has its standard roaming directory. Without
+    # it, shell startup provisions two empty profile directories before enter-dev.
+    $profileNuGetConfig = Join-Path $hostileEnvironment.USERPROFILE 'AppData\Roaming\NuGet\NuGet.Config'
+    [IO.Directory]::CreateDirectory((Split-Path -Parent $profileNuGetConfig)) | Out-Null
+    [IO.File]::WriteAllText($profileNuGetConfig, '<configuration><!-- existing profile fallback configuration --></configuration>', $utf8)
     $userFilesBefore = Get-FixtureTreeSnapshot $userDirectory
     & $subst H: $driveDirectory
     if ($LASTEXITCODE -ne 0) { throw 'Could not create the disposable H: mapping.' }
