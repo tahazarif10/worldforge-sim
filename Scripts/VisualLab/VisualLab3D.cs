@@ -222,6 +222,11 @@ public partial class VisualLab3D : Node3D
             if (_tickAccumulator > TickSeconds * 12) _tickAccumulator = TickSeconds;
         }
 
+        // Feed held-brush edits to background workers while the mouse remains
+        // down; previously the entire preview waited for mouse release.
+        if (_paintStrokeActive && _paintStrokeTerrainBatch)
+            _terrain.PreviewInteractiveEditBatch(delta);
+
         // Coverage follows camera motion every rendered frame in opt-in mode.
         // Synchronous modes keep their 50ms cadence; workers use per-frame publication budgets.
         _visibilityRefresh += delta;
