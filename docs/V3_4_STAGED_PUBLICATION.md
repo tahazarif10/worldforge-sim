@@ -2,6 +2,8 @@
 
 **Scope:** [#74](https://github.com/tahazarif10/worldforge-sim/issues/74), within [#55](https://github.com/tahazarif10/worldforge-sim/issues/55). **Decision:** [ADR 0010](decisions/0010-staged-publication-and-frame-work-evidence.md). This extends the separately opt-in worker path after the user approved the short diagnostic milestone and continuation.
 
+**Status — reviewed 2026-11-04:** slice 2 engineering is complete and merged in [PR #75](https://github.com/tahazarif10/worldforge-sim/pull/75). The next step is a new phase-enabled `RUN-TEST.cmd` report from the H:-Windows host. Physical acceptance, resident coast rendering and distance LOD remain open.
+
 ## Observed problem and hypothesis
 
 The received short host report at 849dc704fd596a654d39741df1d9dea1d9ea1ef9 reports paint publication maxima 7.0668 / 7.2867 ms and 11 / 23 worker-pump soft-budget overruns. It also reports slower mirror zoom intervals without sampled publication work. Those independent maxima do not show a dominant phase or establish cause. The original ZIP has not been supplied.
@@ -63,19 +65,21 @@ Normal input is active. For automatic collection, double-click RUN-TEST.cmd or r
 .\RUN-TEST.cmd
 ~~~
 
-Let each test window close automatically. Paste the report into the active project conversation and attach its ZIP when possible; no automatic upload occurs. This changed instrumentation merits a new short diagnostic. It is different from needlessly repeating the previous unchanged test. The previous ZIP remains useful for exact raw/image review.
+Let each test window close automatically. Paste the report into the active project conversation and attach its ZIP when possible; no automatic upload occurs. Schema 3 phase evidence requires a new short diagnostic of this merged candidate. The previous approved diagnostic and its ZIP remain useful for historical raw/image review.
 
 Check the new candidate SHA, staged policy, work-window completeness, phase rows and bounded counters before comparing p95/p99. The existing full-duration repeated physical scenarios and visual/input/save/live-simulation checks still apply. User approval of the preceding diagnostic is recorded separately from exact-candidate art/GPU acceptance.
 
-## Automated verification and remaining gates
+## Completed automated verification and remaining gates
 
 - Pure fake-clock phase admission and byte partition checks; bounded, correctly aligned work rows, long-stall correlation, invalid/overflow/missing evidence and invariant-culture CSV.
 - Official native engine one-unit staging, zero-budget retention, matching terrain/foliage handoff, actual geometry/art parity, edit/format/reset cleanup, injected foliage failure/recovery and scene teardown.
 - Windows PowerShell 5.1 parsing and schema 2 compatibility; schema 3 raw/summary/slow-row identity failures; clipboard report contents.
 - Official engine creates eight baseline plus eight worker captures; schema 3 validates every raw join. Worker paint must exercise terrain, foliage and coast phases.
-- Actual hosted Windows Godot import/build/runtime preparation and immediate log/hash/report/ZIP checks continue.
+- Actual hosted Windows Godot import/build/runtime preparation and immediate log/hash/report/ZIP checks passed.
 
-Exact source SHA and CI results are entered in [PROJECT_STATE](PROJECT_STATE.md) and the PR after execution. No host speed improvement is recorded before new evidence.
+Final reviewed head `4e825136c31aa188cd5a70c6bc8b9e9982157ceb` passed [core/Windows PowerShell/actual Windows preflight 41704623343](https://github.com/tahazarif10/worldforge-sim/actions/runs/41704623343) and [official Godot 4.7.2 Mono engine 41704623350](https://github.com/tahazarif10/worldforge-sim/actions/runs/41704623350). Merged main `64ff07c5e621ec604b2cbeeb62ae97f608e11798` has the same tree `7c78e23fde9350ff7b79103f8015b3a76d3bb57f` and passed [merged-main core/Windows checks 41705487580](https://github.com/tahazarif10/worldforge-sim/actions/runs/41705487580). These runs completed on 2026-11-03 and were reviewed on 2026-11-04; [PROJECT_STATE](PROJECT_STATE.md) retains the earlier implementation-head evidence separately.
+
+New R9 M395X phase evidence and full physical acceptance remain PENDING. No host speed improvement is established by these automated checks.
 
 ## Next slice
 
