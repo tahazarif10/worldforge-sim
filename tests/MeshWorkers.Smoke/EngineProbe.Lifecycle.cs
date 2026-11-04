@@ -134,57 +134,81 @@ public partial class EngineProbe
             terrain.WorkerDiagnostics.LastWorkerThreadId!=_owner,"stale work discarded and compute stays off owner");
         CheckCoast(terrain,world);
 
-        // Reproduce the reported held-Mountain-brush symptom exactly:
-        // all currently visible detailed terrain and foliage must remain the
-        // same native nodes for the entire mouse-down transaction. Streaming
-        // may finish background numeric jobs, but it must not publish fallback
-        // or hide trees/flowers until mouse release.
+        // Reproduce the requested live Mountain brush: visibly raise a
+        // land cell BEFORE mouse release, without replacing the surrounding
+        // forest/flowers with the flat emergency fallback.
         var visibleTerrainBefore=Details(terrain)
             .Where(p=>p.Value.IsVisibleInTree()).ToDictionary(p=>p.Key,p=>p.Value);
         var visibleFoliageBefore=Foliage(terrain)
             .Where(p=>p.Value.IsVisibleInTree()).ToDictionary(p=>p.Key,p=>p.Value);
-        Require(visibleTerrainBefore.Count>0 && visibleFoliageBefore.Count>0,
-            "held-brush fixture starts with visible detailed terrain and foliage");
-        var retainedKey=visibleFoliageBefore.Keys.First(k=>visibleTerrainBefore.ContainsKey(k));
-        int px=Math.Min(world.Width-1,retainedKey.Item1*16+6);
-        int pz=Math.Min(world.Height-1,retainedKey.Item2*16+6);
-        int fallbackBefore=terrain.ActiveFallbackChunks;
-        long fallbackBuildsBefore=terrain.TotalFallbackBuilds;
-        long publicationBefore=terrain.PublicationFrame.Sequence;
-        terrain.BeginInteractiveEditBatch();
-        for(int i=0;i<12;i++)
+        int px=-1,pz=-1;
+        (int,int) retainedKey=default;
+        foreach(var key in visibleTerrainBefore.Keys)
         {
-            int x=Math.Min(world.Width-1,px+(i%4));
-            int z=Math.Min(world.Height-1,pz+(i/4));
-            world.Paint(x,z,2,Terrain.Mountain);
-            terrain.MarkChanged(x,z,2,false);
-            terrain.FlushChanges(); // Normal process loop attempts this while mouse remains held.
-            terrain.UpdateVisibility(camera,2);
-            await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
-
-            Require(terrain.ActiveFallbackChunks==fallbackBefore &&
-                terrain.TotalFallbackBuilds==fallbackBuildsBefore &&
-                terrain.PublicationFrame.Sequence==publicationBefore,
-                "held Mountain stroke freezes fallback and worker publication");
-            foreach(var pair in visibleTerrainBefore)
-                Require(Details(terrain).TryGetValue(pair.Key,out MeshInstance3D? current) &&
-                    ReferenceEquals(current,pair.Value) && pair.Value.IsVisibleInTree(),
-                    "held Mountain stroke preserves every visible detailed terrain node");
-            foreach(var pair in visibleFoliageBefore)
-                Require(Foliage(terrain).TryGetValue(pair.Key,out Node3D? current) &&
-                    ReferenceEquals(current,pair.Value) && pair.Value.IsVisibleInTree(),
-                    "held Mountain stroke preserves every visible tree/flower node");
+            if(!visibleFoliageBefore.TryGetValue(key,out Node3D? resident) ||
+                resident.GetChildCount()==0)continue;
+            for(int z=key.Item2*16+3;z<Math.Min(world.Height,key.Item2*16+13) && px<0;z++)
+            for(int x=key.Item1*16+3;x<Math.Min(world.Width,key.Item1*16+13);x++)
+            {
+                if(world.Tile(x,z) is not (Terrain.Grass or Terrain.Forest or Terrain.Sand))
+                    continue;
+                bool dry=true;
+                for(int dz=-1;dz<=1;dz++)
+                for(int dx=-1;dx<=1;dx++)
+                    if(world.Tile(x+dx,z+dz) is Terrain.DeepWater or Terrain.ShallowWater)
+                        dry=false;
+                if(!dry)continue;
+                px=x;pz=z;retainedKey=key;break;
+            }
+            if(px>=0)break;
         }
+        Require(px>=0,"live paint fixture has a dry detailed chunk with actual foliage");
+        MeshInstance3D originalTerrain=visibleTerrainBefore[retainedKey];
+        Node3D originalFoliage=visibleFoliageBefore[retainedKey];
+        float MidHeight(MeshInstance3D instance)
+        {
+            using var arrays=instance.Mesh!.SurfaceGetArrays(0);
+            foreach(Vector3 v in arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array())
+                if(Math.Abs(v.X-(px+.5f))<.001f && Math.Abs(v.Z-(pz+.5f))<.001f)
+                    return v.Y;
+            throw new InvalidOperationException("Center of painted land tile missing from detailed mesh.");
+        }
+        float baselineHeight=MidHeight(originalTerrain);
+        long fallbackBuildsBefore=terrain.TotalFallbackBuilds;
+        terrain.BeginInteractiveEditBatch();
+        world.Paint(px,pz,0,Terrain.Mountain);
+        terrain.MarkChanged(px,pz,0,false);
+        terrain.PreviewInteractiveEditBatch(.10);
+        bool publishedWhileHeld=false;
+        for(int frame=0;frame<300;frame++)
+        {
+            terrain.FlushChanges(); // The interactive process must not force fallback.
+            terrain.UpdateVisibility(camera,2);
+            Require(terrain.TotalFallbackBuilds==fallbackBuildsBefore,
+                "held Mountain paint creates no flat fallback on resident detail");
+            MeshInstance3D currentTerrain=Details(terrain)[retainedKey];
+            Node3D currentFoliage=Foliage(terrain)[retainedKey];
+            Require(currentTerrain.IsVisibleInTree() && currentFoliage.IsVisibleInTree(),
+                "terrain and trees/flowers stay visible during live worker replacement");
+            if(!ReferenceEquals(currentTerrain,originalTerrain))
+            {
+                Require(MidHeight(currentTerrain)>baselineHeight+1f,
+                    "mountain height becomes visible while mouse is still held");
+                publishedWhileHeld=true;
+                break;
+            }
+            Require(originalTerrain.IsVisibleInTree() && originalFoliage.IsVisibleInTree(),
+                "original detailed terrain and foliage remain visible until atomic handoff");
+            await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+        }
+        Require(publishedWhileHeld,
+            "live Mountain preview publishes a new detailed mesh before mouse release");
         terrain.CommitInteractiveEditBatch();
-        foreach(var pair in visibleFoliageBefore)
-            Require(Foliage(terrain).TryGetValue(pair.Key,out Node3D? current) &&
-                ReferenceEquals(current,pair.Value) && pair.Value.IsVisibleInTree(),
-                "mouse release keeps old foliage visible until atomic replacement");
         await Drain(terrain,camera);
         Require(Foliage(terrain)[retainedKey].IsVisibleInTree() &&
             Details(terrain)[retainedKey].IsVisibleInTree() &&
             terrain.ActiveFallbackChunks==0,
-            "paint replacement publishes a complete visible terrain and foliage pair");
+            "live paint settles with detailed terrain and foliage intact");
 
         var poses=new[]{
             new CameraReviewPose(0,0,19),new CameraReviewPose(120,88,19),
