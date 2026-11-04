@@ -41,6 +41,8 @@ public partial class VisualLab3D : Node3D
     private bool _ecoMode;
     private bool _heightSculptMode;
     private bool _paintStrokeActive;
+    private bool _paintStrokeTerrainBatch;
+    private bool _paintStrokeActorsDirty;
     private float _paintStrokePlaneY;
     private int _lastPaintX = int.MinValue, _lastPaintY = int.MinValue;
     private readonly WorldForge.Instrumentation.FrameCapture _frameProbe = new(7200);
@@ -293,14 +295,26 @@ public partial class VisualLab3D : Node3D
         _hud.OffsetTop = 12;
         _hud.OffsetBottom = 194;
 
-        _hud.ToolSelected += tool => { _brush = (Brush)tool; _heightSculptMode = false; RefreshHud(); };
+        _hud.ToolSelected += tool =>
+        {
+            EndPaintStroke();
+            _brush = (Brush)tool;
+            _heightSculptMode = false;
+            RefreshHud();
+        };
         _hud.RadiusChangeRequested += amount =>
         {
+            EndPaintStroke();
             _radius = Math.Clamp(_radius + amount, 0, 12);
             RefreshHud();
         };
         _hud.SpeedRequested += speed => { _speed = speed; RefreshHud(); };
-        _hud.NewWorldRequested += () => { CreateWorld(Random.Shared.Next()); RefreshHud(); };
+        _hud.NewWorldRequested += () =>
+        {
+            EndPaintStroke();
+            CreateWorld(Random.Shared.Next());
+            RefreshHud();
+        };
         _hud.SetSelectedTool((int)_brush);
         RefreshHud();
     }
@@ -521,6 +535,10 @@ public partial class VisualLab3D : Node3D
         if (!_cameraRig.TryPickTerrain(screen, out var hit)) return;
         _paintStrokeActive = true;
         _paintStrokePlaneY = hit.Point.Y;
+        _paintStrokeTerrainBatch = _heightSculptMode || _brush != Brush.Person;
+        _paintStrokeActorsDirty = false;
+        if (_paintStrokeTerrainBatch)
+            _terrain.BeginInteractiveEditBatch();
         ApplyAtCell(hit.X, hit.Y);
     }
 
@@ -545,9 +563,18 @@ public partial class VisualLab3D : Node3D
 
     private void EndPaintStroke()
     {
+        if (!_paintStrokeActive) return;
+        bool commitTerrain = _paintStrokeTerrainBatch;
+        bool updateActors = _paintStrokeActorsDirty;
         _paintStrokeActive = false;
+        _paintStrokeTerrainBatch = false;
+        _paintStrokeActorsDirty = false;
         _lastPaintX = int.MinValue;
         _lastPaintY = int.MinValue;
+        if (commitTerrain)
+            _terrain.CommitInteractiveEditBatch();
+        if (updateActors)
+            UpdateActors();
     }
 
     private void ApplyAtCell(int x, int y)
@@ -560,7 +587,10 @@ public partial class VisualLab3D : Node3D
         {
             float deltaHeight = Input.IsKeyPressed(Key.Shift) ? -0.10f : 0.10f;
             if (_terrain.SculptElevation(x, y, _radius, deltaHeight) > 0)
-                UpdateActors();
+            {
+                if (_paintStrokeActive) _paintStrokeActorsDirty = true;
+                else UpdateActors();
+            }
             return;
         }
 
@@ -600,6 +630,12 @@ public partial class VisualLab3D : Node3D
             _terrain.MarkChanged(x, y,
                 _brush == Brush.Meteor ? Math.Max(2, _radius) : _radius,
                 coastlineChanged);
-        if (actorsChanged) UpdateActors();
+        if (actorsChanged)
+        {
+            if (_paintStrokeActive && _paintStrokeTerrainBatch)
+                _paintStrokeActorsDirty = true;
+            else
+                UpdateActors();
+        }
     }
 }
