@@ -37,6 +37,13 @@ SharedCornerHeightfield.Fan Fan(int x,int y)=>
 float Sample(int x,int y,float u,float v)=>
     world.Tile(x,y) is Terrain.DeepWater or Terrain.ShallowWater
         ? .12f : Fan(x,y).Sample(u,v);
+TerrainGridPicker.SurfaceFan PickFan(int x,int y)
+{
+    if (world.Tile(x,y) is Terrain.DeepWater or Terrain.ShallowWater)
+        return new(.12f,.12f,.12f,.12f,.12f);
+    var f=Fan(x,y);
+    return new(f.Sample(0,0),f.Sample(0,1),f.Sample(1,0),f.Sample(1,1),f.Sample(.5f,.5f));
+}
 int sameEdges=0;
 for(int y=0;y<height;y++)
 for(int x=0;x<width;x++)
@@ -95,6 +102,9 @@ for(int x=8;x<width-8;x+=4)
             BaseHeight,out var hit,Lift,Sample) &&
             hit.X==x && hit.Y==y && Near(hit.Point.Y,expected,.001f),
             "screen picking height matches rendered 3D shared-corner triangle");
+        Check(TerrainGridPicker.TryPick(origin,-Vector3.UnitY,width,height,
+            BaseHeight,out var fanHit,Lift,surfaceFanAt:PickFan) && fanHit==hit,
+            "one acquired fan preserves the retained scalar pick on every rendered triangle");
         picks++;
     }
 }
@@ -111,6 +121,23 @@ Check(Near(a.C,b.A) && Near(a.D,b.B),
 Check(float.IsFinite(oldCorner)&&float.IsFinite(a.D),
     "edited boundary vertex remains finite");
 
+var random=new Random(0x51fa);
+int rayComparisons=0;
+for(int i=0;i<384;i++)
+{
+    var target=new Vector3((float)random.NextDouble()*width,
+        (float)random.NextDouble()*5f,(float)random.NextDouble()*height);
+    var origin=target+new Vector3(40,60,40);
+    var direction=Vector3.Normalize(target-origin);
+    bool scalar=TerrainGridPicker.TryPick(origin,direction,width,height,
+        BaseHeight,out var scalarHit,Lift,Sample);
+    bool batched=TerrainGridPicker.TryPick(origin,direction,width,height,
+        BaseHeight,out var fanHit,Lift,surfaceFanAt:PickFan);
+    Check(scalar==batched && (!scalar || scalarHit==fanHit),
+        "post-paint oblique picks preserve exact cells and points across land, water and chunk seams");
+    rayComparisons++;
+}
+
 bool invalid=false;
 try {_=SharedCornerHeightfield.Corner(0,0,0,64,BaseHeight);}
 catch(ArgumentOutOfRangeException){invalid=true;}
@@ -121,4 +148,4 @@ float Indexed(int x,int y)=>(x+y)%9*.07f+.3f;
 float big=SharedCornerHeightfield.Corner(8191,8191,8192,8192,Indexed);
 Check(float.IsFinite(big) && big>.29f,"sparse 8192-coordinate corner computation works");
 Console.WriteLine("PASS ALL continuous shared-corner terrain / camera boundary tests. " +
-    "Exact picks="+picks+", seams="+sameEdges);
+    "Exact picks="+picks+", seams="+sameEdges+", scalar/fan oblique comparisons="+rayComparisons);

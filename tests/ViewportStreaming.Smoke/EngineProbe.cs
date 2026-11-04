@@ -22,6 +22,11 @@ public partial class EngineProbe : Node
             var camera = lab.GetNode<Godot.Camera3D>("IsometricCamera");
             bool requested = Array.Exists(OS.GetCmdlineUserArgs(), a => a == "--viewport-streaming");
             Require(terrain.ViewportStreamingEnabled == requested, "explicit opt-in selection");
+            var configured=(StrategyCameraRig)typeof(VisualLab3D).GetField("_cameraRig",
+                System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.GetValue(lab)!;
+            Require(typeof(StrategyCameraRig).GetField("_surfaceFan",
+                System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.GetValue(configured) is null,
+                "ordinary and viewport-only play retain the scalar camera pick supplier");
             if (!requested)
             {
                 Require(terrain.StreamingPlannerName == "legacy-v2" && terrain.ActiveTerrainChunks > 0 &&

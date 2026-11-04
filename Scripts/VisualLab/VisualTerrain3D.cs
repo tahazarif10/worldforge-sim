@@ -141,6 +141,29 @@ public partial class VisualTerrain3D : Node3D
             HeightAt(x,y), ReliefAt(x,y), localX,localY);
     }
 
+    /// <summary>The same five heights used by scalar picking, with one
+    /// edited-fan reconstruction. Read current terrain for every query so
+    /// paint, sculpt, format changes and New World need no cache invalidation.</summary>
+    public WorldForge.Camera3D.TerrainGridPicker.SurfaceFan SurfaceFanAt(int x, int y)
+    {
+        if (!_world.Contains(x, y)) return new(.12f, .12f, .12f, .12f, .12f);
+        if (SmoothLandEnabled &&
+            _tiles.Tile(x,y) is not (Terrain.DeepWater or Terrain.ShallowWater))
+        {
+            SharedCornerHeightfield.Fan fan = EditableFan(x,y);
+            // Preserve the scalar sampler's exact floating-point operations
+            // at the five vertices, including sculpted negative heights.
+            return new(fan.Sample(0f,0f), fan.Sample(0f,1f),
+                fan.Sample(1f,0f), fan.Sample(1f,1f), fan.Sample(.5f,.5f));
+        }
+        float h = HeightAt(x,y), lift = ReliefAt(x,y);
+        return new(TerrainReliefMath.SurfaceHeight(h,lift,0f,0f),
+            TerrainReliefMath.SurfaceHeight(h,lift,0f,1f),
+            TerrainReliefMath.SurfaceHeight(h,lift,1f,0f),
+            TerrainReliefMath.SurfaceHeight(h,lift,1f,1f),
+            TerrainReliefMath.SurfaceHeight(h,lift,.5f,.5f));
+    }
+
     public void ToggleSculptedFacets()
     {
         SculptedFacets = !SculptedFacets;

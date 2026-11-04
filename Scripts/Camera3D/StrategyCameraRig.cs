@@ -16,6 +16,7 @@ public sealed class StrategyCameraRig
     private readonly Func<int, int, float> _liftAt;
     private readonly Func<bool> _smoothEnabled;
     private readonly Func<int,int,float,float,float>? _sampleSurface;
+    private readonly Func<int,int,TerrainGridPicker.SurfaceFan>? _surfaceFan;
     private int _width, _height;
     private Vector3 _pivot;
     private Vector3 _dragAnchor;
@@ -29,13 +30,15 @@ public sealed class StrategyCameraRig
     public StrategyCameraRig(Godot.Camera3D camera, Func<int, int, float> heightAt,
         int worldWidth, int worldHeight, Func<int, int, float>? liftAt = null,
         Func<bool>? smoothEnabled = null,
-        Func<int,int,float,float,float>? sampleSurface = null)
+        Func<int,int,float,float,float>? sampleSurface = null,
+        Func<int,int,TerrainGridPicker.SurfaceFan>? surfaceFan = null)
     {
         _camera = camera;
         _heightAt = heightAt;
         _liftAt = liftAt ?? ((_, _) => 0f);
         _smoothEnabled = smoothEnabled ?? (() => false);
         _sampleSurface = sampleSurface;
+        _surfaceFan = surfaceFan;
         ResetWorld(worldWidth, worldHeight);
     }
 
@@ -132,9 +135,10 @@ public sealed class StrategyCameraRig
     {
         Vector3 origin = _camera.ProjectRayOrigin(screen);
         Vector3 direction = _camera.ProjectRayNormal(screen);
+        bool smooth = _smoothEnabled();
         return TerrainGridPicker.TryPick(ToNum(origin), ToNum(direction),
             _width, _height, _heightAt, out hit, _liftAt,
-            _smoothEnabled() ? _sampleSurface : null);
+            smooth ? _sampleSurface : null, smooth ? _surfaceFan : null);
     }
 
     private bool RayOnPlane(Vector2 screen, float elevation, out Vector3 result)

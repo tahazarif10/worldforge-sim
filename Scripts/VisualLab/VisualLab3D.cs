@@ -92,7 +92,8 @@ public partial class VisualLab3D : Node3D
             (x, y) => _terrain.HeightAt(x, y), _world.Width, _world.Height,
             (x, y) => _terrain.ReliefAt(x, y),
             () => _terrain.SmoothLandEnabled,
-            (x,y,u,v) => _terrain.SurfaceHeightAt(x,y,u,v));
+            (x,y,u,v) => _terrain.SurfaceHeightAt(x,y,u,v),
+            _terrain.MeshWorkersEnabled ? _terrain.SurfaceFanAt : null);
         _terrain.UpdateVisibility(_camera, maxNewChunks: 64);
         SetupHud();
         _frameProbe.Begin("interactive-" + Guid.NewGuid().ToString("N"), "mixed");
