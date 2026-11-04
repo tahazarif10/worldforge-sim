@@ -112,6 +112,7 @@ public partial class VisualTerrain3D
         foreach (var key in new List<(int X, int Y)>(_chunks.Keys))
         {
             if (plan.Desired.Contains(new ChunkCoord(key.X, key.Y))) continue;
+            DiscardRetainedViewportDetail(new ChunkCoord(key.X, key.Y));
             _chunks[key].Visible = false;
             _chunks[key].QueueFree();
             _viewportDetails.Remove(new ChunkCoord(key.X, key.Y));
@@ -153,6 +154,7 @@ public partial class VisualTerrain3D
     {
         if (!ViewportStreamingEnabled) return;
         var key = new ChunkCoord(x, z);
+        DiscardRetainedViewportDetail(key);
         if (!_viewportRevisions.ContainsKey(key)) return;
         _viewportRevisions[key] = checked(++_viewportRevision);
         _viewportQueue.Invalidate(key, ViewportGeneration(key));
