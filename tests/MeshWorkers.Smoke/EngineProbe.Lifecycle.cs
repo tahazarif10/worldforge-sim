@@ -134,6 +134,41 @@ public partial class EngineProbe
             terrain.WorkerDiagnostics.LastWorkerThreadId!=_owner,"stale work discarded and compute stays off owner");
         CheckCoast(terrain,world);
 
+        // A continuous interactive stroke must not invalidate/rebuild the same
+        // chunk for every mouse cell. Keep the complete terrain+foliage pair
+        // visible throughout the batch, then replace it atomically once.
+        var residentFoliage=Foliage(terrain);
+        var retainedKey=residentFoliage.Keys.First(k=>residentFoliage[k].IsVisibleInTree());
+        Node3D retainedFoliage=residentFoliage[retainedKey];
+        MeshInstance3D retainedTerrain=Details(terrain)[retainedKey];
+        int px=Math.Min(world.Width-1,retainedKey.Item1*16+6);
+        int pz=Math.Min(world.Height-1,retainedKey.Item2*16+6);
+        int fallbackBefore=terrain.ActiveFallbackChunks;
+        terrain.BeginInteractiveEditBatch();
+        for(int i=0;i<6;i++)
+        {
+            int x=Math.Min(world.Width-1,px+i%3),z=Math.Min(world.Height-1,pz+i/3);
+            world.Paint(x,z,1,Terrain.Forest);
+            terrain.MarkChanged(x,z,1,false);
+            terrain.FlushChanges(); // Simulate the normal 160 ms process flush during a held mouse.
+            terrain.UpdateVisibility(camera,2);
+            Require(ReferenceEquals(Foliage(terrain)[retainedKey],retainedFoliage) &&
+                retainedFoliage.IsVisibleInTree() &&
+                ReferenceEquals(Details(terrain)[retainedKey],retainedTerrain) &&
+                retainedTerrain.IsVisibleInTree() &&
+                terrain.ActiveFallbackChunks==fallbackBefore,
+                "interactive paint batch keeps existing terrain and foliage visible without fallback churn");
+        }
+        terrain.CommitInteractiveEditBatch();
+        Require(ReferenceEquals(Foliage(terrain)[retainedKey],retainedFoliage) &&
+            retainedFoliage.IsVisibleInTree() && retainedTerrain.IsVisibleInTree(),
+            "committed paint keeps stale detail visible while replacement is pending");
+        await Drain(terrain,camera);
+        Require(Foliage(terrain)[retainedKey].IsVisibleInTree() &&
+            Details(terrain)[retainedKey].IsVisibleInTree() &&
+            terrain.ActiveFallbackChunks==0,
+            "paint replacement publishes a complete visible terrain and foliage pair");
+
         var poses=new[]{
             new CameraReviewPose(0,0,19),new CameraReviewPose(120,88,19),
             new CameraReviewPose(60,44,79),new CameraReviewPose(0,88,160),
