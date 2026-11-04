@@ -2,10 +2,6 @@
 # Dot-source this script: . .\scripts\enter-dev.ps1
 # Applies to the CURRENT PowerShell process and its children only.
 $ErrorActionPreference = 'Stop'
-# A cold portable profile has no module-analysis cache. Load the two built-ins
-# directly rather than discovering every installed module for the first cmdlet.
-Import-Module "$PSHOME\Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1" -ErrorAction Stop
-Import-Module "$PSHOME\Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1" -ErrorAction Stop
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 . (Join-Path $PSScriptRoot 'portable-paths.ps1')
 Initialize-WorldForgePortableEnvironment -Root $project

@@ -3,8 +3,6 @@
 param([switch]$NoClipboard)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-Import-Module "$PSHOME\Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1" -ErrorAction Stop
-Import-Module "$PSHOME\Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1" -ErrorAction Stop
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ($env:OS -ne 'Windows_NT' -or -not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
     throw 'Run RUN-TEST.cmd from the existing H:\WorldForge-Sim Windows checkout.'
