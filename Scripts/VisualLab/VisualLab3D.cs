@@ -481,6 +481,25 @@ public partial class VisualLab3D : Node3D
         }
     }
 
+    private bool MountainBrushWouldChange(int cx, int cy, int radius,
+        out bool coastlineChanged)
+    {
+        bool changed = false;
+        coastlineChanged = false;
+        for (int y = Math.Max(0, cy - radius); y <= Math.Min(_world.Height - 1, cy + radius); y++)
+        for (int x = Math.Max(0, cx - radius); x <= Math.Min(_world.Width - 1, cx + radius); x++)
+        {
+            long dx = x - cx, dy = y - cy;
+            if (dx * dx + dy * dy > (long)radius * radius) continue;
+            Terrain current = _world.Tile(x, y);
+            if (current == Terrain.Mountain) continue;
+            changed = true;
+            if (current is Terrain.DeepWater or Terrain.ShallowWater)
+                coastlineChanged = true;
+        }
+        return changed;
+    }
+
     private void ApplyAtScreen(Vector2 screen)
     {
         if (!_cameraRig.TryPickTerrain(screen, out var hit)) return;
@@ -494,18 +513,28 @@ public partial class VisualLab3D : Node3D
         }
 
         bool terrainEdited = true;
+        bool coastlineChanged = true;
+        bool retainPreviousVisibleDetail = false;
         switch (_brush)
         {
             case Brush.Land: _world.Paint(x, y, _radius, Terrain.Grass); break;
             case Brush.Ocean: _world.Paint(x, y, _radius, Terrain.DeepWater); break;
             case Brush.Sand: _world.Paint(x, y, _radius, Terrain.Sand); break;
             case Brush.Forest: _world.Paint(x, y, _radius, Terrain.Forest); break;
-            case Brush.Mountain: _world.Paint(x, y, _radius, Terrain.Mountain); break;
+            case Brush.Mountain:
+                terrainEdited = MountainBrushWouldChange(x, y, _radius, out coastlineChanged);
+                if (terrainEdited)
+                {
+                    _world.Paint(x, y, _radius, Terrain.Mountain);
+                    retainPreviousVisibleDetail = !coastlineChanged;
+                }
+                break;
             case Brush.Person: terrainEdited = false; _world.Spawn(x, y); break;
             case Brush.Meteor: _world.Meteor(x, y, Math.Max(2, _radius)); break;
         }
         if (terrainEdited)
-            _terrain.MarkChanged(x, y, _brush == Brush.Meteor ? Math.Max(2, _radius) : _radius);
+            _terrain.MarkChanged(x, y, _brush == Brush.Meteor ? Math.Max(2, _radius) : _radius,
+                coastlineChanged, retainPreviousVisibleDetail);
         UpdateActors();
     }
 }
