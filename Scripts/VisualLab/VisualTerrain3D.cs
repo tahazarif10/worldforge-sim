@@ -32,6 +32,9 @@ public partial class VisualTerrain3D : Node3D
     private ImageTexture? _coastMaskTexture;
     private bool _coastDirty;
     private bool _ecoMode;
+    private bool _interactiveEditBatch;
+    private bool _batchedCoastDirty;
+    private readonly HashSet<(int X, int Y)> _batchedViewportDirty = new();
     public bool EcoMode => _ecoMode;
     private readonly HashSet<(int X, int Y)> _changedChunks = new();
     private readonly Dictionary<(int X, int Y), Node3D> _foliageChunks = new();
@@ -260,6 +263,9 @@ public partial class VisualTerrain3D : Node3D
         _chunks.Clear();
         ResetViewportStreaming();
         _changedChunks.Clear();
+        _interactiveEditBatch = false;
+        _batchedCoastDirty = false;
+        _batchedViewportDirty.Clear();
         foreach (Node3D chunk in _foliageChunks.Values)
         {
             chunk.Visible = false;
@@ -370,12 +376,44 @@ public partial class VisualTerrain3D : Node3D
         }
     }
 
+    public void BeginInteractiveEditBatch()
+    {
+        if (_interactiveEditBatch) return;
+        _interactiveEditBatch = true;
+        _batchedCoastDirty = false;
+        _batchedViewportDirty.Clear();
+    }
+
+    public void CommitInteractiveEditBatch()
+    {
+        if (!_interactiveEditBatch) return;
+        _interactiveEditBatch = false;
+
+        foreach (var key in _batchedViewportDirty)
+            MarkViewportChunkDirty(key.X, key.Y);
+        _batchedViewportDirty.Clear();
+
+        if (_batchedCoastDirty)
+        {
+            _coastDirty = true;
+            MarkWorkerCoastDirty();
+            _batchedCoastDirty = false;
+        }
+
+        // The worker path consumes the coalesced invalidations on the next
+        // visibility pump. Synchronous modes rebuild once here.
+        if (!MeshWorkersEnabled)
+            FlushChanges();
+        else
+            RefreshViewportFallbacks();
+    }
+
     /// <summary>Defer all geometry changes until end of simulation frame.</summary>
     public void MarkChanged(int x, int y, int radius, bool coastlineChanged = true)
     {
         if (_world is null) return;
-        // Apply changed simulation cells to the region mirror BEFORE any
-        // coastline mask, geometry, foliage or picker queries.
+        // Region-mirror data is synchronized immediately so the eventual
+        // replacement snapshot sees the latest authoritative stroke state.
         _tiles.SynchronizeArea(x,y,radius);
         int left = Math.Max(0, x - radius - 1);
         int top = Math.Max(0, y - radius - 1);
@@ -385,17 +423,26 @@ public partial class VisualTerrain3D : Node3D
         for (int cx = left / ChunkSize; cx <= right / ChunkSize; cx++)
         {
             _changedChunks.Add((cx, cy));
-            MarkViewportChunkDirty(cx, cy);
+            if (_interactiveEditBatch)
+                _batchedViewportDirty.Add((cx, cy));
+            else
+                MarkViewportChunkDirty(cx, cy);
         }
         if (coastlineChanged)
         {
-            _coastDirty = true;
-            MarkWorkerCoastDirty();
+            if (_interactiveEditBatch)
+                _batchedCoastDirty = true;
+            else
+            {
+                _coastDirty = true;
+                MarkWorkerCoastDirty();
+            }
         }
     }
 
     public void FlushChanges()
     {
+        if (_interactiveEditBatch) return;
         if (_changedChunks.Count == 0 && !_coastDirty) return;
         if (MeshWorkersEnabled)
         {
