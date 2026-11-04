@@ -40,6 +40,9 @@ public partial class VisualLab3D : Node3D
     private int _frames;
     private bool _ecoMode;
     private bool _heightSculptMode;
+    private bool _paintStrokeActive;
+    private float _paintStrokePlaneY;
+    private int _lastPaintX = int.MinValue, _lastPaintY = int.MinValue;
     private readonly WorldForge.Instrumentation.FrameCapture _frameProbe = new(7200);
 
     public override void _Ready()
@@ -316,8 +319,11 @@ public partial class VisualLab3D : Node3D
                 if (mb.Pressed) _cameraRig.BeginDrag(mb.Position);
                 else _cameraRig.EndDrag();
             }
-            else if (mb.ButtonIndex == MouseButton.Left && mb.Pressed)
-                ApplyAtScreen(mb.Position);
+            else if (mb.ButtonIndex == MouseButton.Left)
+            {
+                if (mb.Pressed) BeginPaintStroke(mb.Position);
+                else EndPaintStroke();
+            }
         }
         else if (input is InputEventMouseMotion mm)
         {
@@ -325,7 +331,7 @@ public partial class VisualLab3D : Node3D
                 _cameraRig.DragTo(mm.Position);
             else if (Input.IsMouseButtonPressed(MouseButton.Left))
             {
-                ApplyAtScreen(mm.Position);
+                ContinuePaintStroke(mm.Position);
             }
         }
         else if (input is InputEventKey k && k.Pressed && !k.Echo)
@@ -481,60 +487,111 @@ public partial class VisualLab3D : Node3D
         }
     }
 
-    private bool MountainBrushWouldChange(int cx, int cy, int radius,
+    private bool TerrainBrushWouldChange(int cx, int cy, int radius, Terrain target,
         out bool coastlineChanged)
     {
         bool changed = false;
         coastlineChanged = false;
+        bool targetWater = target is Terrain.DeepWater or Terrain.ShallowWater;
         for (int y = Math.Max(0, cy - radius); y <= Math.Min(_world.Height - 1, cy + radius); y++)
         for (int x = Math.Max(0, cx - radius); x <= Math.Min(_world.Width - 1, cx + radius); x++)
         {
             long dx = x - cx, dy = y - cy;
             if (dx * dx + dy * dy > (long)radius * radius) continue;
             Terrain current = _world.Tile(x, y);
-            if (current == Terrain.Mountain) continue;
+            if (current == target) continue;
             changed = true;
-            if (current is Terrain.DeepWater or Terrain.ShallowWater)
-                coastlineChanged = true;
+            bool currentWater = current is Terrain.DeepWater or Terrain.ShallowWater;
+            if (currentWater != targetWater) coastlineChanged = true;
         }
         return changed;
     }
 
-    private void ApplyAtScreen(Vector2 screen)
+    private void BeginPaintStroke(Vector2 screen)
     {
+        EndPaintStroke();
         if (!_cameraRig.TryPickTerrain(screen, out var hit)) return;
-        int x = hit.X, y = hit.Y;
-        if (_heightSculptMode)
+        _paintStrokeActive = true;
+        _paintStrokePlaneY = hit.Point.Y;
+        ApplyAtCell(hit.X, hit.Y);
+    }
+
+    private void ContinuePaintStroke(Vector2 screen)
+    {
+        if (!_paintStrokeActive)
         {
-            float deltaHeight = Input.IsKeyPressed(Key.Shift) ? -0.10f : 0.10f;
-            _terrain.SculptElevation(x, y, _radius, deltaHeight);
-            UpdateActors();
+            BeginPaintStroke(screen);
             return;
         }
 
-        bool terrainEdited = true;
-        bool coastlineChanged = true;
-        bool retainPreviousVisibleDetail = false;
+        Vector3 origin = _camera.ProjectRayOrigin(screen);
+        Vector3 direction = _camera.ProjectRayNormal(screen);
+        if (Mathf.Abs(direction.Y) < 0.00001f) return;
+        float t = (_paintStrokePlaneY - origin.Y) / direction.Y;
+        if (!float.IsFinite(t) || t < 0) return;
+        Vector3 point = origin + direction * t;
+        int x = (int)MathF.Floor(point.X);
+        int y = (int)MathF.Floor(point.Z);
+        if (_world.Contains(x, y)) ApplyAtCell(x, y);
+    }
+
+    private void EndPaintStroke()
+    {
+        _paintStrokeActive = false;
+        _lastPaintX = int.MinValue;
+        _lastPaintY = int.MinValue;
+    }
+
+    private void ApplyAtCell(int x, int y)
+    {
+        if (_paintStrokeActive && x == _lastPaintX && y == _lastPaintY) return;
+        _lastPaintX = x;
+        _lastPaintY = y;
+
+        if (_heightSculptMode)
+        {
+            float deltaHeight = Input.IsKeyPressed(Key.Shift) ? -0.10f : 0.10f;
+            if (_terrain.SculptElevation(x, y, _radius, deltaHeight) > 0)
+                UpdateActors();
+            return;
+        }
+
+        bool terrainEdited = false;
+        bool coastlineChanged = false;
+        bool actorsChanged = false;
+        Terrain target = Terrain.Grass;
+        bool terrainBrush = true;
         switch (_brush)
         {
-            case Brush.Land: _world.Paint(x, y, _radius, Terrain.Grass); break;
-            case Brush.Ocean: _world.Paint(x, y, _radius, Terrain.DeepWater); break;
-            case Brush.Sand: _world.Paint(x, y, _radius, Terrain.Sand); break;
-            case Brush.Forest: _world.Paint(x, y, _radius, Terrain.Forest); break;
-            case Brush.Mountain:
-                terrainEdited = MountainBrushWouldChange(x, y, _radius, out coastlineChanged);
-                if (terrainEdited)
-                {
-                    _world.Paint(x, y, _radius, Terrain.Mountain);
-                    retainPreviousVisibleDetail = !coastlineChanged;
-                }
+            case Brush.Land: target = Terrain.Grass; break;
+            case Brush.Ocean: target = Terrain.DeepWater; break;
+            case Brush.Sand: target = Terrain.Sand; break;
+            case Brush.Forest: target = Terrain.Forest; break;
+            case Brush.Mountain: target = Terrain.Mountain; break;
+            case Brush.Person:
+                terrainBrush = false;
+                actorsChanged = _world.Spawn(x, y);
                 break;
-            case Brush.Person: terrainEdited = false; _world.Spawn(x, y); break;
-            case Brush.Meteor: _world.Meteor(x, y, Math.Max(2, _radius)); break;
+            case Brush.Meteor:
+                terrainBrush = false;
+                _world.Meteor(x, y, Math.Max(2, _radius));
+                terrainEdited = true;
+                actorsChanged = true;
+                break;
         }
+
+        if (terrainBrush &&
+            TerrainBrushWouldChange(x, y, _radius, target, out coastlineChanged))
+        {
+            _world.Paint(x, y, _radius, target);
+            terrainEdited = true;
+            actorsChanged = true;
+        }
+
         if (terrainEdited)
-            _terrain.MarkChanged(x, y, _brush == Brush.Meteor ? Math.Max(2, _radius) : _radius,
-                coastlineChanged, retainPreviousVisibleDetail);
-        UpdateActors();
+            _terrain.MarkChanged(x, y,
+                _brush == Brush.Meteor ? Math.Max(2, _radius) : _radius,
+                coastlineChanged);
+        if (actorsChanged) UpdateActors();
     }
 }
