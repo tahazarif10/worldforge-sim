@@ -95,30 +95,37 @@ jobs:
       - name: Native output drain, owned file closure and locked-log primary failure
         shell: powershell
         run: .\tests\AcceptanceBundle.Smoke\verify-output.ps1
+      - name: Portable H environment, early PowerShell startup and rejected path fixtures
+        shell: powershell
+        run: .\tests\AcceptanceBundle.Smoke\verify-portable-environment.ps1
 
   windows-godot-preflight:
     runs-on: windows-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
+        env:
+          DOTNET_INSTALL_DIR: ${{ github.workspace }}/Tools/dotnet
         with:
           dotnet-version: '10.0.x'
       - name: Download official Godot 4.7.2 Mono Windows editor
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          $package = Join-Path $env:RUNNER_TEMP 'godot-windows-preflight.zip'
-          $destination = Join-Path $env:RUNNER_TEMP 'godot-windows-preflight'
+          $downloads = Join-Path $env:GITHUB_WORKSPACE 'Cache\Downloads'
+          New-Item -ItemType Directory -Path $downloads -Force | Out-Null
+          $package = Join-Path $downloads 'godot-windows-preflight.zip'
+          $destination = Join-Path $env:GITHUB_WORKSPACE 'Tools\Godot'
           Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_mono_win64.zip' -OutFile $package
           Expand-Archive -LiteralPath $package -DestinationPath $destination
           $editor = Get-ChildItem -LiteralPath $destination -Filter 'Godot_v4.7.2-stable_mono_win64.exe' -Recurse -File | Select-Object -First 1
           if ($null -eq $editor) { throw 'Official Windows editor was not found.' }
           [IO.File]::WriteAllText((Join-Path $editor.Directory.FullName '_sc_'), '')
           "PREFLIGHT_GODOT=$($editor.FullName)" | Out-File -LiteralPath $env:GITHUB_ENV -Append -Encoding utf8
-      - name: Actual Windows import, native SDK checks, game build, runtime preparation and evidence packaging
+      - name: Actual H environment, NuGet locations, Windows import, build, runtime and evidence packaging
         shell: powershell
         env:
           DOTNET_CLI_TELEMETRY_OPTOUT: '1'
           MSBUILDDISABLENODEREUSE: '1'
-        run: .\tests\AcceptanceBundle.Smoke\verify-windows-preflight.ps1 -Executable $env:PREFLIGHT_GODOT -Sdk (Get-Command dotnet).Source
+        run: .\tests\AcceptanceBundle.Smoke\verify-windows-preflight.ps1 -Executable $env:PREFLIGHT_GODOT -Sdk (Join-Path $env:GITHUB_WORKSPACE 'Tools\dotnet\dotnet.exe')

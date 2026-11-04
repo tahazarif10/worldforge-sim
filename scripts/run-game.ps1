@@ -9,11 +9,13 @@ if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
 $editor = Get-ChildItem -Path (Join-Path $root 'Tools\Godot') -Recurse -File -Filter 'Godot_v4.7.2-stable_mono_win64.exe' -ErrorAction Stop |
     Select-Object -First 1
 if (-not $editor) { throw 'Godot executable missing from H:. Run scripts/install-godot.ps1.' }
-if (-not $editor.FullName.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Godot executable is outside H:.' }
-if (-not (Test-Path (Join-Path $editor.DirectoryName '_sc_'))) { throw 'Portable _sc_ marker is missing.' }
+Assert-WorldForgePortableGodot -Root $root -Executable $editor.FullName
 if (-not (Test-Path (Join-Path $root '.godot\mono\temp\bin\Debug\WorldForgeSim.dll'))) {
     Write-Warning 'Godot C# build missing. Build project with H:-based dotnet before launching.'
 }
 Write-Host 'Launching standalone game WITHOUT Godot editor/debugger (helps isolate editor overhead).'
 Write-Host "Godot executable: $($editor.FullName)"
-& $editor.FullName --path $root
+$log = Join-Path $root 'artifacts\game\godot-game.log'
+Assert-WorldForgePortablePath -Root $root -Path $log -Kind File -AllowMissing
+[IO.Directory]::CreateDirectory((Split-Path -Parent $log)) | Out-Null
+& $editor.FullName --path $root --log-file $log

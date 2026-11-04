@@ -1,7 +1,8 @@
 #requires -Version 5.1
 param(
     [Parameter(Mandatory=$true)][string]$Executable,
-    [Parameter(Mandatory=$true)][string]$Sdk
+    [Parameter(Mandatory=$true)][string]$Sdk,
+    [switch]$PortableChild
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -10,6 +11,145 @@ if ($env:GITHUB_ACTIONS -ne 'true' -or $env:OS -ne 'Windows_NT') {
 }
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $root 'scripts/acceptance-bundle.ps1')
+
+# The hosted checkout is exposed through a disposable H: alias so actual tools
+# exercise the production environment initializer. This proves configured path
+# behavior, not a physical user H: drive or the absence of OS/driver C: writes.
+if (-not $PortableChild) {
+    if ($null -ne (Get-PSDrive -Name H -ErrorAction SilentlyContinue) -or
+        [Environment]::GetLogicalDrives() -contains 'H:\') {
+        throw 'Hosted portable preflight requires an unused H: drive.'
+    }
+    $prefix = [IO.Path]::GetFullPath($root).TrimEnd('\') + '\'
+    function ConvertTo-HostedHPath([string]$Path) {
+        $full = [IO.Path]::GetFullPath($Path)
+        if (-not $full.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) -or
+            -not [IO.File]::Exists($full)) {
+            throw "Hosted preflight tool must be a file under the checkout: $Path"
+        }
+        return Join-Path -Path 'H:\' -ChildPath ($full.Substring($prefix.Length))
+    }
+    $childSdk = ConvertTo-HostedHPath $Sdk
+    $childGodot = ConvertTo-HostedHPath $Executable
+    $profileAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::ApplicationData)
+    if (-not $profileAppData) { throw 'Cannot identify the original Windows user NuGet configuration path.' }
+    $profileConfig = Join-Path $profileAppData 'NuGet\NuGet.Config'
+    $profileExisted = [IO.File]::Exists($profileConfig)
+    [byte[]]$profileBytes = @()
+    if ($profileExisted) { $profileBytes = [IO.File]::ReadAllBytes($profileConfig) }
+    $bootstrap = [ordered]@{ TEMP='H:\'; TMP='H:\'; TMPDIR='H:\'; PSModuleAnalysisCachePath='nul' }
+    $savedEnvironment = @{}
+    foreach ($name in $bootstrap.Keys) {
+        $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+    }
+    $mapped = $false
+    $primaryFailure = $null
+    $cleanupFailures = @()
+    $childOutput = $null
+    try {
+        & (Join-Path $env:SystemRoot 'System32\subst.exe') H: $root
+        if ($LASTEXITCODE -ne 0) { throw 'Could not create the disposable hosted H: drive.' }
+        $mapped = $true
+        # These values must precede fresh PowerShell startup. enter-dev will
+        # replace the existing H: root temp with project subdirectories later.
+        foreach ($entry in $bootstrap.GetEnumerator()) {
+            [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'Process')
+        }
+        $childOutput = Join-Path 'H:\artifacts\acceptance' ('portable-preflight-parent-' + [Guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $childOutput -Force | Out-Null
+        Invoke-AcceptanceProcess -Executable (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -Arguments @(
+            '-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',
+            'H:\tests\AcceptanceBundle.Smoke\verify-windows-preflight.ps1',
+            '-Executable',$childGodot,'-Sdk',$childSdk,'-PortableChild') `
+            -WorkingDirectory 'H:\' -OutputDirectory $childOutput -TimeoutSeconds 720
+    }
+    catch { $primaryFailure = $_ }
+    finally {
+        if ($childOutput) {
+            foreach ($name in @('stdout.log','stderr.log')) {
+                try {
+                    $log = Join-Path $childOutput $name
+                    if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 120 }
+                } catch { Write-Warning "Could not display child $name; original evidence remains in the checkout." }
+            }
+        }
+        foreach ($name in $bootstrap.Keys) {
+            try { [Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name], 'Process') }
+            catch { $cleanupFailures += "Could not restore parent environment variable: $name" }
+        }
+        try {
+            if ([IO.File]::Exists($profileConfig) -ne $profileExisted -or
+                ($profileExisted -and [Convert]::ToBase64String([IO.File]::ReadAllBytes($profileConfig)) -cne
+                    [Convert]::ToBase64String($profileBytes))) {
+                throw 'Native work changed the original Windows user NuGet.Config presence or bytes.'
+            }
+        } catch { $cleanupFailures += $_.Exception.Message }
+        if ($mapped) {
+            try {
+                & (Join-Path $env:SystemRoot 'System32\subst.exe') H: /D | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw 'Could not remove the disposable hosted H: drive.' }
+            } catch { $cleanupFailures += $_.Exception.Message }
+        }
+    }
+    if ($null -ne $primaryFailure) {
+        foreach ($problem in $cleanupFailures) { Write-Warning $problem }
+        throw $primaryFailure
+    }
+    if ($cleanupFailures.Count -ne 0) { throw ($cleanupFailures -join '; ') }
+    Write-Host 'PASS fresh Windows PowerShell portable tool execution; original user NuGet.Config presence/bytes preserved, parent environment restored and H: unmapped'
+    return
+}
+
+if (-not $root.Equals('H:\', [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Portable child must execute from the disposable H: checkout root.'
+}
+foreach ($name in @('TEMP','TMP','TMPDIR')) {
+    if ([Environment]::GetEnvironmentVariable($name, 'Process') -ine 'H:\') {
+        throw "Fresh PowerShell did not receive the H: bootstrap: $name"
+    }
+}
+if ($env:PSModuleAnalysisCachePath -ine 'nul') { throw 'PowerShell module-cache bootstrap was not applied before child launch.' }
+. (Join-Path $root 'scripts/enter-dev.ps1')
+Assert-WorldForgePortablePath -Root $root -Path $Sdk -Kind File
+Assert-WorldForgePortableGodot -Root $root -Executable $Executable
+$expectedSdk = Join-Path $root 'Tools\dotnet\dotnet.exe'
+$godotPrefix = (Join-Path $root 'Tools\Godot').TrimEnd('\') + '\'
+$selectedSdk = (Get-Command dotnet.exe -CommandType Application | Select-Object -First 1).Source
+if (-not [IO.Path]::GetFullPath($Sdk).Equals($expectedSdk, [StringComparison]::OrdinalIgnoreCase) -or
+    -not $selectedSdk.Equals($expectedSdk, [StringComparison]::OrdinalIgnoreCase) -or
+    -not [IO.Path]::GetFullPath($Executable).StartsWith($godotPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Actual SDK/Godot selection did not stay in the portable checkout tool directories.'
+}
+
+# Keep this extra native probe outside the original bundle: its 12 import/test/
+# build/boot stage identities and closed-log checks below remain unchanged.
+$environmentOutput = Join-Path $root ('artifacts/acceptance/portable-nuget-' + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $environmentOutput -Force | Out-Null
+Invoke-AcceptanceProcess -Executable $Sdk -Arguments @('nuget','locals','all','--list','--force-english-output') `
+    -WorkingDirectory $root -OutputDirectory $environmentOutput -TimeoutSeconds 60
+$expectedCaches = [ordered]@{
+    'http-cache' = $env:NUGET_HTTP_CACHE_PATH
+    'global-packages' = $env:NUGET_PACKAGES
+    'temp' = $env:NUGET_SCRATCH
+    'plugins-cache' = $env:NUGET_PLUGINS_CACHE_PATH
+}
+$observedCaches = @{}
+foreach ($line in Get-Content -LiteralPath (Join-Path $environmentOutput 'stdout.log')) {
+    if ($line -match '^(http-cache|global-packages|temp|plugins-cache):\s*(.+)$') {
+        $name = $Matches[1]
+        $path = $Matches[2].Trim()
+        if ($observedCaches.ContainsKey($name)) { throw "Duplicate NuGet cache location: $name" }
+        Assert-WorldForgePortablePath -Root $root -Path $path -Kind Directory -AllowMissing
+        if (-not [IO.Path]::GetFullPath($path).TrimEnd('\').Equals(
+            [IO.Path]::GetFullPath($expectedCaches[$name]).TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Actual NuGet $name path differs from the initialized portable environment: $path"
+        }
+        $observedCaches[$name] = $path
+        Write-Host "PASS actual NuGet $name location: $path"
+    }
+}
+if ($observedCaches.Count -ne 4) { throw 'dotnet nuget locals did not report all four portable cache locations.' }
+
 . (Join-Path $root 'scripts/acceptance-preflight.ps1')
 . (Join-Path $root 'scripts/acceptance-worktree.ps1')
 . (Join-Path $root 'scripts/acceptance-runtime.ps1')

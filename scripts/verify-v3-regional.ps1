@@ -9,7 +9,7 @@ if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
 Set-Location $root
 . (Join-Path $PSScriptRoot 'enter-dev.ps1')
 $sdk = Join-Path $root 'Tools\dotnet\dotnet.exe'
-if (-not (Test-Path -LiteralPath $sdk)) { throw "H:-portable .NET missing: $sdk" }
+Assert-WorldForgePortablePath -Root $root -Path $sdk -Kind File
 & $sdk run --project (Join-Path $root 'tests\RegionalWorld.Smoke\RegionalWorld.Smoke.csproj') -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Regional world persistence or 8192-size test failed' }
 # Also run existing V2 art regression, Godot GLB import and C# compilation,

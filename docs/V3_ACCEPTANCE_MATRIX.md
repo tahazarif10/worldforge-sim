@@ -250,3 +250,98 @@ The immediate user action is to attach the **existing ZIP** above in the active 
 ## H. Staged publication candidate (V3.4.4 slice 2)
 
 The user approved the preceding short diagnostic milestone and authorized continuation. This does not fill missing full-duration or exact-candidate image/input evidence. [#74](https://github.com/tahazarif10/worldforge-sim/issues/74) / [ADR 0010](decisions/0010-staged-publication-and-frame-work-evidence.md) adds two native admissions per detail and schema 3 work.csv, with correct preceding-callback alignment and correlated slow intervals. Read [the candidate protocol](V3_4_STAGED_PUBLICATION.md) before comparing it to the schema 2 host report above. Publication policy changes fixture identity. Recollect the short RUN-TEST.cmd diagnostic on this candidate; raw old/new ZIP review and repeated longer scenarios are separate acceptance steps. Status: host phase evidence, speed improvement, GPU seams and mirror-zoom attribution **PENDING**.
+
+## I. Received staged-publication host report — 2026-11-04
+
+**Reported result: PASS; all eight short captures VALID. Full visual/input/performance acceptance remains PENDING.** This report supplies the phase summaries requested in section H for the merged staged-publication candidate. It supersedes that outstanding short-report request; the earlier approved report in section G remains historical evidence.
+
+### Provenance and integrity limits
+
+| Field | Supplied evidence |
+| --- | --- |
+| Candidate commit | `a0fd5131fab345792f6b957b5c98c316d3d52a52` |
+| Runner / profile | RUN-TEST.cmd; short-diagnostic; one pass per scenario/backend |
+| Planner / seed / quality | viewport-v3-workers / 1315511732 / Eco |
+| Engine / renderer | Godot 4.7.2 stable Mono / Compatibility OpenGL 3.3 |
+| GPU / driver | AMD RADEON R9 M395X / 27.20.14540.15002 |
+| Whole diagnostic elapsed | 210 seconds, including preparation and collection |
+| Per-window request | 3 seconds warm-up + 8 seconds capture; paused simulation and scripted actions |
+| Capture session | 20261104-123330-745205dc |
+| Local evidence directory | `H:\WorldForge-Sim\artifacts\acceptance\self-test\20261104-123329-7429f296` |
+| Expected local archive | `H:\WorldForge-Sim\artifacts\acceptance\self-test\20261104-123329-7429f296.zip` |
+| Received source | User-uploaded Pasted text(20261104-123607).txt, 26,930 bytes |
+| Received file SHA256 | `2e26e2aeac1972ec439f9aa3bb7124a127b1815c2773034a3f1c4922d1592ad1` |
+
+The text contains eight result rows, eight worker summaries, eight frame-work summaries and VALID log records for all eight distinct captures. All frame-work summaries report schema 1, `complete=true`, `invalid_rows=0` and `dropped_rows=0`. Their counts match the result-table samples and worker-window samples, totaling **3,750**. The printed slowest interval in each summary matches its table maximum, and the printed callback plus outside-callback durations reconstruct each supplied slow interval within numerical precision. These are consistency checks of the received summary, not independent validation of the raw traces.
+
+No ZIP, original frame/work CSVs, capture JSON, screenshots or configuration/sidecar manifests were supplied. Full raw-row joins, fixture policy identity, archive integrity and image quality have not been independently reviewed. The expected archive path follows the runner's naming; the text does not prove its existence or contents. Preserve session labels without inferring the Windows timezone. The 210-second elapsed value includes work outside timed capture and is not a frame-time statistic.
+
+### Reported callback intervals (milliseconds)
+
+| Scenario | Backend | Samples | p50 | p95 | p99 | Maximum |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| idle | direct | 481 | 16.677 | 18.369 | 18.553 | 19.340 |
+| idle | region-mirror | 481 | 16.679 | 18.409 | 18.557 | 18.645 |
+| pan | direct | 479 | 16.673 | 18.406 | 18.530 | 31.783 |
+| pan | region-mirror | 479 | 16.677 | 18.443 | 18.577 | 35.086 |
+| zoom | direct | 480 | 16.677 | 18.452 | 18.636 | 30.871 |
+| zoom | region-mirror | 431 | 16.713 | 31.858 | 31.964 | 32.428 |
+| paint | direct | 461 | 16.689 | 18.538 | 31.791 | 35.523 |
+| paint | region-mirror | 458 | 16.688 | 21.647 | 35.231 | 40.132 |
+
+All eight reported p95 values remain below the provisional 33.3 ms Eco target and all reported maxima are below 50 ms in these short windows. This does not close the sustained-performance gate or establish physical input latency. Every worker summary reports zero failed chunks and zero coast failures.
+
+### Reported paint work and retained resources
+
+| Counter / sampled maximum | direct | region-mirror |
+| --- | ---: | ---: |
+| Retained entries / staged chunks | 3 / 1 | 3 / 1 |
+| Reserved array bytes | 12,582,912 | 12,582,912 |
+| Ready payload bytes | 453,088 | 453,088 |
+| Admitted upload bytes | 204,960 | 204,960 |
+| Snapshot time, ms | 1.1271 | 7.3728 |
+| Publication time, ms | 4.2958 | 4.1488 |
+| Terrain phase, ms | 2.7838 | 3.0929 |
+| Foliage phase, ms | 1.6147 | 1.9351 |
+| Coast phase, ms | 0.5717 | 0.5583 |
+| Pump time, ms | 4.3245 | 7.3906 |
+| Soft time-budget overruns | 1 | 12 |
+| Callback time, ms | 25.937 | 36.196 |
+| Action time, ms | 4.755 | 8.242 |
+| Visibility time, ms | 22.701 | 30.090 |
+| Flush time, ms | 1.311 | 0.778 |
+
+These maxima can come from different callbacks. Visibility contains pump, and pump contains snapshot/publication work; do not sum nested timings or separate maxima. The 12 MiB reservation describes managed numeric arrays, not total native/GPU memory. Sampled `max_active=0` does not mean no workers ran between observations. Idle, pan and zoom summaries report zero retained/reserved/upload work and zero snapshot/native-publication time in their windows.
+
+### Correlated slow rows: paint visibility and mirror zoom
+
+The following six paint rows are the three slowest intervals printed for each backend. All six have **terrain, foliage and coast publication times equal to zero**, while snapshots are included in pump. Values below are rounded to three decimals; `visibility minus pump` is derived from the timings in the same row.
+
+| Backend / sequence | Interval ms | Callback ms | Visibility ms | Pump ms | Visibility minus pump ms | Outside callback ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| direct / 390 | 35.523 | 25.937 | 22.701 | 1.020 | 21.682 | 9.586 |
+| direct / 45 | 31.883 | 12.915 | 11.182 | 1.077 | 10.105 | 18.968 |
+| direct / 133 | 31.841 | 15.328 | 13.702 | 1.168 | 12.534 | 16.513 |
+| region-mirror / 31 | 40.132 | 31.076 | 25.601 | 7.271 | 18.330 | 9.056 |
+| region-mirror / 387 | 39.926 | 36.196 | 30.090 | 2.837 | 27.253 | 3.730 |
+| region-mirror / 158 | 39.725 | 30.290 | 25.342 | 7.319 | 18.023 | 9.435 |
+
+**Supported inference:** these printed paint stalls contain substantial owner-callback visibility work outside the worker pump, between 10.105 and 27.253 ms per listed row. Native publication is not the measured work in those six callbacks, although publication occurs elsewhere in the capture. Source inspection and finer attribution of the visibility path are the next profiling priority; this summary does not identify the particular visibility operation or explain every part of each interval.
+
+| Mirror zoom sequence | Interval ms | Callback ms | Action ms | Visibility ms | Outside callback ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 7 | 32.428 | 5.765 | 5.193 | 0.519 | 26.663 |
+| 72 | 32.027 | 6.172 | 5.594 | 0.519 | 25.855 |
+| 199 | 32.007 | 6.121 | 5.520 | 0.526 | 25.886 |
+
+All three mirror-zoom rows report zero snapshot/terrain/foliage/coast time. Their 25.855–26.663 ms outside the measured callback remains **unclassified**. This quantity is not a GPU timer and cannot establish a GPU, cache, VSync, scheduling or backend cause. Treat this tail separately from paint visibility work.
+
+### Comparison and decision
+
+Compared with the single 2026-11-03 report at `849dc704fd596a654d39741df1d9dea1d9ea1ef9`, paint p95 is lower in this run: **30.490 → 18.538 ms direct** and **30.817 → 21.647 ms mirror**. Direct paint p99 remains **31.791 ms**; mirror paint p99 changes **38.555 → 35.231 ms**. Reported publication maxima change **7.0668 → 4.2958 ms direct** and **7.2867 → 4.1488 ms mirror**, with soft-budget overrun counts **11 → 1** and **23 → 12**. Retained maxima also change from **2 to 3 entries**, and array reservations from **8 to 12 MiB** per backend. Mirror zoom retains its longer tail: p95 **31.707 → 31.858 ms**, p99 **31.886 → 31.964 ms**.
+
+These are descriptive differences between two single ordered short runs with changed publication policy and instrumentation. They do not prove a repeatable speed improvement, a backend regression, or causation by staging. Both runs used mesh workers; neither is a workers-ON/OFF comparison. The increased whole-session duration, 168.9 → 210 seconds, includes preparation/collection and does not establish slower gameplay.
+
+- **Received checkpoint complete:** the staged candidate reaches all eight captures and supplies complete reported work summaries. No repeat of this unchanged short diagnostic is needed merely to restate these metrics.
+- **Next investigation:** review the existing ZIP's raw frames/work/metadata/images and audit the visibility work outside pump; keep mirror zoom attribution separate. A targeted correction must follow that evidence, while resident coast/LOD expansion remains later work.
+- **Still pending:** full raw-bundle verification, repeated full-duration matched scenarios, image/coverage review, actual input, live simulation, save/load and explicit user art/camera acceptance. Keep #53/#55 open and the full-acceptance commit fields unset. No default promotion or visual-quality reduction follows from this report.

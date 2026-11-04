@@ -19,19 +19,15 @@ Write-Warning 'EXPERIMENTAL: V3 regional scene has known visual holes and degrad
 $editor = Get-ChildItem -Path (Join-Path $root 'Tools\Godot') -Recurse -File -Filter 'Godot_v4.7.2-stable_mono_win64.exe' -ErrorAction Stop |
     Select-Object -First 1
 if (-not $editor) { throw 'Godot .NET editor missing under H:\WorldForge-Sim\Tools\Godot.' }
-if (-not $editor.FullName.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
-    throw 'Godot executable is not located on H:.'
-}
-if (-not (Test-Path (Join-Path $editor.DirectoryName '_sc_'))) {
-    throw 'Portable Godot _sc_ marker is missing.'
-}
+Assert-WorldForgePortableGodot -Root $root -Executable $editor.FullName
 $build = Join-Path $root '.godot\mono\temp\bin\Debug\WorldForgeSim.dll'
 if (-not (Test-Path $build)) {
     throw 'Godot C# build not found. Run the H:-based dotnet build command first.'
 }
 $dir = Join-Path $root 'artifacts\regional-world'
-New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $log = Join-Path $dir 'godot-regional-3d-console.log'
+Assert-WorldForgePortablePath -Root $root -Path $log -Kind File -AllowMissing
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
 Write-Host 'Launching stand-alone 3D regional 3D map preview, preserving the 2D main scene.'
 Write-Host "Log: $log"
 & $editor.FullName --path $root --scene 'res://Scenes/RegionalWorldLab3D.tscn' --rendering-method gl_compatibility --log-file $log

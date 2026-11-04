@@ -2,7 +2,7 @@
 
 **Scope:** [#74](https://github.com/tahazarif10/worldforge-sim/issues/74), within [#55](https://github.com/tahazarif10/worldforge-sim/issues/55). **Decision:** [ADR 0010](decisions/0010-staged-publication-and-frame-work-evidence.md). This extends the separately opt-in worker path after the user approved the short diagnostic milestone and continuation.
 
-**Status — reviewed 2026-11-04:** slice 2 engineering is complete and merged in [PR #75](https://github.com/tahazarif10/worldforge-sim/pull/75). The next step is a new phase-enabled `RUN-TEST.cmd` report from the H:-Windows host. Physical acceptance, resident coast rendering and distance LOD remain open.
+**Status — reviewed 2026-11-04:** slice 2 engineering is complete and merged in [PR #75](https://github.com/tahazarif10/worldforge-sim/pull/75). The requested phase-enabled short host report has arrived at `a0fd5131fab345792f6b957b5c98c316d3d52a52`; [acceptance matrix section I](V3_ACCEPTANCE_MATRIX.md#i-received-staged-publication-host-report--2026-11-04) records eight VALID captures / 3,750 samples and the remaining limits. Physical acceptance, resident coast rendering and distance LOD remain open.
 
 ## Observed problem and hypothesis
 
@@ -65,7 +65,7 @@ Normal input is active. For automatic collection, double-click RUN-TEST.cmd or r
 .\RUN-TEST.cmd
 ~~~
 
-Let each test window close automatically. Paste the report into the active project conversation and attach its ZIP when possible; no automatic upload occurs. Schema 3 phase evidence requires a new short diagnostic of this merged candidate. The previous approved diagnostic and its ZIP remain useful for historical raw/image review.
+Let each test window close automatically. Paste the report into the active project conversation and attach its ZIP when possible; no automatic upload occurs. The schema 3 short report for the merged candidate has now been received. Use this command after a subsequent changed candidate, not merely to repeat the unchanged report. Previous diagnostics and their ZIPs remain useful for historical raw/image review.
 
 Check the new candidate SHA, staged policy, work-window completeness, phase rows and bounded counters before comparing p95/p99. The existing full-duration repeated physical scenarios and visual/input/save/live-simulation checks still apply. User approval of the preceding diagnostic is recorded separately from exact-candidate art/GPU acceptance.
 
@@ -79,7 +79,7 @@ Check the new candidate SHA, staged policy, work-window completeness, phase rows
 
 Final reviewed head `4e825136c31aa188cd5a70c6bc8b9e9982157ceb` passed [core/Windows PowerShell/actual Windows preflight 41704623343](https://github.com/tahazarif10/worldforge-sim/actions/runs/41704623343) and [official Godot 4.7.2 Mono engine 41704623350](https://github.com/tahazarif10/worldforge-sim/actions/runs/41704623350). Merged main `64ff07c5e621ec604b2cbeeb62ae97f608e11798` has the same tree `7c78e23fde9350ff7b79103f8015b3a76d3bb57f` and passed [merged-main core/Windows checks 41705487580](https://github.com/tahazarif10/worldforge-sim/actions/runs/41705487580). These runs completed on 2026-11-03 and were reviewed on 2026-11-04; [PROJECT_STATE](PROJECT_STATE.md) retains the earlier implementation-head evidence separately.
 
-New R9 M395X phase evidence and full physical acceptance remain PENDING. No host speed improvement is established by these automated checks.
+R9 M395X short phase summaries are now recorded in the acceptance matrix. Raw ZIP/images, repeated performance benefit and full physical acceptance remain PENDING. No host speed improvement is established by these automated checks.
 
 ## Next slice
 

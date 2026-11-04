@@ -1,4 +1,4 @@
-# First-time import of the 10 bundled CC0 GLB models; all activity on H:.
+# First-time import of the 10 bundled CC0 GLB models; controlled project writes on H:.
 # Does not reset, overwrite or modify project.godot itself.
 param([switch]$NoLaunch, [Nullable[int]]$WorldSeed = $null, [switch]$ViewportStreaming, [switch]$MeshWorkers)
 $ErrorActionPreference = 'Stop'
@@ -11,15 +11,13 @@ Set-Location $root
 . (Join-Path $PSScriptRoot 'enter-dev.ps1')
 $editor = Join-Path $root 'Tools\Godot\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64.exe'
 $sdk = Join-Path $root 'Tools\dotnet\dotnet.exe'
-if (-not (Test-Path -LiteralPath $editor)) { throw "Godot executable missing: $editor" }
-if (-not (Test-Path -LiteralPath $sdk)) { throw "Portable .NET SDK missing: $sdk" }
-if (-not (Test-Path -LiteralPath (Join-Path (Split-Path $editor -Parent) '_sc_'))) {
-    throw 'Portable Godot marker _sc_ missing. Refusing to create Godot cache on C:.'
-}
+Assert-WorldForgePortablePath -Root $root -Path $sdk -Kind File
+Assert-WorldForgePortableGodot -Root $root -Executable $editor
 . (Join-Path $PSScriptRoot 'acceptance-bundle.ps1')
 . (Join-Path $PSScriptRoot 'acceptance-preflight.ps1')
 $session = [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
 $logs = Join-Path $root ('artifacts\visual-lab\preflight-' + $session)
+Assert-WorldForgePortablePath -Root $root -Path $logs -Kind Directory -AllowMissing
 try { Invoke-AcceptancePreflight -Root $root -Executable $editor -Sdk $sdk -Directory $logs }
 finally { Write-Host "Preflight logs: $logs" }
 

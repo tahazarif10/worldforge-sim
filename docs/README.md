@@ -1,6 +1,6 @@
 # Documentation guide
 
-**Reviewed: 2026-11-03.** Start with the current state and roadmap. Historical reviews explain earlier decisions; they do not override current release gates.
+**Reviewed: 2026-11-04.** Start with the current state and roadmap. Historical reviews explain earlier decisions; they do not override current release gates.
 
 ## Current documents
 
@@ -58,4 +58,4 @@ On 2026-11-02 the user authorized the OFF-by-default V3.4.1 engineering slice wh
 
 [V3.4.4 coast patches and one-click host diagnostics](V3_4_COAST_PATCHES_AND_SELF_TEST.md) describes RUN-TEST.cmd, local evidence/clipboard behavior, bounded coast data, remaining LOD work and test limits. [ADR 0009](decisions/0009-bounded-coast-patches-and-host-diagnostics.md) records the decision.
 
-The user approved the short diagnostic milestone; [slice 2](V3_4_STAGED_PUBLICATION.md) / [ADR 0010](decisions/0010-staged-publication-and-frame-work-evidence.md) now separates terrain/foliage admission and adds schema 3 work evidence. Required CI and a new host phase report precede any claim of improved speed. Resident coast and distance LOD remain subsequent work.
+The user approved the short diagnostic milestone; [slice 2](V3_4_STAGED_PUBLICATION.md) / [ADR 0010](decisions/0010-staged-publication-and-frame-work-evidence.md) separates terrain/foliage admission and adds schema 3 work evidence. The 2026-11-04 host report is now recorded in [acceptance matrix section I](V3_ACCEPTANCE_MATRIX.md#i-received-staged-publication-host-report--2026-11-04), with eight VALID short captures and distinct paint-visibility/zoom findings. Portable tool-state hardening and the scoped picker follow-up are recorded in [PROJECT_STATE](PROJECT_STATE.md); repeated speed benefit and full physical acceptance remain open. Resident coast and distance LOD remain subsequent work.

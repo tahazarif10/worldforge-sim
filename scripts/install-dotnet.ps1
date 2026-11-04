@@ -10,17 +10,20 @@ if (-not $root.StartsWith('H:\', [System.StringComparison]::OrdinalIgnoreCase)) 
 if (-not [Environment]::Is64BitOperatingSystem) { throw 'Requires 64-bit Windows' }
 $tools = Join-Path $root 'Tools'
 $sdkDir = Join-Path $tools 'dotnet'
+Assert-WorldForgePortableTree -Root $root -Directory $sdkDir
 $downloads = Join-Path $root 'Cache\Downloads'
 New-Item -ItemType Directory -Force -Path $tools,$sdkDir,$downloads | Out-Null
 $installer = Join-Path $downloads 'dotnet-install.ps1'
 $archive = Join-Path $downloads 'dotnet-sdk-10.0.403-win-x64.zip'
 $source = 'https://dot.net/v1/dotnet-install.ps1'
+Assert-WorldForgePortablePath -Root $root -Path $installer -Kind File -AllowMissing
+Assert-WorldForgePortablePath -Root $root -Path $archive -Kind File -AllowMissing
 Write-Host "Downloading official Microsoft installation script to: $installer"
 Invoke-WebRequest -UseBasicParsing -Uri $source -OutFile $installer
 Write-Host "Installing SDK 10.0.403 to: $sdkDir"
 Write-Host "SDK download archive (H:): $archive"
 # Isolate the Microsoft script's exit behavior in a child shell.
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Version '10.0.403' -Architecture 'x64' -InstallDir $sdkDir -NoPath -KeepZip -ZipPath $archive
+& (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -NoProfile -ExecutionPolicy Bypass -File $installer -Version '10.0.403' -Architecture 'x64' -InstallDir $sdkDir -NoPath -KeepZip -ZipPath $archive
 if ($LASTEXITCODE -ne 0) { throw "Microsoft installer exited with code $LASTEXITCODE" }
 $exe = Join-Path $sdkDir 'dotnet.exe'
 if (-not (Test-Path $exe)) { throw "Expected H:-based SDK not found: $exe" }

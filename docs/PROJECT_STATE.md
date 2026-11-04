@@ -2,13 +2,13 @@
 state_schema: 3
 reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
 last_verified_date: 2026-11-04
-audited_repository_commit: 64ff07c5e621ec604b2cbeeb62ae97f608e11798
+audited_repository_commit: a0fd5131fab345792f6b957b5c98c316d3d52a52
 baseline_core_ci_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
 baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
 baseline_engine_ci_run: 41105302717
 windows_verified_commit: null
-windows_attempted_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
+windows_attempted_commit: a0fd5131fab345792f6b957b5c98c316d3d52a52
 windows_attempt_status: "Target-host short diagnostic PASS: eight VALID worker captures; full acceptance still pending"
 user_accepted_visual_commit: null
 completed_through: V3.2-engineering
@@ -27,13 +27,13 @@ staged_publication_merged_commit: 64ff07c5e621ec604b2cbeeb62ae97f608e11798
 staged_publication_merged_tree: 7c78e23fde9350ff7b79103f8015b3a76d3bb57f
 staged_publication_merged_core_ci_run: 41705487580
 user_approved_diagnostic_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
-windows_short_diagnostic_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
+windows_short_diagnostic_commit: a0fd5131fab345792f6b957b5c98c316d3d52a52
 windows_short_diagnostic_status: PASS
-latest_diagnostic_status: "2026-11-03 PASS, 168.9s, 3742 samples; exact host commit and driver recorded; raw ZIP review pending"
+latest_diagnostic_status: "2026-11-04 PASS, 210s, 3750 samples; eight complete reported work summaries; raw ZIP/image review pending"
 last_interactive_feedback: "2026-11-03 positive qualitative report after V3.4.3 worker candidate; exact local SHA not supplied"
 measurement_implementation_pr: 60
-active_status: "V3.4.4 slice 2 engineering complete and merged in PR #75; final reviewed-head and merged-main checks passed; new phase-enabled host report and physical acceptance pending"
-next_gate: "New RUN-TEST.cmd report with work.csv; attribute paint/zoom before resident coast/LOD expansion; full physical acceptance pending"
+active_status: "V3.4.4 slice 2 host phase report received; portable tool-state hardening #77 and scoped picker follow-up #78; full physical acceptance pending"
+next_gate: "Verify portable tool boundaries and picker parity; RUN-TEST.cmd after changed candidate update; isolate paint visibility and unclassified zoom remainder before coast/LOD expansion"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
@@ -43,7 +43,21 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 **Source audit updated 2026-11-04.** This file is the factual status ledger, not the entire history and not a promise of future implementation. The prior chronology is preserved verbatim in [PROJECT_HISTORY_2026-10-30.md](PROJECT_HISTORY_2026-10-30.md). The actionable future plan is [ROADMAP.md](ROADMAP.md).
 
 
-## Current slice — V3.4.4 slice 2 engineering complete (reviewed 2026-11-04)
+## Current checkpoint — portable tool state and received host report (2026-11-04)
+
+The supplied short report at `a0fd5131fab345792f6b957b5c98c316d3d52a52` contains **eight VALID captures / 3,750 samples in 210 seconds**, with all reported work summaries complete and no invalid/dropped work rows. [Acceptance matrix section I](V3_ACCEPTANCE_MATRIX.md#i-received-staged-publication-host-report--2026-11-04) preserves the attachment provenance, all scenario distributions and correlated phase rows. Only the text report was supplied; the raw ZIP and images have not been inspected. It is not a filesystem trace.
+
+Paint p95 is **18.538 ms direct / 21.647 ms mirror**; publication maxima are **4.2958 / 4.1488 ms**, with **1 / 12** soft-budget overruns. All six printed slow paint rows have zero terrain/foliage/coast publication and **10.105–27.253 ms of visibility outside pump**. Mirror zoom p95/p99 is **31.858 / 31.964 ms**; its printed slow rows leave **25.855–26.663 ms outside the callback**, which remains unclassified. Comparisons with the prior short run are descriptive, not a controlled speedup claim.
+
+The user reiterated that deliberate project writes must remain on H: and explicitly authorized continuation without opening Work/Codex. [Portable hardening #77](https://github.com/tahazarif10/worldforge-sim/issues/77) adds process-scoped NuGet scratch, .NET extraction, tool APPDATA/LOCALAPPDATA and first-use controls, validates configured paths before creation, refuses reparse/incorrect-kind destinations and requires a real Godot `_sc_` marker. The one-click launcher disables the PowerShell module cache before shell startup. Logs are explicit project paths, and subsequent reports include `portable-environment.json` as configuration evidence. No user/machine environment, registry or project.godot rewrite is part of this change. Windows/driver-managed I/O remains outside these controls.
+
+**Verification contract:** native Windows PowerShell 5.1 exercises hostile inherited paths, unchanged parent/profile/source sentinels, idempotence, non-H rejection, junction/file collisions and real CMD exit propagation. Official Windows Godot/SDK preflight also runs in a disposable hosted H: mapping with the actual portable environment and checks resolved NuGet paths before the existing import/tests/build/both-backend boots and report/ZIP validation. Hosted drive mapping is path-behavior evidence, not the user's physical H: drive or a machine-wide I/O audit. Exact execution results belong to this slice's linked PR; no new target-host run is claimed here.
+
+**Next authorized engineering slice:** [single-fan picker #78](https://github.com/tahazarif10/worldforge-sim/issues/78). Source inspection found repeated reconstruction of one cell's five-height surface during zoom/brush picking. Preserve the scalar oracle, triangles, tolerances and camera behavior; verify one fan acquisition per cell and exact direct/mirror parity. Do not combine this with a fallback/LRU/coast rewrite or claim it explains the unclassified zoom interval remainder.
+
+**Next user command after a safe update to the changed candidate:** `RUN-TEST.cmd`. Review its exact commit, portable configuration and work rows; separately complete interactive camera/brush, images, live simulation/save-load and full-duration acceptance. Do not rerun the unchanged `a0fd513` diagnostic merely to reproduce summaries already received. `windows_verified_commit` and `user_accepted_visual_commit` remain null; #53/#55 stay open.
+
+## Completed slice — V3.4.4 slice 2 engineering (reviewed 2026-11-04)
 
 The user explicitly approved the preceding diagnostic milestone and authorized the next slice. This records approval of the short diagnostic at 849dc704fd596a654d39741df1d9dea1d9ea1ef9 and continuation, not new full-duration GPU/input/art evidence. The previous received report and its raw-ZIP limitation remain in the ledger below.
 
@@ -53,9 +67,9 @@ Schema 3 captures add bounded work.csv aligned to each interval's preceding call
 
 **Verification:** final reviewed head `4e825136c31aa188cd5a70c6bc8b9e9982157ceb` passed core, Windows PowerShell, actual Windows Godot preflight and official engine checks. Merged main `64ff07c5e621ec604b2cbeeb62ae97f608e11798` has the identical tree `7c78e23fde9350ff7b79103f8015b3a76d3bb57f`; its core, Windows PowerShell and actual Windows preflight also passed. Exact run links and the earlier implementation-head evidence appear below.
 
-**Remaining gate:** a new phase-enabled H:-Windows report and images are PENDING, as are physical benefit, old/new art comparison and the mirror zoom cause. This completed engineering slice does not close V3.4.4's resident coast/LOD work or physical acceptance in #53/#55.
+**Updated gate:** the phase-enabled short report is now recorded above. Raw ZIP/images, repeatable physical benefit, old/new art comparison and the mirror zoom cause remain PENDING. This completed engineering slice does not close V3.4.4's resident coast/LOD work or physical acceptance in #53/#55.
 
-**Next user command after a safe fast-forward:** RUN-TEST.cmd, which now gathers the new phase evidence automatically. Interactive play remains scripts/verify-v2-art.ps1 -WorldSeed 1315511732 -MeshWorkers. Inspect the new report's exact commit and phase rows; the previous ZIP is still useful but its absence does not block this authorized bounded instrumentation/admission change.
+Interactive play remains `scripts/verify-v2-art.ps1 -WorldSeed 1315511732 -MeshWorkers`. The short-report request for this exact staged-publication tree has been satisfied; follow the current checkpoint above for subsequent candidate tests.
 
 ## Product status
 

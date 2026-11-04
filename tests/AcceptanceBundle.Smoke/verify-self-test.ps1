@@ -52,7 +52,8 @@ try {
     $noClipboard = Invoke-SelfTestBundle -Directory (Join-Path $temp 'clipboard busy') -Action { Write-Output 'done' }
     Check ($noClipboard.Status -eq 'PASS' -and -not $noClipboard.Copied -and
         (Test-Path -LiteralPath (Join-Path $noClipboard.Directory 'REPORT.txt'))) 'clipboard failure does not lose evidence or change test verdict'
-    # Exercise the actual CMD entry point in a fixture, without triggering H: engine work.
+    # The real launcher must reject this non-H: fixture before its child runs.
+    # The dedicated portable-environment test covers successful H: CMD exit propagation.
     $launcher = Join-Path $temp 'launcher spaces'
     New-Item -ItemType Directory -Path (Join-Path $launcher 'scripts') | Out-Null
     Copy-Item -LiteralPath (Join-Path $root 'RUN-TEST.cmd') -Destination $launcher
@@ -69,7 +70,7 @@ try {
         if (-not $child.WaitForExit(20000)) { $child.Kill(); throw 'CMD fixture timed out.' }
         $entryOutput = $child.StandardOutput.ReadToEnd()
         $entryError = $child.StandardError.ReadToEnd()
-        Check ($child.ExitCode -eq 7 -and $entryOutput.Contains('CMD_ENTRY_OK') -and -not $entryError) 'real CMD launcher quotes paths and preserves child exit code'
+        Check ($child.ExitCode -ne 0 -and -not $entryOutput.Contains('CMD_ENTRY_OK') -and -not $entryError) 'real CMD launcher refuses a non-H: checkout before its child runs'
     } finally { $child.Dispose() }
     # Run the actual H:-guarded entry script with a stub capture action in disposable hosted CI.
     # This checks parameter plumbing and script-relative resolution; it is not engine/GPU evidence.
@@ -78,7 +79,7 @@ try {
         $mapped = $false
         $hostFixture = Join-Path $temp 'host fixture'
         New-Item -ItemType Directory -Path (Join-Path $hostFixture 'scripts') | Out-Null
-        foreach ($name in @('run-self-test.ps1','self-test-report.ps1','acceptance-bundle.ps1')) {
+        foreach ($name in @('run-self-test.ps1','self-test-report.ps1','acceptance-bundle.ps1','enter-dev.ps1','portable-paths.ps1')) {
             Copy-Item -LiteralPath (Join-Path $root ('scripts\' + $name)) -Destination (Join-Path $hostFixture 'scripts')
         }
         $stub = @'
@@ -101,6 +102,9 @@ Set-Content -LiteralPath (Join-Path $EvidenceDirectory 'result.md') -Value 'WRAP
             $reports = @(Get-ChildItem -LiteralPath 'H:\artifacts\acceptance\self-test' -Filter 'REPORT.txt' -Recurse -File)
             Check ($reports.Count -eq 1 -and
                 (Get-Content -LiteralPath $reports[0].FullName -Raw).Contains('WRAPPER_PARAMETERS_VERIFIED')) 'actual H: wrapper resolves scripts and selects quick worker all-scenario paired capture'
+            $portable = Get-Content -LiteralPath (Join-Path $reports[0].Directory.FullName 'portable-environment.json') -Raw | ConvertFrom-Json
+            Check ($portable.bindings.TEMP -eq 'H:\Temp' -and $portable.bindings.APPDATA -eq 'H:\Cache\AppData\Roaming' -and
+                $portable.filesystem_trace -eq $false -and (Get-Content -LiteralPath $reports[0].FullName -Raw).Contains('not a filesystem trace')) 'report records resolved portable bindings without claiming an OS-wide I/O audit'
         } finally {
             if ($mapped) { & (Join-Path $env:SystemRoot 'System32\subst.exe') H: /D | Out-Null }
         }
