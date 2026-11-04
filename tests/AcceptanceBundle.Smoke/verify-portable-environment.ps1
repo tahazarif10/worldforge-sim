@@ -99,7 +99,17 @@ function Invoke-FixtureProcess([string]$Executable, [string]$Arguments, [string]
         $stdout = $child.StandardOutput.ReadToEndAsync()
         $stderr = $child.StandardError.ReadToEndAsync()
         if (-not $child.WaitForExit(30000)) {
-            & (Join-Path $env:SystemRoot 'System32\taskkill.exe') /PID $child.Id /T /F | Out-Null
+            try { & (Join-Path $env:SystemRoot 'System32\taskkill.exe') /PID $child.Id /T /F 2>&1 | Out-Null }
+            catch { Write-Host ('Owned child-tree cleanup: ' + $_.Exception.Message) }
+            try { if (-not $child.WaitForExit(5000)) { $child.Kill() } }
+            catch { Write-Host ('Owned child cleanup: ' + $_.Exception.Message) }
+            foreach ($capture in @(@{Name='stdout'; Task=$stdout}, @{Name='stderr'; Task=$stderr})) {
+                try {
+                    $partial = if ($capture.Task.Wait(5000)) { [string]$capture.Task.Result } else { '<pipe did not close>' }
+                    if ($partial.Length -gt 8000) { $partial = $partial.Substring($partial.Length - 8000) }
+                    Write-Host ("Timed-out child $($capture.Name):`n" + $partial)
+                } catch { Write-Host ("Timed-out child $($capture.Name) drain: " + $_.Exception.Message) }
+            }
             throw 'Portable-environment child timed out.'
         }
         if (-not $stdout.Wait(5000) -or -not $stderr.Wait(5000)) { throw 'Portable-environment child streams did not close.' }
@@ -108,8 +118,14 @@ function Invoke-FixtureProcess([string]$Executable, [string]$Arguments, [string]
 }
 
 $probePrelude = @'
+[Console]::Out.WriteLine('PORTABLE_STAGE ' + [DateTime]::UtcNow.ToString('o') + ': PowerShell script execution began')
+[Console]::Out.Flush()
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+function Write-ProbeStage([string]$Stage) {
+    [Console]::Out.WriteLine('PORTABLE_STAGE ' + [DateTime]::UtcNow.ToString('o') + ': ' + $Stage)
+    [Console]::Out.Flush()
+}
 function Get-ProbeEnvironment {
     $state = [ordered]@{}
     foreach ($name in @('WORLDFORGE_HOME','TEMP','TMP','TMPDIR','NUGET_PACKAGES','NUGET_HTTP_CACHE_PATH',
@@ -123,7 +139,10 @@ function Get-ProbeEnvironment {
     return $state
 }
 function Write-ProbeResult($Value) {
+    Write-ProbeStage 'before ConvertTo-Json'
     [Console]::Out.WriteLine('PORTABLE_PROBE:' + ($Value | ConvertTo-Json -Depth 5 -Compress))
+    [Console]::Out.Flush()
+    Write-ProbeStage 'JSON result emitted'
 }
 '@
 
@@ -246,9 +265,13 @@ try {
     New-ProjectFixture
     $projectConfigBefore = Get-FileHash -LiteralPath (Join-Path $fixtureProject 'project.godot') -Algorithm SHA256
     $positive = Invoke-EnvironmentProbe -Code @'
+Write-ProbeStage 'before first enter-dev'
 . (Join-Path $env:WORLDFORGE_PORTABLE_TEST_ROOT 'scripts\enter-dev.ps1')
+Write-ProbeStage 'after first enter-dev'
 $first = Get-ProbeEnvironment
+Write-ProbeStage 'before second enter-dev'
 . (Join-Path $env:WORLDFORGE_PORTABLE_TEST_ROOT 'scripts\enter-dev.ps1')
+Write-ProbeStage 'after second enter-dev'
 Write-ProbeResult ([ordered]@{ first=$first; second=(Get-ProbeEnvironment) })
 '@
     Assert-ConfinedEnvironment $positive.Data.first $fixtureProject
