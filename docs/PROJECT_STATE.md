@@ -2,7 +2,7 @@
 state_schema: 3
 reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
 last_verified_date: 2026-11-04
-audited_repository_commit: a0fd5131fab345792f6b957b5c98c316d3d52a52
+audited_repository_commit: fff01bc503a33a1d85396942a21689248b390c1c
 baseline_core_ci_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
 baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
@@ -32,8 +32,17 @@ windows_short_diagnostic_status: PASS
 latest_diagnostic_status: "2026-11-04 PASS, 210s, 3750 samples; eight complete reported work summaries; raw ZIP/image review pending"
 last_interactive_feedback: "2026-11-03 positive qualitative report after V3.4.3 worker candidate; exact local SHA not supplied"
 measurement_implementation_pr: 60
-active_status: "V3.4.4 host phase report received; portable tool-state hardening #77 and opt-in single-fan picker #78 implemented; exact-head CI required, full physical acceptance pending"
-next_gate: "Verify portable tool boundaries and picker parity; RUN-TEST.cmd after changed candidate update; isolate paint visibility and unclassified zoom remainder before coast/LOD expansion"
+portable_tool_source_commit: d3f5f104090f20bebfe989044637a80c88ce79ee
+portable_tool_merged_commit: 038b2b6d487fb9be78305b8a31145d01745b676a
+portable_tool_core_ci_run: 41840040274
+portable_tool_engine_ci_run: 41840040254
+picker_source_commit: d20d687585ffca93fa403f73628df45e3d1c05a1
+picker_merged_commit: fff01bc503a33a1d85396942a21689248b390c1c
+picker_merged_tree: 76008c8961ac5ea6c4006ed4c29627e6f03c955c
+picker_core_ci_run: 41840049489
+picker_engine_ci_run: 41840049477
+active_status: "V3.4.4 portable tooling and opt-in single-fan picking merged in PRs #79/#80 after exact-source CI passed; changed-candidate host report and full physical acceptance pending"
+next_gate: "Safely update the H: checkout to the merged candidate and run RUN-TEST.cmd; compare with the a0fd513 host report and review camera/brush behavior before coast/LOD expansion"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
@@ -44,6 +53,15 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 
 ## Current checkpoint — portable tool state and received host report (2026-11-04)
+
+**Engineering follow-ups complete:** [portable tooling PR #79](https://github.com/tahazarif10/worldforge-sim/pull/79) and [single-fan picker PR #80](https://github.com/tahazarif10/worldforge-sim/pull/80) are merged, closing their scoped issues #77/#78. The final combined source and its integration tree were checked before merging; no new physical Windows acceptance is inferred.
+
+| Slice | Reviewed source / merged commit | Core, Windows PowerShell and actual Windows Godot preflight | Official Godot 4.7.2 Mono integration |
+| --- | --- | --- | --- |
+| Portable tool state | `d3f5f104` / `038b2b6d` | [41840040274 — SUCCESS](https://github.com/tahazarif10/worldforge-sim/actions/runs/41840040274) | [41840040254 — SUCCESS](https://github.com/tahazarif10/worldforge-sim/actions/runs/41840040254) |
+| Combined picker candidate | `d20d6875` / `fff01bc5` | [41840049489 — SUCCESS](https://github.com/tahazarif10/worldforge-sim/actions/runs/41840049489) | [41840049477 — SUCCESS](https://github.com/tahazarif10/worldforge-sim/actions/runs/41840049477) |
+
+The combined reviewed source and merged candidate share tree `76008c8961ac5ea6c4006ed4c29627e6f03c955c`. The hosted Windows checks completed all 12 native import/test/build/boot stages, verified all four actual NuGet cache locations, preserved the original user NuGet.Config, and reopened logs/reports/ZIPs successfully. Earlier fixture failures were resolved by modeling an existing Windows profile and a named H: checkout instead of the drive root; the original assertions remain active. Independent production/picker review found no blocking regression, and the local documentation guard passed for all 28 registered files.
 
 The supplied short report at `a0fd5131fab345792f6b957b5c98c316d3d52a52` contains **eight VALID captures / 3,750 samples in 210 seconds**, with all reported work summaries complete and no invalid/dropped work rows. [Acceptance matrix section I](V3_ACCEPTANCE_MATRIX.md#i-received-staged-publication-host-report--2026-11-04) preserves the attachment provenance, all scenario distributions and correlated phase rows. Only the text report was supplied; the raw ZIP and images have not been inspected. It is not a filesystem trace.
 
@@ -57,13 +75,13 @@ The user reiterated that deliberate project writes must remain on H: and explici
 
 [Single-fan picker #78](https://github.com/tahazarif10/worldforge-sim/issues/78) addresses a concrete repeated computation inside zoom/brush picking. The scalar picker asked for A/B/C/D/center separately, while each production sample reconstructed the complete edited shared-corner fan. A value-returning supplier now computes that fan once per traversed cell and supplies the same five floats to the unchanged four-triangle intersection. It retains scalar picking as the default and reference path. Normal VisualLab wiring selects the new supplier only with `MeshWorkersEnabled`, and only smooth terrain uses it. There is no persistent picking cache, extra world-size storage, source-authority change, or new publication work.
 
-**Falsifiable expectation:** in a controlled smooth forest cell with rich/facet detail, actual source reads should fall from **97 to 21**, while the hit/cell/point remains identical. This is an operation-count claim for that fixture, not milliseconds or a whole-frame speedup. Scalar vertex interpolation operations, DDA traversal, cliff selection, triangle order, tolerances, drag anchors and zoom correction are preserved. Paint/sculpt/format changes and world replacement are read afresh.
+**Verified operation count:** in a controlled smooth forest cell with rich/facet detail, actual source reads fell from **97 to 21**, while the hit/cell/point remained identical. This is an operation count for that fixture, not milliseconds or a whole-frame speedup. Scalar vertex interpolation operations, DDA traversal, cliff selection, triangle order, tolerances, drag anchors and zoom correction are preserved. Paint/sculpt/format changes and world replacement are read afresh.
 
-**Required verification:** pure camera tests compare 336 deterministic scalar/fan rays and require one supplier call per traversed cell; shared-heightfield tests compare rendered triangle hits and 384 post-paint oblique rays. The official native worker probe compares five vertex floats bit-for-bit, hit results and repeated zoom/drag poses on both data sources, two seeds, all eight format combinations, water/river cells, map/chunk/region borders, sculpt limits and post-brush changes. Its mirrored seed fixtures retain one region, forcing replacement while boundary queries cross regions. Expected per-backend coverage is 640 vertex inputs, 804 rays and 128 camera actions, plus the 97-to-21 source-read assertion. Default and viewport-only probes require scalar wiring. These counts describe test assertions; exact executed results belong to the linked PR and must pass before merge.
+**Executed verification:** at `d20d6875`, pure camera tests passed 336 deterministic scalar/fan rays and one supplier call per traversed cell; shared-heightfield tests passed rendered triangle hits and 384 post-paint oblique rays. The official native worker probe passed bit-identical vertex inputs, hit results and repeated zoom/drag poses on both data sources, two seeds, all eight format combinations, water/river cells, map/chunk/region borders, sculpt limits and post-brush changes. Its mirrored seed fixtures retained one region, forcing replacement while boundary queries crossed regions. Each backend passed 640 vertex inputs, 804 rays and 128 camera actions, plus the 97-to-21 source-read assertion. Default and viewport-only probes retained scalar wiring. All 72 existing native renderer parity cases and 399,132 compared vertices per backend also passed. Exact workflow evidence is linked above.
 
 The report's mirror-zoom action cost is the reason to target this path, but its **25.855–26.663 ms outside the callback remains unclassified**. The paint visibility tail is a separate profiling priority: synchronous fallback sampling/build/native publication occurs outside the detail worker pump and needs finer attribution before any larger rewrite. No LRU, fallback, coast, LOD or visual simplification is included here.
 
-**Next user command after a safe update to the changed candidate:** `RUN-TEST.cmd`. Review its exact commit, portable configuration and work rows; separately complete interactive camera/brush, images, live simulation/save-load and full-duration acceptance. Do not rerun the unchanged `a0fd513` diagnostic merely to reproduce summaries already received. `windows_verified_commit` and `user_accepted_visual_commit` remain null; #53/#55 stay open.
+**Next user command after a safe update to main containing `fff01bc5`:** `RUN-TEST.cmd` in `H:\WorldForge-Sim`. Let all eight windows close automatically, then paste the copied report in this project conversation. Review its exact commit, portable configuration and work rows against the received `a0fd513` report; separately complete interactive camera/brush, images, live simulation/save-load and full-duration acceptance. Do not rerun the unchanged `a0fd513` diagnostic merely to reproduce summaries already received. `windows_verified_commit` and `user_accepted_visual_commit` remain null; #53/#55 stay open.
 
 ## Completed slice — V3.4.4 slice 2 engineering (reviewed 2026-11-04)
 
@@ -100,7 +118,9 @@ WorldForge Sim is an original **3D stylized isometric god-sandbox**. The user ex
 | Persistent independent world-wide authoritative regions | **Not implemented**; RegionMirror still samples `WorldState` | [Architecture](V3_ARCHITECTURE.md) |
 | Opt-in V3.4.1 bounded viewport demand + V3.4.2 continuous surface fallback | Implemented for the current small world; actual-resource checks, ready-only handoff and canonical sculpted coast banks | [Guide](V3_4_VIEWPORT_STREAMING.md), [#65](https://github.com/tahazarif10/worldforge-sim/issues/65) |
 | Immutable numerical mesh/scatter/dirty-coast workers and measured publication | V3.4.3 implemented behind separate OFF-by-default flag; current small world, finite tasks/results and generation-safe publication | [Guide](V3_4_MESH_WORKERS.md), [PR #68](https://github.com/tahazarif10/worldforge-sim/pull/68) |
-| Staged terrain/foliage publication and schema 3 frame-work evidence | V3.4.4 slice 2 merged on the same opt-in worker path; new target-host phase report pending | [Guide](V3_4_STAGED_PUBLICATION.md), [PR #75](https://github.com/tahazarif10/worldforge-sim/pull/75) |
+| Staged terrain/foliage publication and schema 3 frame-work evidence | V3.4.4 slice 2 merged; the a0fd513 host phase report is received, full physical acceptance remains open | [Guide](V3_4_STAGED_PUBLICATION.md), [PR #75](https://github.com/tahazarif10/worldforge-sim/pull/75) |
+| Process-scoped H: portable tool paths | Merged; native Windows scripts and actual SDK/Godot preflight passed; no machine-wide I/O guarantee | [PR #79](https://github.com/tahazarif10/worldforge-sim/pull/79) |
+| Single-fan terrain picking in worker mode | Merged opt-in; exact scalar/native camera parity passed; target-host timing benefit pending | [PR #80](https://github.com/tahazarif10/worldforge-sim/pull/80) |
 | Physically accepted seamless large map / distance LOD | **Not implemented/accepted**; V3.4.4 and large-world authority remain open | [#55](https://github.com/tahazarif10/worldforge-sim/issues/55) |
 | 8192² active citizens / villages / kingdoms | **Not implemented**; user-facing large-world simulation blocked | [#45](https://github.com/tahazarif10/worldforge-sim/issues/45) |
 | Crash-atomic multi-region save manifest | **Not implemented**; individual checksummed per-region save only | [V3 architecture](V3_ARCHITECTURE.md) |

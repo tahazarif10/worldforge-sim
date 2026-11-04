@@ -1,6 +1,6 @@
 # WorldForge Sim — engineering master roadmap
 
-> Source of truth for **future milestone order and release gates**, reviewed 2026-11-03.
+> Source of truth for **future milestone order and release gates**, reviewed 2026-11-04.
 > This replaces the obsolete 2D/pixel-art-first roadmap. For what is **actually
 > implemented**, see [PROJECT_STATE.md](PROJECT_STATE.md). Proposed numbers,
 > features and budgets below are targets, not claims that the game has them.
@@ -83,6 +83,9 @@ Do not require a completed numerical baseline to begin the harness needed to mea
 **Target-host evidence update — 2026-11-03:** the first complete short worker diagnostic at `849dc704fd596a654d39741df1d9dea1d9ea1ef9` reports PASS/VALID for all eight windows. [Exact distributions and limits](V3_ACCEPTANCE_MATRIX.md#g-target-host-short-diagnostic--2026-11-03). Full acceptance stays open. The immediate input is the existing ZIP, not another identical short run. Review paint snapshot/publication costs (11/23 soft budget overruns) and the mirror zoom tail before coast/LOD expansion; do not call one short ordered pass a proven backend regression.
 
 **V3.3.2 — Triage any measured regression**
+
+**Latest engineering checkpoint — 2026-11-04:** the new `a0fd513` host report has been received and recorded in [acceptance matrix section I](V3_ACCEPTANCE_MATRIX.md#i-received-staged-publication-host-report--2026-11-04). Its follow-ups, portable tool-state hardening [PR #79](https://github.com/tahazarif10/worldforge-sim/pull/79) and opt-in single-fan picking [PR #80](https://github.com/tahazarif10/worldforge-sim/pull/80), are now merged after their exact-source core, Windows and official engine checks passed. [PROJECT_STATE](PROJECT_STATE.md) records the tested and merged identities. The next input is a RUN-TEST.cmd report from the safely updated candidate containing `fff01bc5`, plus interactive camera/brush review. The unclassified zoom interval and paint visibility tail remain profiling targets; these merges do not establish a physical speedup or complete the V3.3 gate.
+
 - Only if measurements indicate a bottleneck, isolate CPU mesh generation, main-thread Godot mesh upload, shader/fill cost, dynamic shadow cost, GLB instancing, image mask rebuild or C# GC.
 - One falsifiable hypothesis per diagnostic PR. Profile first; then make the smallest reversible change, and repeat matched scenarios.
 - Submit before/after frame distribution and screenshots; **never claim performance gains merely from fewer rocks or theoretical allocations**.
