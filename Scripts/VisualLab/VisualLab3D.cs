@@ -507,6 +507,14 @@ public partial class VisualLab3D : Node3D
         return changed;
     }
 
+    // Retained for the automated acceptance fixture: one deterministic
+    // terrain pick and one edit, without opening an interactive drag stroke.
+    private void ApplyAtScreen(Vector2 screen)
+    {
+        if (_cameraRig.TryPickTerrain(screen, out var hit))
+            ApplyAtCell(hit.X, hit.Y);
+    }
+
     private void BeginPaintStroke(Vector2 screen)
     {
         EndPaintStroke();
