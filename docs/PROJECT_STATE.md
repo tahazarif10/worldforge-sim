@@ -2,7 +2,7 @@
 state_schema: 3
 reference_code_commit: 9dc03c8aa608220971b1da3516074f8fd68508a8
 last_verified_date: 2026-11-04
-audited_repository_commit: a0fd5131fab345792f6b957b5c98c316d3d52a52
+audited_repository_commit: fff01bc503a33a1d85396942a21689248b390c1c
 baseline_core_ci_commit: bf70b825528dda2f2bf8fee16e9f7245ec016c15
 baseline_core_ci_run: 41109317518
 baseline_engine_ci_commit: 41eaaba01e9a6678583c376f7f841751ae4506e6
@@ -26,14 +26,27 @@ staged_publication_engine_ci_run: 41704623350
 staged_publication_merged_commit: 64ff07c5e621ec604b2cbeeb62ae97f608e11798
 staged_publication_merged_tree: 7c78e23fde9350ff7b79103f8015b3a76d3bb57f
 staged_publication_merged_core_ci_run: 41705487580
+portable_environment_issue: 77
+portable_environment_pr: 79
+portable_environment_code_commit: d3f5f104090f20bebfe989044637a80c88ce79ee
+portable_environment_core_ci_run: 41840040274
+portable_environment_engine_ci_run: 41840040254
+portable_environment_merged_commit: 038b2b6d487fb9be78305b8a31145d01745b676a
+picker_issue: 78
+picker_pr: 80
+picker_code_commit: d20d687585ffca93fa403f73628df45e3d1c05a1
+picker_core_ci_run: 41840049489
+picker_engine_ci_run: 41840049477
+picker_merged_commit: fff01bc503a33a1d85396942a21689248b390c1c
+picker_merged_tree: 76008c8961ac5ea6c4006ed4c29627e6f03c955c
 user_approved_diagnostic_commit: 849dc704fd596a654d39741df1d9dea1d9ea1ef9
 windows_short_diagnostic_commit: a0fd5131fab345792f6b957b5c98c316d3d52a52
 windows_short_diagnostic_status: PASS
 latest_diagnostic_status: "2026-11-04 PASS, 210s, 3750 samples; eight complete reported work summaries; raw ZIP/image review pending"
 last_interactive_feedback: "2026-11-03 positive qualitative report after V3.4.3 worker candidate; exact local SHA not supplied"
 measurement_implementation_pr: 60
-active_status: "V3.4.4 host phase report received; portable tool-state hardening #77 and opt-in single-fan picker #78 implemented; exact-head CI required, full physical acceptance pending"
-next_gate: "Verify portable tool boundaries and picker parity; RUN-TEST.cmd after changed candidate update; isolate paint visibility and unclassified zoom remainder before coast/LOD expansion"
+active_status: "Portable tool hardening PR #79 and opt-in single-fan picker PR #80 merged; exact-head core, Windows and engine gates PASS; full target-host acceptance pending"
+next_gate: "RUN-TEST.cmd after safe update to the changed candidate, then physical camera/brush/images; isolate paint visibility and unclassified zoom remainder before coast/LOD expansion"
 user_facing_baseline: "Scenes/VisualLab3D.tscn, V2 approved 3D art/camera"
 open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/art", "#45 regional entity simulation blocked"]
 ---
@@ -43,7 +56,7 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 **Source audit updated 2026-11-04.** This file is the factual status ledger, not the entire history and not a promise of future implementation. The prior chronology is preserved verbatim in [PROJECT_HISTORY_2026-10-30.md](PROJECT_HISTORY_2026-10-30.md). The actionable future plan is [ROADMAP.md](ROADMAP.md).
 
 
-## Current checkpoint — portable tool state and received host report (2026-11-04)
+## Current checkpoint — portable tool state and single-fan picker verified (2026-11-04)
 
 The supplied short report at `a0fd5131fab345792f6b957b5c98c316d3d52a52` contains **eight VALID captures / 3,750 samples in 210 seconds**, with all reported work summaries complete and no invalid/dropped work rows. [Acceptance matrix section I](V3_ACCEPTANCE_MATRIX.md#i-received-staged-publication-host-report--2026-11-04) preserves the attachment provenance, all scenario distributions and correlated phase rows. Only the text report was supplied; the raw ZIP and images have not been inspected. It is not a filesystem trace.
 
@@ -51,7 +64,9 @@ Paint p95 is **18.538 ms direct / 21.647 ms mirror**; publication maxima are **4
 
 The user reiterated that deliberate project writes must remain on H: and explicitly authorized continuation without opening Work/Codex. [Portable hardening #77](https://github.com/tahazarif10/worldforge-sim/issues/77) adds process-scoped NuGet scratch, .NET extraction, tool APPDATA/LOCALAPPDATA and first-use controls, validates configured paths before creation, refuses reparse/incorrect-kind destinations and requires a real Godot `_sc_` marker. The one-click launcher disables the PowerShell module cache before shell startup. Logs are explicit project paths, and subsequent reports include `portable-environment.json` as configuration evidence. No user/machine environment, registry or project.godot rewrite is part of this change. Windows/driver-managed I/O remains outside these controls.
 
-**Verification contract:** native Windows PowerShell 5.1 exercises hostile inherited paths, unchanged parent/profile/source sentinels, idempotence, non-H rejection, junction/file collisions and real CMD exit propagation. Official Windows Godot/SDK preflight also runs in a disposable hosted H: mapping with the actual portable environment and checks resolved NuGet paths before the existing import/tests/build/both-backend boots and report/ZIP validation. Hosted drive mapping is path-behavior evidence, not the user's physical H: drive or a machine-wide I/O audit. Exact execution results belong to this slice's linked PR; no new target-host run is claimed here.
+**Executed portable verification — PASS:** [PR #79](https://github.com/tahazarif10/worldforge-sim/pull/79), reviewed source `d3f5f104090f20bebfe989044637a80c88ce79ee`, passed [core / Windows PowerShell / actual Windows preflight 41840040274](https://github.com/tahazarif10/worldforge-sim/actions/runs/41840040274) and [official Godot engine 41840040254](https://github.com/tahazarif10/worldforge-sim/actions/runs/41840040254). Merge `038b2b6d487fb9be78305b8a31145d01745b676a` has the same tree `1d606d20f1a85b385987bf95449aff2d5a091a5c`.
+
+Native Windows PowerShell 5.1 passed hostile inherited paths, unchanged process/user/machine environment and profile/source sentinels, idempotence, non-H rejection, junction/file collisions, installer subtree checks and real CMD exit propagation. Official Windows Godot/SDK preflight ran from a disposable named `H:\worldforge-sim` checkout, verified all four actual NuGet cache locations and completed the existing 12 import/test/build/preparation/backend-boot stages, closed-log checks and immediate report/hash/ZIP reads. The original user NuGet.Config presence/bytes remained unchanged. Earlier fixture failures were corrected without relaxing assertions: realistic fake-profile directories and a named checkout replaced incomplete profile/drive-root setups. Hosted mapping proves configured path behavior, not the user's physical drive or machine-wide I/O. No new target-host run is claimed.
 
 ### Single-fan picking follow-up — #78
 
@@ -59,7 +74,9 @@ The user reiterated that deliberate project writes must remain on H: and explici
 
 **Falsifiable expectation:** in a controlled smooth forest cell with rich/facet detail, actual source reads should fall from **97 to 21**, while the hit/cell/point remains identical. This is an operation-count claim for that fixture, not milliseconds or a whole-frame speedup. Scalar vertex interpolation operations, DDA traversal, cliff selection, triangle order, tolerances, drag anchors and zoom correction are preserved. Paint/sculpt/format changes and world replacement are read afresh.
 
-**Required verification:** pure camera tests compare 336 deterministic scalar/fan rays and require one supplier call per traversed cell; shared-heightfield tests compare rendered triangle hits and 384 post-paint oblique rays. The official native worker probe compares five vertex floats bit-for-bit, hit results and repeated zoom/drag poses on both data sources, two seeds, all eight format combinations, water/river cells, map/chunk/region borders, sculpt limits and post-brush changes. Its mirrored seed fixtures retain one region, forcing replacement while boundary queries cross regions. Expected per-backend coverage is 640 vertex inputs, 804 rays and 128 camera actions, plus the 97-to-21 source-read assertion. Default and viewport-only probes require scalar wiring. These counts describe test assertions; exact executed results belong to the linked PR and must pass before merge.
+**Executed picker verification — PASS:** [PR #80](https://github.com/tahazarif10/worldforge-sim/pull/80), reviewed head `d20d687585ffca93fa403f73628df45e3d1c05a1`, passed [core / Windows / actual native preflight 41840049489](https://github.com/tahazarif10/worldforge-sim/actions/runs/41840049489) and [official Godot engine 41840049477](https://github.com/tahazarif10/worldforge-sim/actions/runs/41840049477). Merge `fff01bc503a33a1d85396942a21689248b390c1c` has the identical tree `76008c8961ac5ea6c4006ed4c29627e6f03c955c`.
+
+Pure camera tests passed **336** scalar/fan rays and one supplier call per traversed cell. Shared-heightfield checks passed **2,975** rendered picks, **10,096** seams and **384** post-paint oblique comparisons. Both native data sources passed **640** bit-identical vertex inputs, **804** hit comparisons and **128** zoom/drag actions per backend, with the existing camera tolerance retained. Cases cover two seeds, all eight formats, water/river cells, map/chunk/region edges, sculpt limits, edits and world replacement; mirrored seed fixtures retain one region across boundary queries. The **97-to-21 actual source-read assertion passed on both backends**, followed by all **72** existing native art/foliage parity cases (**399,132 vertices**) per backend and the bounded lifecycle/capture checks. Default/viewport-only scalar wiring passed. These are engineering results; physical R9 M395X benefit and input/visual acceptance remain PENDING.
 
 The report's mirror-zoom action cost is the reason to target this path, but its **25.855–26.663 ms outside the callback remains unclassified**. The paint visibility tail is a separate profiling priority: synchronous fallback sampling/build/native publication occurs outside the detail worker pump and needs finer attribution before any larger rewrite. No LRU, fallback, coast, LOD or visual simplification is included here.
 
