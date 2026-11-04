@@ -60,11 +60,15 @@ public partial class VisualTerrain3D
     {
         if (!MeshWorkersEnabled) return false;
         ChunkResidencyState state = _viewportQueue.StateOf(key);
-        if (state is not (ChunkResidencyState.Stale or ChunkResidencyState.Generating))
+        bool replacing = state is ChunkResidencyState.Stale or ChunkResidencyState.Generating;
+        if (!replacing && !_interactiveEditBatch) return false;
+        if (!_viewportDetails.TryGetValue(key, out ViewportSurface? surface) ||
+            !HasLandMesh(surface, requireVisible: false) ||
+            (surface.WaterCells > 0 && !HasOceanCoverage))
             return false;
-        return _viewportDetails.TryGetValue(key, out ViewportSurface? surface) &&
-            HasLandMesh(surface, requireVisible: false) &&
-            (surface.WaterCells == 0 || HasOceanCoverage);
+        // A still-visible completed mesh is never demoted to the flat
+        // fallback during a live brush stroke, even if a worker failed.
+        return replacing || HasLandMesh(surface, requireVisible: true);
     }
 
     private void RetainPreviousViewportDetail(int x, int z)
