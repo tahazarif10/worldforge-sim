@@ -11,9 +11,16 @@ $editor = Get-ChildItem -Path (Join-Path $root 'Tools\Godot') -Recurse -File -Fi
     Select-Object -First 1
 if (-not $editor) { throw 'Godot .NET editor missing under H:\WorldForge-Sim\Tools\Godot.' }
 Assert-WorldForgePortableGodot -Root $root -Executable $editor.FullName
+$sdk = Join-Path $root 'Tools\dotnet\dotnet.exe'
+Assert-WorldForgePortablePath -Root $root -Path $sdk -Kind File
+
+Write-Host 'Building current C# sources before launch...'
+& $sdk build (Join-Path $root 'WorldForgeSim.csproj') -c Debug --disable-build-servers -p:UseSharedCompilation=false
+if ($LASTEXITCODE -ne 0) { throw 'WorldForge C# build failed. Game was not launched.' }
+
 $build = Join-Path $root '.godot\mono\temp\bin\Debug\WorldForgeSim.dll'
-if (-not (Test-Path $build)) {
-    throw 'Godot C# build not found. Run the H:-based dotnet build command first.'
+if (-not (Test-Path $build -PathType Leaf)) {
+    throw 'Current Godot C# build output was not created.'
 }
 $dir = Join-Path $root 'artifacts\visual-lab'
 $log = Join-Path $dir 'godot-3d-console.log'
