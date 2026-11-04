@@ -154,8 +154,10 @@ public partial class VisualTerrain3D
     {
         if (!ViewportStreamingEnabled) return;
         var key = new ChunkCoord(x, z);
-        DiscardRetainedViewportDetail(key);
         if (!_viewportRevisions.ContainsKey(key)) return;
+        // Worker edits are published atomically: keep the current detailed
+        // terrain and foliage visible until the replacement generation is ready.
+        RetainPreviousViewportDetail(x, z);
         _viewportRevisions[key] = checked(++_viewportRevision);
         _viewportQueue.Invalidate(key, ViewportGeneration(key));
     }
