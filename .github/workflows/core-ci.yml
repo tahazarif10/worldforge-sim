@@ -129,3 +129,11 @@ jobs:
           DOTNET_CLI_TELEMETRY_OPTOUT: '1'
           MSBUILDDISABLENODEREUSE: '1'
         run: .\tests\AcceptanceBundle.Smoke\verify-windows-preflight.ps1 -Executable $env:PREFLIGHT_GODOT -Sdk (Join-Path $env:GITHUB_WORKSPACE 'Tools\dotnet\dotnet.exe')
+      - name: Preserve failed Windows portable preflight evidence
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/acceptance/
+          if-no-files-found: ignore
+          retention-days: 7

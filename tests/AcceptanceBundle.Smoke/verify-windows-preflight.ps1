@@ -71,10 +71,42 @@ if (-not $PortableChild) {
             foreach ($name in @('stdout.log','stderr.log')) {
                 try {
                     $log = Join-Path $childOutput $name
-                    if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 120 }
+                    if (Test-Path -LiteralPath $log) {
+                        # Keep initial environment/result headers as well as the
+                        # ending native diagnostics; a tail alone can hide cause.
+                        $preview = @(Get-Content -LiteralPath $log -TotalCount 201)
+                        Write-Host "Child $name (bounded head/tail):"
+                        if ($preview.Count -le 200) { $preview }
+                        else {
+                            $preview | Select-Object -First 80
+                            Write-Host '[Middle omitted; complete child log is retained in the failure artifact.]'
+                            Get-Content -LiteralPath $log -Tail 120
+                        }
+                    }
                 } catch { Write-Warning "Could not display child $name; original evidence remains in the checkout." }
             }
         }
+        # The child may return a generic bundle exception after a long report.
+        # Read its separately persisted primary failure before unmapping H:.
+        try {
+            $artifactRoot = Join-Path $root 'artifacts\acceptance'
+            if (Test-Path -LiteralPath $artifactRoot -PathType Container) {
+                $bundles = @(Get-ChildItem -LiteralPath $artifactRoot -Directory -Filter 'windows-preflight-*' |
+                    Sort-Object LastWriteTime -Descending | Select-Object -First 3)
+                foreach ($bundle in $bundles) {
+                    $statusPath = Join-Path $bundle.FullName 'status.json'
+                    if (Test-Path -LiteralPath $statusPath -PathType Leaf) {
+                        $saved = Get-Content -LiteralPath $statusPath -Raw -Encoding UTF8 | ConvertFrom-Json
+                        Write-Host ("Saved child bundle {0}: {1}" -f $bundle.Name, $saved.status)
+                        if ($saved.failure) { Write-Host ("Primary bundle failure: {0}" -f $saved.failure) }
+                    }
+                    $warningsPath = Join-Path $bundle.FullName 'collection-warnings.txt'
+                    if (Test-Path -LiteralPath $warningsPath -PathType Leaf) {
+                        Get-Content -LiteralPath $warningsPath -TotalCount 20
+                    }
+                }
+            }
+        } catch { Write-Warning ("Could not display saved child status: {0}" -f $_.Exception.Message) }
         foreach ($name in $bootstrap.Keys) {
             try { [Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name], 'Process') }
             catch { $cleanupFailures += "Could not restore parent environment variable: $name" }

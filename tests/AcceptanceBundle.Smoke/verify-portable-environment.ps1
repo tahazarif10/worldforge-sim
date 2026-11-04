@@ -463,7 +463,13 @@ exit 7
     Check ($refusedLauncher.ExitCode -ne 0 -and -not $refusedLauncher.Output.Contains('PORTABLE_PROBE:') -and
         (Get-FixtureTreeSnapshot $offDrive) -ceq $offDriveBefore) 'non-H CMD entry rejects before launching its PowerShell script or writing project data'
 
-    Check ((Get-FixtureTreeSnapshot $userDirectory) -ceq $userFilesBefore) 'all subprocess probes preserve inherited user NuGet configuration, profiles and cache files'
+    $userFilesAfter = Get-FixtureTreeSnapshot $userDirectory
+    if ($userFilesAfter -cne $userFilesBefore) {
+        foreach ($difference in @(Compare-Object ($userFilesBefore -split "`n") ($userFilesAfter -split "`n"))) {
+            Write-Host ('Inherited user fixture change ' + $difference.SideIndicator + ': ' + $difference.InputObject)
+        }
+    }
+    Check ($userFilesAfter -ceq $userFilesBefore) 'all subprocess probes preserve inherited user NuGet configuration, profiles and cache files'
     Check ((Get-EnvironmentSnapshot Process) -ceq $processEnvironmentBefore -and
         (Get-EnvironmentSnapshot User) -ceq $userEnvironmentBefore -and
         (Get-EnvironmentSnapshot Machine) -ceq $machineEnvironmentBefore -and
