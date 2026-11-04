@@ -126,6 +126,12 @@ function Write-ProbeStage([string]$Stage) {
     [Console]::Out.WriteLine('PORTABLE_STAGE ' + [DateTime]::UtcNow.ToString('o') + ': ' + $Stage)
     [Console]::Out.Flush()
 }
+Write-ProbeStage 'before explicit built-in Management import'
+Import-Module ([IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1')) -ErrorAction Stop
+Write-ProbeStage 'after explicit built-in Management import'
+Write-ProbeStage 'before explicit built-in Utility import'
+Import-Module ([IO.Path]::Combine($PSHOME, 'Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1')) -ErrorAction Stop
+Write-ProbeStage 'after explicit built-in Utility import'
 function Get-ProbeEnvironment {
     $state = [ordered]@{}
     foreach ($name in @('WORLDFORGE_HOME','TEMP','TMP','TMPDIR','NUGET_PACKAGES','NUGET_HTTP_CACHE_PATH',
@@ -265,12 +271,15 @@ try {
     New-ProjectFixture
     $projectConfigBefore = Get-FileHash -LiteralPath (Join-Path $fixtureProject 'project.godot') -Algorithm SHA256
     $positive = Invoke-EnvironmentProbe -Code @'
+Write-ProbeStage 'before entry-path Join-Path'
+$entryScript = Join-Path $env:WORLDFORGE_PORTABLE_TEST_ROOT 'scripts\enter-dev.ps1'
+Write-ProbeStage 'after entry-path Join-Path'
 Write-ProbeStage 'before first enter-dev'
-. (Join-Path $env:WORLDFORGE_PORTABLE_TEST_ROOT 'scripts\enter-dev.ps1')
+. $entryScript
 Write-ProbeStage 'after first enter-dev'
 $first = Get-ProbeEnvironment
 Write-ProbeStage 'before second enter-dev'
-. (Join-Path $env:WORLDFORGE_PORTABLE_TEST_ROOT 'scripts\enter-dev.ps1')
+. $entryScript
 Write-ProbeStage 'after second enter-dev'
 Write-ProbeResult ([ordered]@{ first=$first; second=(Get-ProbeEnvironment) })
 '@
