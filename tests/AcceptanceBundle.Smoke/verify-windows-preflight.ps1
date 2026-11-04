@@ -27,7 +27,9 @@ if (-not $PortableChild) {
             -not [IO.File]::Exists($full)) {
             throw "Hosted preflight tool must be a file under the checkout: $Path"
         }
-        return Join-Path -Path 'H:\' -ChildPath ($full.Substring($prefix.Length))
+        # H: deliberately does not exist until subst below; Join-Path resolves
+        # PowerShell drives even for composition, so use the filesystem API.
+        return [IO.Path]::Combine('H:\', $full.Substring($prefix.Length))
     }
     $childSdk = ConvertTo-HostedHPath $Sdk
     $childGodot = ConvertTo-HostedHPath $Executable
