@@ -134,35 +134,52 @@ public partial class EngineProbe
             terrain.WorkerDiagnostics.LastWorkerThreadId!=_owner,"stale work discarded and compute stays off owner");
         CheckCoast(terrain,world);
 
-        // A continuous interactive stroke must not invalidate/rebuild the same
-        // chunk for every mouse cell. Keep the complete terrain+foliage pair
-        // visible throughout the batch, then replace it atomically once.
-        var residentFoliage=Foliage(terrain);
-        var retainedKey=residentFoliage.Keys.First(k=>residentFoliage[k].IsVisibleInTree());
-        Node3D retainedFoliage=residentFoliage[retainedKey];
-        MeshInstance3D retainedTerrain=Details(terrain)[retainedKey];
+        // Reproduce the reported held-Mountain-brush symptom exactly:
+        // all currently visible detailed terrain and foliage must remain the
+        // same native nodes for the entire mouse-down transaction. Streaming
+        // may finish background numeric jobs, but it must not publish fallback
+        // or hide trees/flowers until mouse release.
+        var visibleTerrainBefore=Details(terrain)
+            .Where(p=>p.Value.IsVisibleInTree()).ToDictionary(p=>p.Key,p=>p.Value);
+        var visibleFoliageBefore=Foliage(terrain)
+            .Where(p=>p.Value.IsVisibleInTree()).ToDictionary(p=>p.Key,p=>p.Value);
+        Require(visibleTerrainBefore.Count>0 && visibleFoliageBefore.Count>0,
+            "held-brush fixture starts with visible detailed terrain and foliage");
+        var retainedKey=visibleFoliageBefore.Keys.First(k=>visibleTerrainBefore.ContainsKey(k));
         int px=Math.Min(world.Width-1,retainedKey.Item1*16+6);
         int pz=Math.Min(world.Height-1,retainedKey.Item2*16+6);
         int fallbackBefore=terrain.ActiveFallbackChunks;
+        long fallbackBuildsBefore=terrain.TotalFallbackBuilds;
+        long publicationBefore=terrain.PublicationFrame.Sequence;
         terrain.BeginInteractiveEditBatch();
-        for(int i=0;i<6;i++)
+        for(int i=0;i<12;i++)
         {
-            int x=Math.Min(world.Width-1,px+i%3),z=Math.Min(world.Height-1,pz+i/3);
-            world.Paint(x,z,1,Terrain.Forest);
-            terrain.MarkChanged(x,z,1,false);
-            terrain.FlushChanges(); // Simulate the normal 160 ms process flush during a held mouse.
+            int x=Math.Min(world.Width-1,px+(i%4));
+            int z=Math.Min(world.Height-1,pz+(i/4));
+            world.Paint(x,z,2,Terrain.Mountain);
+            terrain.MarkChanged(x,z,2,false);
+            terrain.FlushChanges(); // Normal process loop attempts this while mouse remains held.
             terrain.UpdateVisibility(camera,2);
-            Require(ReferenceEquals(Foliage(terrain)[retainedKey],retainedFoliage) &&
-                retainedFoliage.IsVisibleInTree() &&
-                ReferenceEquals(Details(terrain)[retainedKey],retainedTerrain) &&
-                retainedTerrain.IsVisibleInTree() &&
-                terrain.ActiveFallbackChunks==fallbackBefore,
-                "interactive paint batch keeps existing terrain and foliage visible without fallback churn");
+            await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+
+            Require(terrain.ActiveFallbackChunks==fallbackBefore &&
+                terrain.TotalFallbackBuilds==fallbackBuildsBefore &&
+                terrain.PublicationFrame.Sequence==publicationBefore,
+                "held Mountain stroke freezes fallback and worker publication");
+            foreach(var pair in visibleTerrainBefore)
+                Require(Details(terrain).TryGetValue(pair.Key,out MeshInstance3D? current) &&
+                    ReferenceEquals(current,pair.Value) && pair.Value.IsVisibleInTree(),
+                    "held Mountain stroke preserves every visible detailed terrain node");
+            foreach(var pair in visibleFoliageBefore)
+                Require(Foliage(terrain).TryGetValue(pair.Key,out Node3D? current) &&
+                    ReferenceEquals(current,pair.Value) && pair.Value.IsVisibleInTree(),
+                    "held Mountain stroke preserves every visible tree/flower node");
         }
         terrain.CommitInteractiveEditBatch();
-        Require(ReferenceEquals(Foliage(terrain)[retainedKey],retainedFoliage) &&
-            retainedFoliage.IsVisibleInTree() && retainedTerrain.IsVisibleInTree(),
-            "committed paint keeps stale detail visible while replacement is pending");
+        foreach(var pair in visibleFoliageBefore)
+            Require(Foliage(terrain).TryGetValue(pair.Key,out Node3D? current) &&
+                ReferenceEquals(current,pair.Value) && pair.Value.IsVisibleInTree(),
+                "mouse release keeps old foliage visible until atomic replacement");
         await Drain(terrain,camera);
         Require(Foliage(terrain)[retainedKey].IsVisibleInTree() &&
             Details(terrain)[retainedKey].IsVisibleInTree() &&
