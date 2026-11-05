@@ -89,6 +89,8 @@ public partial class EngineProbe : Node
                 Require(rig.BoneCount==13 &&
                     rig.GetNode<MeshInstance3D>("SkinnedArt").Skin.GetBindCount()==13,
                     "each citizen has thirteen real bones and an indexed skin");
+                Require(rig.Scale.IsEqualApprox(Vector3.One * 0.8f),
+                    "every articulated citizen is scaled to 80 percent without changing bone poses");
                 var render=rig.GetNode<MeshInstance3D>("SkinnedArt");
                 Require(render.Mesh.GetSurfaceCount()==1,
                     "one palette mesh renders twelve articulated parts per person");
