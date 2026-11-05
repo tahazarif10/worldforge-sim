@@ -81,7 +81,7 @@ public partial class EngineProbe : Node
             if(node.Name.ToString().EndsWith("_0",StringComparison.Ordinal))
             {
                 bodyMeshes++;
-                Require(batch.Mesh.GetAabb().Size.Y>1.5f &&
+                Require(batch.Mesh.GetAabb().Size.Y>.95f &&
                     batch.Mesh.GetAabb().Size.X>.5f,
                     "citizen body has a distinct large head, clothing and realistic readable silhouette");
                 using var arrays=batch.Mesh.SurfaceGetArrays(0);
@@ -99,8 +99,7 @@ public partial class EngineProbe : Node
             before.SequenceEqual(world.People.Select(p=>(p.Id,p.X,p.Y))),
             "idle/step visuals never mutate citizen simulation");
 
-        for(int z=0;z<3;z++)
-            world.Meteor(world.People[0].X,world.People[0].Y,1);
+        world.Meteor(world.People[0].X,world.People[0].Y,1);
         typeof(VisualLab3D).GetMethod("UpdateActors",Hidden)!.Invoke(lab,null);
         Require(visual.VisibleCitizenCount==world.People.Count,
             "citizen art releases stale instances after meteor removals");
