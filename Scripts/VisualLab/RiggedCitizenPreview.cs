@@ -24,6 +24,12 @@ internal sealed partial class RiggedCitizenPreview : Node3D
     private float _headingTurn;
     private float _gaitPhase;
     private float _previousYaw;
+    private MeshInstance3D _visual = null!;
+    private static AnimationLibrary? _sharedClips;
+
+    // Set before AddChild: animation and clothing are deterministic by ID.
+    public int PaletteIndex { get; set; }
+    public int CitizenId { get; set; }
     private bool _hasPreviousYaw;
 
     public int BoneCount => _skeleton.GetBoneCount();
@@ -36,39 +42,27 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         AddChild(_skeleton);
         BuildSkeleton();
 
-        var p = CitizenArt3D.Palettes[0];
-        var material = new StandardMaterial3D
+        // All citizens share three identical authored skinned meshes.
+        // One MeshInstance3D per citizen replaces twelve bone attachments;
+        // every vertex is still weighted to its real skeleton bone.
+        var art=RiggedCitizenSkinLibrary.Get(PaletteIndex,_skeleton);
+        _visual=new MeshInstance3D
         {
-            VertexColorUseAsAlbedo = true,
-            Roughness = .93f,
-            Metallic = 0f,
-            CullMode = BaseMaterial3D.CullModeEnum.Disabled
+            Name="SkinnedArt",
+            Mesh=art.Mesh,
+            Skin=art.Skin,
+            Skeleton=new NodePath("../Skeleton3D"),
+            CastShadow=GeometryInstance3D.ShadowCastingSetting.On
         };
-        Attach("spine", CitizenArt3D.BuildRigTorso(p,material),new Vector3(0,-.80f,0));
-        Attach("neck",CitizenArt3D.BuildRigHead(p,material),new Vector3(0,-1.13f,0));
-        Mesh upperArm = CitizenArt3D.BuildRigUpperArm(p,material);
-        Mesh forearm = CitizenArt3D.BuildRigForearm(p,material);
-        Mesh thigh = CitizenArt3D.BuildRigThigh(p,material);
-        Mesh shin = CitizenArt3D.BuildRigShin(p,material);
-        Mesh foot = CitizenArt3D.BuildRigFoot(p,material);
-        foreach (string side in new[]{"L","R"})
-        {
-            Attach("upper_arm."+side,upperArm,Vector3.Zero);
-            Attach("forearm."+side,forearm,Vector3.Zero);
-            Attach("thigh."+side,thigh,Vector3.Zero);
-            Attach("shin."+side,shin,Vector3.Zero);
-            Attach("foot."+side,foot,Vector3.Zero);
-        }
+        AddChild(_visual);
 
         _player = new AnimationPlayer
         {
             Name="AnimationPlayer", RootNode = new NodePath("..")
         };
         AddChild(_player);
-        var library = new AnimationLibrary();
-        library.AddAnimation("Idle",MakeIdleAnimation());
-        library.AddAnimation("Walk",MakeWalkAnimation());
-        if (_player.AddAnimationLibrary("",library) != Error.Ok)
+        _sharedClips ??= CreateSharedClips();
+        if (_player.AddAnimationLibrary("",_sharedClips) != Error.Ok)
             throw new InvalidOperationException("Unable to register skeletal citizen animations.");
 
         var blendSpace = new AnimationNodeBlendSpace1D
@@ -95,6 +89,10 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         AddChild(_tree);
         _tree.Active=true;
         _tree.Set("parameters/blend_position",0f);
+        // Identical movement, independent animation phases. Nearby citizens
+        // no longer breathe, look and step in perfect formation.
+        float phase=(CitizenId*2.399963f)%IdleLength;
+        if(phase>0f)_tree.Advance(phase);
     }
 
     private void BuildSkeleton()
@@ -131,31 +129,11 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         return index;
     }
 
-    private void Attach(string boneName,Mesh mesh,Vector3 offset)
-    {
-        var attach = new BoneAttachment3D
-        {
-            Name="Attach_"+boneName,BoneName=boneName
-        };
-        _skeleton.AddChild(attach);
-        attach.AddChild(new MeshInstance3D
-        {
-            Name="Art_"+boneName,
-            Mesh=mesh,
-            Position=offset,
-            CastShadow=GeometryInstance3D.ShadowCastingSetting.On
-        });
-    }
-
     public void SetEcoMode(bool eco)
     {
-        foreach(Node node in _skeleton.GetChildren())
-            if(node is BoneAttachment3D attachment)
-                foreach(Node child in attachment.GetChildren())
-                    if(child is MeshInstance3D visual)
-                        visual.CastShadow=eco
-                            ? GeometryInstance3D.ShadowCastingSetting.Off
-                            : GeometryInstance3D.ShadowCastingSetting.On;
+        _visual.CastShadow=eco
+            ? GeometryInstance3D.ShadowCastingSetting.Off
+            : GeometryInstance3D.ShadowCastingSetting.On;
     }
 
     public void Present(Vector2 cellPosition,float yaw,float elevation,
@@ -200,6 +178,14 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         _skeleton.Rotation=new Vector3(-.028f*_blend,0f,
             -.025f*_blend*MathF.Sin(_gaitPhase)+_headingTurn);
         // No root motion or extra per-citizen physics is introduced.
+    }
+
+    private static AnimationLibrary CreateSharedClips()
+    {
+        var clips=new AnimationLibrary();
+        clips.AddAnimation("Idle",MakeIdleAnimation());
+        clips.AddAnimation("Walk",MakeWalkAnimation());
+        return clips;
     }
 
     private static Animation CreateClip(float length) => new()
