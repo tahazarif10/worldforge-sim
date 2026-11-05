@@ -38,6 +38,9 @@ public sealed partial class CitizenArt3D : Node3D
         public float GoalYaw = Mathf.Pi / 4f;
         public float Stride;
         public float WalkWeight;
+        public float GroundHeight;
+        public bool GroundDirty = true;
+        public bool HasRendered;
         public bool Moving;
     }
 
@@ -143,6 +146,10 @@ public sealed partial class CitizenArt3D : Node3D
                 state.Moving = true;
                 state.GoalYaw = Mathf.Atan2(direction.X, direction.Y);
             }
+            // A terrain brush can change the surface under a standing
+            // citizen; authoritative updates invalidate the cached height.
+            state.GroundDirty = true;
+            state.HasRendered = false;
             _groups[(citizen.Id - 1) % Looks].Add(state);
         }
 
@@ -192,13 +199,24 @@ public sealed partial class CitizenArt3D : Node3D
                 float stride = Mathf.Sin(state.Stride) * state.WalkWeight;
                 float bob = 0.028f * MathF.Abs(Mathf.Sin(state.Stride)) *
                     state.WalkWeight;
+                // Avoid 97-read terrain fan reconstruction for every idle
+                // citizen every rendered frame. Resample when moving or
+                // after a terrain edit, spawn, or simulation update.
                 float px = state.Position.X, pz = state.Position.Y;
-                int cellX = (int)MathF.Floor(px), cellZ = (int)MathF.Floor(pz);
-                float elevation = _terrain.SurfaceHeightAt(cellX, cellZ,
-                    px - cellX, pz - cellZ);
+                if (state.GroundDirty || state.Moving)
+                {
+                    int cellX = (int)MathF.Floor(px), cellZ = (int)MathF.Floor(pz);
+                    state.GroundHeight = _terrain.SurfaceHeightAt(cellX, cellZ,
+                        px - cellX, pz - cellZ);
+                    state.GroundDirty = false;
+                }
+                if (state.HasRendered && !state.Moving &&
+                    state.WalkWeight < .001f &&
+                    MathF.Abs(Mathf.AngleDifference(state.Yaw, state.GoalYaw)) < .001f)
+                    continue;
                 var baseTransform = new Transform3D(
                     new Basis(Vector3.Up, state.Yaw),
-                    new Vector3(px, elevation + bob, pz));
+                    new Vector3(px, state.GroundHeight + bob, pz));
 
                 _instances[look, Body].SetInstanceTransform(i, baseTransform);
                 _instances[look, LeftArm].SetInstanceTransform(i,
@@ -213,6 +231,7 @@ public sealed partial class CitizenArt3D : Node3D
                 _instances[look, RightLeg].SetInstanceTransform(i,
                     baseTransform * Limb(new Vector3(.132f, .58f, 0f),
                         -.34f * stride));
+                state.HasRendered = true;
             }
         }
     }
