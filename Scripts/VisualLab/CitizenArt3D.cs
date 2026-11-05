@@ -18,6 +18,8 @@ public sealed partial class CitizenArt3D : Node3D
     private const int Body = 0, LeftArm = 1, RightArm = 2, LeftLeg = 3, RightLeg = 4;
     private const int Parts = 5;
     private const float SimulationStep = 0.18f;
+    // Approved art unchanged; only world-space character dimensions shrink.
+    internal const float CitizenVisualScale = 0.80f;
 
     private readonly MultiMesh[,] _instances = new MultiMesh[Looks, Parts];
     private readonly List<Pose>[] _groups = [new(), new(), new()];
@@ -299,7 +301,8 @@ public sealed partial class CitizenArt3D : Node3D
                 // The whole character glances around while idle, and the
                 // torso subtly leans into travel without changing the mesh.
                 var baseTransform = new Transform3D(
-                    new Basis(Vector3.Up, state.Yaw + .095f * gaze * idle),
+                    new Basis(Vector3.Up, state.Yaw + .095f * gaze * idle)
+                        .Scaled(Vector3.One * CitizenVisualScale),
                     new Vector3(px, state.GroundHeight + bob, pz));
                 float bodyRoll = .018f * stride + .012f * sway * idle;
                 var bodyTransform = baseTransform * new Transform3D(
@@ -415,7 +418,7 @@ public sealed partial class CitizenArt3D : Node3D
                 ? state.GroundHeight : _terrain.HeightAt(tileX,tileZ);
             bool resident=_riggedCitizens.ContainsKey(citizen.Id);
             float margin=resident?exitMargin:enterMargin;
-            var center=new Vector3(x,y+.8f,z);
+            var center=new Vector3(x,y+.8f*CitizenVisualScale,z);
             if(camera.IsPositionBehind(center))continue;
             Vector2 screen=camera.UnprojectPosition(center);
             if(screen.X>=-margin && screen.Y>=-margin &&
