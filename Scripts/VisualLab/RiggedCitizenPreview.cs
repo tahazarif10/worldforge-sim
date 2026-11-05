@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using WorldSim;
 
 namespace WorldForge.VisualLab;
 
@@ -25,6 +26,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
     private float _gaitPhase;
     private float _previousYaw;
     private MeshInstance3D _visual = null!;
+    private Node3D _axe = null!;
     private static AnimationLibrary? _sharedClips;
 
     // Set before AddChild: animation and clothing are deterministic by ID.
@@ -58,6 +60,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
             CastShadow=GeometryInstance3D.ShadowCastingSetting.On
         };
         AddChild(_visual);
+        BuildWoodcuttingAxe();
 
         _player = new AnimationPlayer
         {
@@ -70,7 +73,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
 
         var blendSpace = new AnimationNodeBlendSpace1D
         {
-            MinSpace=0f,MaxSpace=1f
+            MinSpace=0f,MaxSpace=3f
         };
         blendSpace.AddBlendPoint(
             new AnimationNodeAnimation {Animation = new StringName("Idle")},0f,
@@ -78,6 +81,12 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         blendSpace.AddBlendPoint(
             new AnimationNodeAnimation {Animation = new StringName("Walk")},1f,
             -1,new StringName("Walk"));
+        blendSpace.AddBlendPoint(
+            new AnimationNodeAnimation {Animation=new StringName("Pick")},2f,
+            -1,new StringName("Pick"));
+        blendSpace.AddBlendPoint(
+            new AnimationNodeAnimation {Animation=new StringName("Chop")},3f,
+            -1,new StringName("Chop"));
         // Default NONE freezes an inactive walk clip and repeatedly restarts
         // the first few poses during short grid steps. Keep both timelines
         // advancing through crossfades instead.
@@ -157,6 +166,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         _headingTurn=0f;
         _gaitPhase=0f;
         _blend=0f;
+        _axe.Visible=false;
         _tree.Set("parameters/blend_position",0f);
         // Offset independent idle phases without extra character resources.
         _tree.Advance((id*2.399963f)%IdleLength);
@@ -170,13 +180,20 @@ internal sealed partial class RiggedCitizenPreview : Node3D
     }
 
     public void Present(Vector2 cellPosition,float yaw,float elevation,
-        float movementBlend,float delta,int simulationSpeed)
+        float movementBlend,float delta,int simulationSpeed,
+        CitizenActivity activity=CitizenActivity.Idle)
     {
         Position=new Vector3(cellPosition.X,elevation,cellPosition.Y);
         Rotation=new Vector3(0,yaw,0);
 
         float dt=Mathf.Clamp(delta,0f,.1f);
-        float desired=simulationSpeed>0?Mathf.Clamp(movementBlend,0f,1f):0f;
+        float desired=simulationSpeed<=0?0f:activity switch
+        {
+            CitizenActivity.Picking=>2f,
+            CitizenActivity.Chopping=>3f,
+            _=>Mathf.Clamp(movementBlend,0f,1f)
+        };
+        _axe.Visible=simulationSpeed>0 && activity==CitizenActivity.Chopping;
         // Exponential damping avoids a fixed-speed, hard-edged transition.
         // Starting a step responds faster than settling back to idle.
         float blendRate=desired>_blend?10f:5.5f;
@@ -218,6 +235,8 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         var clips=new AnimationLibrary();
         clips.AddAnimation("Idle",MakeIdleAnimation());
         clips.AddAnimation("Walk",MakeWalkAnimation());
+        clips.AddAnimation("Pick",MakePickAnimation());
+        clips.AddAnimation("Chop",MakeChopAnimation());
         return clips;
     }
 
