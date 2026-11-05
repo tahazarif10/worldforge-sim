@@ -170,8 +170,6 @@ internal sealed partial class RiggedCitizenPreview : Node3D
             [0f,1.5f,0f,-1.2f,0f]);
         RotationKeys(clip,"neck",Vector3.Up,
             [0f,8f,1f,-7f,0f]);
-        RotationKeys(clip,"neck",Vector3.Right,
-            [0f,0f,-1.5f,0f,0f],false);
         RotationKeys(clip,"upper_arm.L",Vector3.Right,
             [0f,2.5f,0f,-1.5f,0f]);
         RotationKeys(clip,"upper_arm.R",Vector3.Right,
@@ -223,7 +221,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
     }
 
     private static void RotationKeys(Animation clip,string bone,Vector3 axis,
-        float[] degrees,bool allowDuplicate = true)
+        float[] degrees)
     {
         // Rotation and position tracks target the named Skeleton3D bone.
         // Godot handles quaternion interpolation and AnimationTree blending.
