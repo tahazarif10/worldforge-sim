@@ -292,7 +292,7 @@ public partial class EngineProbe : Node
         var rig=Rig(terrain,camera,expanded.Width,expanded.Height);
         rig.RestoreReviewPose(new CameraReviewPose(96,72,79));
         terrain.UpdateVisibility(camera,maxNewChunks:0);
-        Require(terrain.StreamingDiagnostics.MissingSurfaceVisibleChunks==0,
+        Require(terrain.StreamingDiagnostics.MissingVisibleChunks==0,
             "expanded map maintains surface coverage with zero detail admission");
         GD.Print("PASS EXPANDED WORLD ENGINE / "+
             (_mirror?"mirror":"direct")+": 192x144 world, unchanged camera, bounded worker coast and surface coverage");
