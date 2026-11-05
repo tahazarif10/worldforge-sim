@@ -298,6 +298,20 @@ public partial class EngineProbe : Node
                 player.GetAnimation("Idle").GetTrackCount()>=5 &&
                 player.GetAnimation("Walk").GetTrackCount()>=10,
                 "the rig has authored keyframe Idle and Walk clips");
+            Require(player.HasAnimation("Pick") && player.HasAnimation("Chop") &&
+                player.GetAnimation("Pick").GetTrackCount()>=5 &&
+                player.GetAnimation("Chop").GetTrackCount()>=5,
+                "shared skeleton adds authored food-pick and tree-chopping clips");
+            var axe=rig.GetNode<Node3D>(
+                "Skeleton3D/WoodcuttingToolMount/WoodcuttingAxe");
+            long beforeActionTick=world.Tick;
+            rig.Present(new Vector2(3.5f,3.5f),0f,.61f,0f,.08f,1,
+                CitizenActivity.Chopping);
+            Require(axe.Visible,"woodcutting shows small attached axe without changing body mesh");
+            rig.Present(new Vector2(3.5f,3.5f),0f,.61f,0f,.08f,1,
+                CitizenActivity.Picking);
+            Require(!axe.Visible && world.Tick==beforeActionTick,
+                "berry picking hides axe and all action clips are visual-only");
             Require(tree.Active &&
                 tree.TreeRoot is AnimationNodeBlendSpace1D,
                 "Godot AnimationTree blends the two skeletal clips");
