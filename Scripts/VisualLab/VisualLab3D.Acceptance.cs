@@ -115,8 +115,7 @@ public partial class VisualLab3D
         _ecoMode = eco;
         _terrain.SetEcoMode(eco);
         _sun.ShadowEnabled = !eco;
-        _citizens.CastShadow = eco ? GeometryInstance3D.ShadowCastingSetting.Off
-            : GeometryInstance3D.ShadowCastingSetting.On;
+        _citizens.SetEcoMode(eco);
         GD.Print("V2 quality tier: " + (eco ? "ECO" : "BALANCED"));
     }
 
