@@ -113,6 +113,13 @@ public partial class EngineProbe : Node
                 world.Resources.At(wood.x,wood.y).Remaining==wood.resource.Remaining-1 &&
                 world.Tile(wood.x,wood.y)==original,
                 "Gather tool harvests existing forest tree without editing approved foliage/terrain");
+            for(int i=1;i<wood.resource.Remaining;i++)
+                Require(world.TryGather(wood.x,wood.y,out _),"tree harvest reaches zero");
+            Require(world.Resources.HasStump(wood.x,wood.y) &&
+                !world.TryGather(wood.x,wood.y,out _),"depleted tree stops paying out wood");
+            rig.RestoreReviewPose(new CameraReviewPose(wood.x+.5f,wood.y+.5f,19f));
+            view.RefreshNow();
+            Require(view.VisibleStumpCount>0,"depleted tree leaves a persistent stump");
         }
         finally
         {
