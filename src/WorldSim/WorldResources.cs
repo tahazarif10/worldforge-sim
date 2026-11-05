@@ -27,6 +27,7 @@ public sealed class WorldResources
     // Only exhausted tree sites are stored. The underlying forest biome is
     // still Forest and retains its terrain, paths and seeded world identity.
     private readonly SortedSet<int> _stumpSites = new();
+    private readonly Queue<int> _recentlyFelled=new();
     private readonly HashSet<int> _growingFood = new();
     private readonly List<int> _completedGrowth = new();
     private long _revision;
@@ -45,6 +46,15 @@ public sealed class WorldResources
     {
         int id=SiteId(x,y);
         return id>0 && _stumpSites.Contains(id-1);
+    }
+
+    /// <summary>Transient visual notices; never drive simulation logic.</summary>
+    public bool TryTakeFelled(out ResourceSite site)
+    {
+        if(_recentlyFelled.Count==0){site=default;return false;}
+        int index=_recentlyFelled.Dequeue();
+        site=new(index%_width,index/_width,0,_capacity[index]);
+        return true;
     }
 
     public IEnumerable<ResourceSite> StumpSites()
@@ -127,7 +137,11 @@ public sealed class WorldResources
         if (kind == ResourceKind.Wood)
         {
             WoodCollected++;
-            if (_amounts[index] == 0) _stumpSites.Add(index);
+            if (_amounts[index] == 0)
+            {
+                _stumpSites.Add(index);
+                _recentlyFelled.Enqueue(index);
+            }
         }
         else
         {
