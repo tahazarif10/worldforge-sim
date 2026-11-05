@@ -132,11 +132,31 @@ public partial class VisualLab3D : Node3D
         AddChild(_sun);
     }
 
+    private static (int Width, int Height) RequestedWorldSize()
+    {
+        // The established 120x88 world is the direct-scene and automated-QA
+        // baseline. The launcher explicitly opts into the expanded preview.
+        const string prefix = "--world-size=";
+        foreach (string arg in OS.GetCmdlineUserArgs())
+        {
+            if (!arg.StartsWith(prefix, StringComparison.Ordinal)) continue;
+            string size = arg.Substring(prefix.Length);
+            if (size.Equals("192x144", StringComparison.OrdinalIgnoreCase))
+                return (192, 144);
+            if (size.Equals("120x88", StringComparison.OrdinalIgnoreCase))
+                return (120, 88);
+            GD.PushWarning("Unknown world size; retaining 120x88: " + size);
+            break;
+        }
+        return (120, 88);
+    }
+
     private void CreateWorld(int seed)
     {
-        // Reduced preview resolution leaves GPU headroom on the R9 M395X.
-        // The simulation is the same WorldSim class as the production 2D game.
-        _world = new WorldState(120, 88, seed);
+        // The same deterministic WorldSim and approved 3D scene serve both
+        // explicit preview dimensions. Do not change the V2 source generator.
+        (int width, int height) = RequestedWorldSize();
+        _world = new WorldState(width, height, seed);
         _world.PopulationLimit = 450;
         _tileSource = _regionMirrorPreview
             ? new RegionMirrorTerrainSource(_world, maxResidentRegions: 8)
