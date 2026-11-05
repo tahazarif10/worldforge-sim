@@ -19,6 +19,11 @@ internal sealed partial class RiggedCitizenPreview : Node3D
     private AnimationPlayer _player = null!;
     private AnimationTree _tree = null!;
     private float _blend;
+    private Vector2 _previousPosition;
+    private bool _hasPreviousPosition;
+    private float _headingTurn;
+    private float _previousYaw;
+    private bool _hasPreviousYaw;
 
     public int BoneCount => _skeleton.GetBoneCount();
     public float WalkBlend => _blend;
@@ -73,6 +78,10 @@ internal sealed partial class RiggedCitizenPreview : Node3D
             new AnimationNodeAnimation {Animation = new StringName("Idle")},0f);
         blendSpace.AddBlendPoint(
             new AnimationNodeAnimation {Animation = new StringName("Walk")},1f);
+        // Default NONE freezes an inactive walk clip and repeatedly restarts
+        // the first few poses during short grid steps. Keep both timelines
+        // advancing through crossfades instead.
+        blendSpace.Set("sync_mode", 1); // SYNC_MODE_INDEPENDENT, Godot 4.7.
         _tree = new AnimationTree
         {
             Name="AnimationTree",
@@ -153,12 +162,43 @@ internal sealed partial class RiggedCitizenPreview : Node3D
     {
         Position=new Vector3(cellPosition.X,elevation,cellPosition.Y);
         Rotation=new Vector3(0,yaw,0);
+
+        float dt=Mathf.Clamp(delta,0f,.1f);
         float desired=simulationSpeed>0?Mathf.Clamp(movementBlend,0f,1f):0f;
-        _blend=Mathf.MoveToward(_blend,desired,MathF.Max(0f,delta)*6f);
+        // Exponential damping avoids a fixed-speed, hard-edged transition.
+        // Starting a step responds faster than settling back to idle.
+        float blendRate=desired>_blend?10f:5.5f;
+        _blend=Mathf.Lerp(_blend,desired,1f-MathF.Exp(-blendRate*dt));
         _tree.Set("parameters/blend_position",_blend);
-        _tree.Advance(MathF.Max(0f,delta));
-        // The simulation is authoritative; no animation root motion,
-        // modified citizen position or independent pathfinding is introduced.
+
+        // One tile traversed is one footstep, i.e. HALF a walk cycle.
+        // A fixed clip time (0.8s) used to lag a 0.18s simulation cell
+        // transition and repeatedly reset into the same mechanical pose.
+        // Advancing by actual planar distance instead keeps footfall phase
+        // tied to the WorldState movement without changing WorldState itself.
+        float travel=_hasPreviousPosition
+            ? _previousPosition.DistanceTo(cellPosition):0f;
+        _previousPosition=cellPosition;
+        _hasPreviousPosition=true;
+        float playbackDelta=travel>.0001f && travel<1.5f
+            ? travel*(WalkLength*.5f):dt;
+        if(simulationSpeed<=0)playbackDelta=0f;
+        _tree.Advance(playbackDelta);
+
+        // A small upper-body anticipation lets a citizen turn without the
+        // stiff one-piece yaw of a robot. Decay after the turn finishes.
+        float turn=0f;
+        if(_hasPreviousYaw && dt>0f)
+            turn=Mathf.Wrap(yaw-_previousYaw,-Mathf.Pi,Mathf.Pi);
+        _previousYaw=yaw;
+        _hasPreviousYaw=true;
+        _headingTurn=Mathf.Lerp(_headingTurn,Mathf.Clamp(turn*2f,-.10f,.10f),
+            1f-MathF.Exp(-dt*8f));
+        _skeleton.Rotation=new Vector3(-.028f*_blend,0f,
+            -.025f*_blend*MathF.Sin(2f*Mathf.Pi*
+                (float)(_player.CurrentAnimationPosition/WalkLength))+
+            _headingTurn);
+        // No root motion or extra per-citizen physics is introduced.
     }
 
     private static Animation CreateClip(float length) => new()
@@ -171,9 +211,11 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         var clip=CreateClip(IdleLength);
         // A small natural settling cycle, centered on the existing rest pose.
         RotationKeys(clip,"spine",Vector3.Right,
-            [0f,1.5f,0f,-1.2f,0f]);
+            [0f,1.2f,1.7f,.2f,-.8f,-.1f,0f]);
         RotationKeys(clip,"neck",Vector3.Up,
-            [0f,8f,1f,-7f,0f]);
+            [0f,3f,9f,6f,-2f,-7f,0f]);
+        RotationKeys(clip,"hips",Vector3.Up,
+            [0f,-1f,0f,1f,.5f,-.5f,0f]);
         RotationKeys(clip,"upper_arm.L",Vector3.Right,
             [0f,2.5f,0f,-1.5f,0f]);
         RotationKeys(clip,"upper_arm.R",Vector3.Right,
@@ -182,8 +224,9 @@ internal sealed partial class RiggedCitizenPreview : Node3D
             [15f,18f,15f,13f,15f]);
         RotationKeys(clip,"forearm.R",Vector3.Right,
             [15f,13f,15f,18f,15f]);
-        PositionKeys(clip,"hips",
-            [.58f,.589f,.58f,.571f,.58f],IdleLength);
+        HipsPositionKeys(clip,
+            [0f,-.005f,.006f,.011f,.002f,-.008f,0f],
+            [.58f,.584f,.59f,.584f,.58f,.574f,.58f],IdleLength);
         return clip;
     }
 
@@ -194,32 +237,37 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         // phases oppose each other: the recovering foot lifts behind the hip
         // before planting again, while arms counter-rotate.
         RotationKeys(clip,"thigh.L",Vector3.Right,
-            [25f,17f,0f,-16f,-25f,-15f,0f,18f,25f]);
+            [24f,13f,-2f,-17f,-22f,-11f,4f,17f,24f]);
         RotationKeys(clip,"thigh.R",Vector3.Right,
-            [-25f,-15f,0f,18f,25f,17f,0f,-16f,-25f]);
+            [-22f,-11f,4f,17f,24f,13f,-2f,-17f,-22f]);
+        // Stance knee stays nearly extended; recovery knee bends after
+        // the toe lifts, then unfolds before the next heel strike.
         RotationKeys(clip,"shin.L",Vector3.Right,
-            [8f,3f,10f,36f,48f,28f,9f,3f,8f]);
+            [8f,4f,13f,40f,43f,21f,7f,4f,8f]);
         RotationKeys(clip,"shin.R",Vector3.Right,
-            [48f,28f,9f,3f,8f,3f,10f,36f,48f]);
+            [43f,21f,7f,4f,8f,4f,13f,40f,43f]);
         RotationKeys(clip,"foot.L",Vector3.Right,
-            [-12f,0f,5f,-8f,-16f,0f,7f,0f,-12f]);
+            [-10f,0f,11f,-8f,-15f,-2f,8f,0f,-10f]);
         RotationKeys(clip,"foot.R",Vector3.Right,
-            [-16f,0f,7f,0f,-12f,0f,5f,-8f,-16f]);
+            [-15f,-2f,8f,0f,-10f,0f,11f,-8f,-15f]);
 
         RotationKeys(clip,"upper_arm.L",Vector3.Right,
-            [-21f,-10f,1f,14f,21f,11f,-1f,-14f,-21f]);
+            [-18f,-12f,-2f,11f,22f,14f,0f,-14f,-18f]);
         RotationKeys(clip,"upper_arm.R",Vector3.Right,
-            [21f,11f,-1f,-14f,-21f,-10f,1f,14f,21f]);
+            [22f,14f,0f,-14f,-18f,-12f,-2f,11f,22f]);
         RotationKeys(clip,"forearm.L",Vector3.Right,
             [28f,24f,16f,13f,19f,25f,30f,30f,28f]);
         RotationKeys(clip,"forearm.R",Vector3.Right,
             [19f,25f,30f,30f,28f,24f,16f,13f,19f]);
         RotationKeys(clip,"spine",Vector3.Forward,
-            [-2f,-1f,0f,1f,2f,1f,0f,-1f,-2f]);
+            [-2.5f,-1.1f,.4f,1.6f,2.4f,1.1f,-.4f,-1.5f,-2.5f]);
         RotationKeys(clip,"neck",Vector3.Right,
-            [-2f,-1f,0f,1f,2f,1f,0f,-1f,-2f]);
-        PositionKeys(clip,"hips",
-            [.58f,.60f,.595f,.579f,.58f,.60f,.595f,.579f,.58f],
+            [-1.7f,-.4f,.8f,1.5f,1.7f,.4f,-.8f,-1.5f,-1.7f]);
+        RotationKeys(clip,"hips",Vector3.Up,
+            [2f,1f,-.5f,-1.5f,-2f,-1f,.5f,1.5f,2f]);
+        HipsPositionKeys(clip,
+            [-.018f,-.026f,-.012f,.011f,.018f,.026f,.012f,-.011f,-.018f],
+            [.58f,.586f,.594f,.584f,.58f,.586f,.594f,.584f,.58f],
             WalkLength);
         return clip;
     }
@@ -239,13 +287,15 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         }
     }
 
-    private static void PositionKeys(Animation clip,string bone,float[] heights,
-        float duration)
+    private static void HipsPositionKeys(Animation clip,float[] lateral,
+        float[] heights,float duration)
     {
+        if(lateral.Length!=heights.Length)
+            throw new ArgumentException("Hip shift and height keys must match.");
         int track=clip.AddTrack(Animation.TrackType.Position3D);
-        clip.TrackSetPath(track,new NodePath("Skeleton3D:"+bone));
+        clip.TrackSetPath(track,new NodePath("Skeleton3D:hips"));
         for(int k=0;k<heights.Length;k++)
             clip.PositionTrackInsertKey(track,duration*k/(heights.Length-1),
-                new Vector3(0,heights[k],0));
+                new Vector3(lateral[k],heights[k],0));
     }
 }
