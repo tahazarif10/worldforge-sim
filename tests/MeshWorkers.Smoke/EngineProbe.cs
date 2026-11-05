@@ -43,8 +43,8 @@ public partial class EngineProbe : Node
             ExercisePicking(lab,terrain,camera);
             await CompareRetainedRenderer(terrain,camera);
             await ExerciseStaging(terrain,camera);
-            await ExercisePipeline(lab,terrain,camera);
             ExerciseExpandedWorld(terrain,camera);
+            await ExercisePipeline(lab,terrain,camera);
             GD.Print($"PASS WORKER ENGINE / {(_mirror?"region-mirror":"direct")}: " +
                 $"{_parityCases} native geometry/foliage parity cases; {_comparedVertices} vertices; " +
                 "bounded publication, camera reversal/resize, dirty coast, stale work, failures and teardown");
