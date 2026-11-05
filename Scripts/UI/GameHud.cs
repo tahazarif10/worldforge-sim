@@ -16,7 +16,7 @@ public partial class GameHud : PanelContainer
     private Label _selection = null!;
     private Label _speedLabel = null!;
     private Label _performance = null!;
-    private int _woodCollected, _foodCollected;
+    private int _woodCollected, _foodCollected, _workers;
     private int _lastFps;
     private double _lastWorstFrame;
     private bool _hasFps;
@@ -127,11 +127,13 @@ public partial class GameHud : PanelContainer
         SetTextIfChanged(_readout, $"Seed {seed}    People {population}    Tick {tick}     {action}   |   Right-drag pan   |   Wheel zoom   |   Space pause");
     }
 
-    public void UpdateResourceStock(int wood, int food)
+    public void UpdateResourceStock(int wood, int food, int workers=0)
     {
-        if (wood < 0 || food < 0) throw new ArgumentOutOfRangeException(nameof(wood));
+        if (wood < 0 || food < 0 || workers < 0)
+            throw new ArgumentOutOfRangeException(nameof(wood));
         _woodCollected = wood;
         _foodCollected = food;
+        _workers = workers;
         RefreshPerformance();
     }
 
@@ -150,7 +152,7 @@ public partial class GameHud : PanelContainer
             ? $"FPS: {_lastFps}    Worst frame: {_lastWorstFrame:F1} ms (1s interval)"
             : "FPS: measuring...";
         SetTextIfChanged(_performance,
-            $"{frame}     Collected: Wood {_woodCollected}  |  Food {_foodCollected}");
+            $"{frame}     Collected: Wood {_woodCollected}  |  Food {_foodCollected}  |  Gathering {_workers}");
     }
 
     private static void SetTextIfChanged(Label label, string value)

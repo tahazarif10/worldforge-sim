@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using WorldSim;
 
 namespace WorldForge.VisualLab;
 
@@ -25,6 +26,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
     private float _gaitPhase;
     private float _previousYaw;
     private MeshInstance3D _visual = null!;
+    private Node3D _axe = null!;
     private static AnimationLibrary? _sharedClips;
 
     // Set before AddChild: animation and clothing are deterministic by ID.
@@ -58,6 +60,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
             CastShadow=GeometryInstance3D.ShadowCastingSetting.On
         };
         AddChild(_visual);
+        BuildWoodcuttingAxe();
 
         _player = new AnimationPlayer
         {
@@ -70,7 +73,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
 
         var blendSpace = new AnimationNodeBlendSpace1D
         {
-            MinSpace=0f,MaxSpace=1f
+            MinSpace=0f,MaxSpace=3f
         };
         blendSpace.AddBlendPoint(
             new AnimationNodeAnimation {Animation = new StringName("Idle")},0f,
@@ -78,6 +81,12 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         blendSpace.AddBlendPoint(
             new AnimationNodeAnimation {Animation = new StringName("Walk")},1f,
             -1,new StringName("Walk"));
+        blendSpace.AddBlendPoint(
+            new AnimationNodeAnimation {Animation=new StringName("Pick")},2f,
+            -1,new StringName("Pick"));
+        blendSpace.AddBlendPoint(
+            new AnimationNodeAnimation {Animation=new StringName("Chop")},3f,
+            -1,new StringName("Chop"));
         // Default NONE freezes an inactive walk clip and repeatedly restarts
         // the first few poses during short grid steps. Keep both timelines
         // advancing through crossfades instead.
@@ -157,9 +166,53 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         _headingTurn=0f;
         _gaitPhase=0f;
         _blend=0f;
+        _axe.Visible=false;
         _tree.Set("parameters/blend_position",0f);
         // Offset independent idle phases without extra character resources.
         _tree.Advance((id*2.399963f)%IdleLength);
+    }
+
+    private void BuildWoodcuttingAxe()
+    {
+        // Tool appears only while chopping and follows the already rigged
+        // right forearm. It uses tiny opaque meshes, never a new art import.
+        var mount=new BoneAttachment3D
+        {
+            Name="WoodcuttingToolMount",BoneName="forearm.R"
+        };
+        _skeleton.AddChild(mount);
+        _axe=new Node3D
+        {
+            Name="WoodcuttingAxe",Position=new Vector3(0,-.255f,.04f),
+            Visible=false
+        };
+        mount.AddChild(_axe);
+        _axe.AddChild(new MeshInstance3D
+        {
+            Name="AxeHandle",
+            Mesh=new CylinderMesh
+            {
+                Height=.4f,TopRadius=.025f,BottomRadius=.025f,
+                RadialSegments=6
+            },
+            Position=new Vector3(0,.065f,0),
+            MaterialOverride=new StandardMaterial3D
+            {
+                AlbedoColor=new Color("#82563a"),Roughness=1f
+            },
+            CastShadow=GeometryInstance3D.ShadowCastingSetting.Off
+        });
+        _axe.AddChild(new MeshInstance3D
+        {
+            Name="AxeHead",
+            Mesh=new BoxMesh {Size=new Vector3(.245f,.105f,.095f)},
+            Position=new Vector3(-.09f,.25f,0),
+            MaterialOverride=new StandardMaterial3D
+            {
+                AlbedoColor=new Color("#879a9c"),Roughness=.86f
+            },
+            CastShadow=GeometryInstance3D.ShadowCastingSetting.Off
+        });
     }
 
     public void SetEcoMode(bool eco)
@@ -170,13 +223,20 @@ internal sealed partial class RiggedCitizenPreview : Node3D
     }
 
     public void Present(Vector2 cellPosition,float yaw,float elevation,
-        float movementBlend,float delta,int simulationSpeed)
+        float movementBlend,float delta,int simulationSpeed,
+        CitizenActivity activity=CitizenActivity.Idle)
     {
         Position=new Vector3(cellPosition.X,elevation,cellPosition.Y);
         Rotation=new Vector3(0,yaw,0);
 
         float dt=Mathf.Clamp(delta,0f,.1f);
-        float desired=simulationSpeed>0?Mathf.Clamp(movementBlend,0f,1f):0f;
+        float desired=simulationSpeed<=0?0f:activity switch
+        {
+            CitizenActivity.Picking=>2f,
+            CitizenActivity.Chopping=>3f,
+            _=>Mathf.Clamp(movementBlend,0f,1f)
+        };
+        _axe.Visible=simulationSpeed>0 && activity==CitizenActivity.Chopping;
         // Exponential damping avoids a fixed-speed, hard-edged transition.
         // Starting a step responds faster than settling back to idle.
         float blendRate=desired>_blend?10f:5.5f;
@@ -218,6 +278,8 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         var clips=new AnimationLibrary();
         clips.AddAnimation("Idle",MakeIdleAnimation());
         clips.AddAnimation("Walk",MakeWalkAnimation());
+        clips.AddAnimation("Pick",MakePickAnimation());
+        clips.AddAnimation("Chop",MakeChopAnimation());
         return clips;
     }
 
@@ -289,6 +351,46 @@ internal sealed partial class RiggedCitizenPreview : Node3D
             [-.018f,-.026f,-.012f,.011f,.018f,.026f,.012f,-.011f,-.018f],
             [.58f,.586f,.594f,.584f,.58f,.586f,.594f,.584f,.58f],
             WalkLength);
+        return clip;
+    }
+
+    private static Animation MakePickAnimation()
+    {
+        var clip=CreateClip(.86f);
+        RotationKeys(clip,"spine",Vector3.Right,
+            [8f,15f,23f,24f,15f,8f]);
+        RotationKeys(clip,"neck",Vector3.Right,
+            [-7f,-12f,-17f,-17f,-12f,-7f]);
+        RotationKeys(clip,"upper_arm.R",Vector3.Right,
+            [-30f,-45f,-62f,-54f,-37f,-30f]);
+        RotationKeys(clip,"forearm.R",Vector3.Right,
+            [20f,36f,57f,60f,35f,20f]);
+        RotationKeys(clip,"thigh.L",Vector3.Right,
+            [6f,11f,15f,15f,11f,6f]);
+        RotationKeys(clip,"thigh.R",Vector3.Right,
+            [6f,11f,15f,15f,11f,6f]);
+        HipsPositionKeys(clip,
+            [0f,.004f,.006f,.006f,.004f,0f],
+            [.58f,.54f,.50f,.50f,.54f,.58f],.86f);
+        return clip;
+    }
+
+    private static Animation MakeChopAnimation()
+    {
+        var clip=CreateClip(.76f);
+        RotationKeys(clip,"upper_arm.R",Vector3.Right,
+            [-35f,-66f,-90f,-55f,12f,-20f,-35f]);
+        RotationKeys(clip,"forearm.R",Vector3.Right,
+            [30f,35f,48f,25f,10f,24f,30f]);
+        RotationKeys(clip,"upper_arm.L",Vector3.Right,
+            [12f,10f,3f,-4f,0f,10f,12f]);
+        RotationKeys(clip,"spine",Vector3.Right,
+            [0f,-5f,-8f,12f,17f,6f,0f]);
+        RotationKeys(clip,"neck",Vector3.Right,
+            [0f,4f,7f,-7f,-8f,-3f,0f]);
+        HipsPositionKeys(clip,
+            [0f,-.006f,-.01f,0f,.01f,.004f,0f],
+            [.58f,.586f,.59f,.55f,.54f,.567f,.58f],.76f);
         return clip;
     }
 

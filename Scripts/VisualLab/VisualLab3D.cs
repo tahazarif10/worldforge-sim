@@ -160,6 +160,10 @@ public partial class VisualLab3D : Node3D
         // explicit preview dimensions. Do not change the V2 source generator.
         (int width, int height) = RequestedWorldSize();
         _world = new WorldState(width, height, seed);
+        // Opt-in via the manual launcher; raw scene/CI legacy fixtures stay
+        // byte-for-byte deterministic in their original movement mode.
+        _world.AutonomousGatheringEnabled=Array.Exists(OS.GetCmdlineUserArgs(),
+            arg=>arg=="--citizen-ai");
         _world.PopulationLimit = 450;
         _tileSource = _regionMirrorPreview
             ? new RegionMirrorTerrainSource(_world, maxResidentRegions: 8)
@@ -287,7 +291,7 @@ public partial class VisualLab3D : Node3D
         _hud?.UpdateState(_heightSculptMode ? "Sculpt Height (Shift lowers)" : _brush.ToString(),
             _radius, _speed, _world.Seed, _world.People.Count, _world.Tick);
         _hud?.UpdateResourceStock(_world.Resources.WoodCollected,
-            _world.Resources.FoodCollected);
+            _world.Resources.FoodCollected,_world.WorkingCitizenCount);
     }
 
     private void SetupHud()

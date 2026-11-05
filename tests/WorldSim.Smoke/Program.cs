@@ -109,4 +109,39 @@ Assert(!cut.Resources.HasStump(tree.X,tree.Y) && cut.Resources.StumpCount==0,
     "changing biome removes stump without deleting other trees");
 cut.Paint(tree.X,tree.Y,0,Terrain.Forest);
 Assert(cut.Resources.At(tree.X,tree.Y).Remaining>0,"new forest tree grows after deliberate replanting");
+// Autonomous jobs are fixed-tick, resource-reserved and camera-independent.
+// Set a repeatable traversable island containing both wood and berries.
+var qa=new WorldState(96,96,20261105){AutonomousGatheringEnabled=true};
+var qb=new WorldState(96,96,20261105){AutonomousGatheringEnabled=true};
+foreach(var world in new[]{qa,qb})
+{
+    world.Paint(48,48,19,Terrain.Grass);
+    world.Paint(48,48,8,Terrain.Forest);
+    Assert(world.Spawn(48,48) && world.Spawn(49,49) &&
+        world.Spawn(47,47),"three deterministic villagers spawned");
+}
+bool picking=false,chopping=false,walking=false;
+for(int tick=0;tick<330;tick++)
+{
+    qa.Advance();qb.Advance();
+    picking|=qa.People.Any(p=>p.Activity==CitizenActivity.Picking);
+    chopping|=qa.People.Any(p=>p.Activity==CitizenActivity.Chopping);
+    walking|=qa.People.Any(p=>p.Activity==CitizenActivity.Walking);
+    Assert(qa.People.All(p=>qa.Walkable(p.X,p.Y)),
+        "autonomous paths never move people onto water or mountains");
+}
+Assert(picking && chopping && walking &&
+    qa.Resources.FoodCollected>0 && qa.Resources.WoodCollected>0,
+    "villagers independently seek food, chop wood and collect both resource types");
+Assert(qa.Resources.FoodCollected==qa.People.Sum(p=>p.FoodCarried+p.FoodEaten) &&
+    qa.Resources.WoodCollected==qa.People.Sum(p=>p.WoodCarried),
+    "reserved jobs do not duplicate resources or credit nonparticipants");
+Assert(qa.Resources.FoodCollected==qb.Resources.FoodCollected &&
+    qa.Resources.WoodCollected==qb.Resources.WoodCollected &&
+    qa.People.Select(p=>(p.Id,p.X,p.Y,p.Hunger,p.Activity,p.FoodCarried,p.WoodCarried))
+        .SequenceEqual(qb.People.Select(p=>
+            (p.Id,p.X,p.Y,p.Hunger,p.Activity,p.FoodCarried,p.WoodCarried))),
+    "independent worlds replay identical citizen routes, work and resource stocks");
+Assert(qa.WorkingCitizenCount>=0 && qa.WorkingCitizenCount<=qa.People.Count,
+    "active worker count is bounded by actual population");
 Console.WriteLine("PASS ALL simulation smoke tests");

@@ -15,7 +15,7 @@ public partial class VisualTerrain3D
         {
             if(node is TreeResourceBatch trees)
                 trees.Apply((x,z)=>_world.Resources.HasStump(x,z));
-            else if(node is Node3D imported && imported.Name.ToString()=="LicensedNatureModel")
+            else if(node is Node3D imported && imported.Name.ToString().Contains("LicensedNatureModel",StringComparison.Ordinal))
                 imported.Visible=!_world.Resources.HasStump(
                     Mathf.FloorToInt(imported.Position.X),
                     Mathf.FloorToInt(imported.Position.Z));
@@ -35,7 +35,7 @@ public partial class VisualTerrain3D
                 _fallingTreeBatches.Add(trees);
             }
             else if(node is Node3D imported &&
-                imported.Name.ToString()=="LicensedNatureModel" &&
+                imported.Name.ToString().Contains("LicensedNatureModel",StringComparison.Ordinal) &&
                 Mathf.FloorToInt(imported.Position.X)==x &&
                 Mathf.FloorToInt(imported.Position.Z)==z)
                 _fallingImported[imported]=(0f,imported.Rotation.Y);

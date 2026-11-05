@@ -49,6 +49,13 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-05 — Resource jobs and autonomous citizens (pilot; host review pending)
+
+PR #99 introduced tree resource identity, a short one-tree fall, permanent stumps and authoritative visibility when worker chunks reload; it changes neither forest biomes nor the approved Kenney materials. The next candidate introduces opt-in pure-C# citizen gathering: deterministic bounded pathfinding (1,200-cell/22-tile search, at most six new jobs per tick), resource reservations, hunger, fixed work durations and accounting for carried/eaten food. Original Idle/Walk animations are retained; only the user-requested Pick/Chop animation clips and an optional small axe are added to visible rigs. The H:-only manual launcher enables citizen AI by default; -NoCitizenAI restores the original random movement for comparison. World state, resource stocks and offscreen action remain independent of camera view. See [ADR 0013](decisions/0013-bounded-fixed-tick-citizen-resource-jobs.md).
+
+This is a preliminary **session-local** gameplay loop, not persistent savings/region AI. Windows R9 M395X visual, FPS, camera/brush and animation review remain pending. Avoid claiming production-scale AI or a completed village/shelter phase.
+
+
 ## 2026-11-05 — Wood and berry resource pilot (host review pending)
 
 Following user approval to start basic gameplay, this candidate adds WorldSim-owned, seeded resource deposits (wood on eligible existing forest trees, food on sparse grassland berries), manual Gather input, fixed-tick berry regrowth and two batched red-berry visuals. The approved 192×144 expanded map, 80% rigged citizens, viewport culling, coastline, camera, brush and Kenney nature rendering remain unchanged. Wood and food counts are HUD-visible; no autonomous citizen collection has been introduced. Camera movement or unloading does not affect resource amounts. Detailed rationale and limitations: [ADR 0012](decisions/0012-deterministic-wood-and-food-resource-slice.md).
