@@ -24,6 +24,9 @@ public sealed class WorldResources
     private readonly byte[] _capacity;
     private readonly long[] _nextGrowth;
     private readonly SortedSet<int> _foodSites = new();
+    // Only exhausted tree sites are stored. The underlying forest biome is
+    // still Forest and retains its terrain, paths and seeded world identity.
+    private readonly SortedSet<int> _stumpSites = new();
     private readonly HashSet<int> _growingFood = new();
     private readonly List<int> _completedGrowth = new();
     private long _revision;
@@ -32,6 +35,23 @@ public sealed class WorldResources
     public int WoodCollected { get; private set; }
     public int FoodCollected { get; private set; }
     public int FoodSiteCount => _foodSites.Count;
+    public int StumpCount => _stumpSites.Count;
+
+    /// <summary>Stable identity for a resource tile within this world.</summary>
+    public int SiteId(int x,int y) => x>=0 && x<_width && y>=0 && y<_height
+        ? checked(y*_width+x+1) : 0;
+
+    public bool HasStump(int x,int y)
+    {
+        int id=SiteId(x,y);
+        return id>0 && _stumpSites.Contains(id-1);
+    }
+
+    public IEnumerable<ResourceSite> StumpSites()
+    {
+        foreach(int index in _stumpSites)
+            yield return new(index%_width,index/_width,0,_capacity[index]);
+    }
 
     public WorldResources(int width, int height, int seed, Func<int, int, Terrain> terrainAt)
     {
@@ -82,6 +102,7 @@ public sealed class WorldResources
             _ => (byte)0
         };
         _growingFood.Remove(index);
+        _stumpSites.Remove(index);
         _nextGrowth[index] = 0;
         _foodSites.Remove(index);
         _kinds[index] = kind;
@@ -104,7 +125,10 @@ public sealed class WorldResources
         if (kind == ResourceKind.None || _amounts[index] == 0) return false;
         --_amounts[index];
         if (kind == ResourceKind.Wood)
+        {
             WoodCollected++;
+            if (_amounts[index] == 0) _stumpSites.Add(index);
+        }
         else
         {
             FoodCollected++;
