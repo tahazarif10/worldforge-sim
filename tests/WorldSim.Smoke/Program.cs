@@ -133,7 +133,7 @@ for(int tick=0;tick<330;tick++)
 Assert(picking && chopping && walking &&
     qa.Resources.FoodCollected>0 && qa.Resources.WoodCollected>0,
     "villagers independently seek food, chop wood and collect both resource types");
-Assert(qa.Resources.FoodCollected==qa.People.Sum(p=>p.FoodCarried) &&
+Assert(qa.Resources.FoodCollected==qa.People.Sum(p=>p.FoodCarried+p.FoodEaten) &&
     qa.Resources.WoodCollected==qa.People.Sum(p=>p.WoodCarried),
     "reserved jobs do not duplicate resources or credit nonparticipants");
 Assert(qa.Resources.FoodCollected==qb.Resources.FoodCollected &&
