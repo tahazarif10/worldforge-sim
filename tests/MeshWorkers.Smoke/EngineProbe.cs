@@ -71,26 +71,44 @@ public partial class EngineProbe : Node
         typeof(VisualLab3D).GetMethod("UpdateActors",Hidden)!.Invoke(lab,null);
         visual.Render(.03,1);
         Require(visual.VisibleCitizenCount==3,"citizen rendering follows authoritative spawn");
-        int total=0,bodyMeshes=0;
+        Require(visual.RiggedCitizenCount==3,
+            "all three citizens now receive skeletal art, not a single prototype");
+        var meshResources=new HashSet<Mesh>();
+        int total=0,bodyMeshes=0,rigs=0;
         foreach(Node node in visual.GetChildren())
         {
-            Require(node is MultiMeshInstance3D,"each citizen piece is a batched render node");
+            if(node is RiggedCitizenPreview rig)
+            {
+                rigs++;
+                Require(rig.BoneCount==13 &&
+                    rig.GetNode<MeshInstance3D>("SkinnedArt").Skin.GetBindCount()==13,
+                    "each citizen has thirteen real bones and an indexed skin");
+                var render=rig.GetNode<MeshInstance3D>("SkinnedArt");
+                Require(render.Mesh.GetSurfaceCount()==1,
+                    "one palette mesh renders twelve articulated parts per person");
+                meshResources.Add(render.Mesh);
+                using var arrays=render.Mesh.SurfaceGetArrays(0);
+                Require(arrays[(int)Mesh.ArrayType.Bones].AsInt32Array().Length ==
+                    arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array().Length*4,
+                    "each original vertex carries rigid binding data");
+                continue;
+            }
+            Require(node is MultiMeshInstance3D,
+                "non-rig nodes remain the preserved optional legacy batches");
             var batch=((MultiMeshInstance3D)node).Multimesh;
             Require(batch.Mesh is ArrayMesh && batch.Mesh.GetSurfaceCount()==1,
-                "faceted original citizen art uses a single shared colored surface per piece");
+                "original low-poly fallback art remains available");
             total+=batch.InstanceCount;
             if(node.Name.ToString().EndsWith("_0",StringComparison.Ordinal))
             {
                 bodyMeshes++;
                 Require(batch.Mesh.GetAabb().Size.Y>.95f &&
                     batch.Mesh.GetAabb().Size.X>.5f,
-                    "citizen body has a distinct large head, clothing and realistic readable silhouette");
-                using var arrays=batch.Mesh.SurfaceGetArrays(0);
-                Require(arrays[(int)Mesh.ArrayType.Color].AsColorArray().Length>300,
-                    "hair, face, tunic, scarf and accessories have authored vertex colors");
+                    "original approved silhouette remains available for rollback");
             }
         }
-        Require(total==3*5 && bodyMeshes==3,"all citizen palettes use one shared mesh per body and limb");
+        Require(total==0 && bodyMeshes==3 && rigs==3 && meshResources.Count==3,
+            "every citizen is skinned, with no duplicate legacy draws and three palettes");
         // Cosmetic interpolation must not advance the simulation clock or move
         // the WorldState authority; rendering remains independent of gameplay.
         long tick=world.Tick;
@@ -121,28 +139,30 @@ public partial class EngineProbe : Node
             "at least one authored villager advances its render pose before the next tick");
 
         visual.SetEcoMode(true);
-        Require(Enumerable.Range(0,3).All(look=>
-            visual.GetNode<MultiMeshInstance3D>($"Citizen_{look}_0").CastShadow ==
+        Require(world.People.All(p=>visual.GetNode<RiggedCitizenPreview>(
+            $"RiggedCitizen_{p.Id}").GetNode<MeshInstance3D>("SkinnedArt").CastShadow ==
             GeometryInstance3D.ShadowCastingSetting.Off),
-            "Eco turns off optional citizen body shadows without rebuilding meshes");
+            "Eco disables the single skinned draw shadow for every citizen");
         visual.SetEcoMode(false);
 
         world.Meteor(world.People[0].X,world.People[0].Y,1);
         typeof(VisualLab3D).GetMethod("UpdateActors",Hidden)!.Invoke(lab,null);
         Require(visual.VisibleCitizenCount==world.People.Count,
             "citizen art releases stale instances after meteor removals");
-        GD.Print("PASS CITIZEN ART: 3 stylized palettes, shared body/limb meshes, safe animation and removal");
+        Require(visual.RiggedCitizenCount==world.People.Count,
+            "meteor removes the skinned actor as well as the simulation citizen");
+        GD.Print("PASS CITIZEN ART: all citizens rigged, 3 shared skinned palettes, " +
+            "one draw per person, simulation-safe animation and removal");
     }
 
     private static void ExerciseRiggedCitizenPreview(VisualLab3D lab,
         VisualTerrain3D terrain)
     {
-        // Only the opt-in prototype becomes skeletal. This probe proves the
-        // skeleton/bone attachments and keyed AnimationTree exist without
-        // changing any accepted ordinary-play MultiMesh behavior.
+        // Multiple simultaneous citizens must retain the approved real
+        // skeleton + keyed AnimationTree, with one skinned draw each.
         var world = new WorldState(40,40,1315511732);
         terrain.BindWorld(world);
-        var actorArt=new CitizenArt3D {RiggedPreviewEnabled=true};
+        var actorArt=new CitizenArt3D {AllRiggedEnabled=true};
         lab.AddChild(actorArt);
         actorArt.Bind(world,terrain);
         try
@@ -155,7 +175,7 @@ public partial class EngineProbe : Node
             actorArt.Sync();
             actorArt.Render(.05f,1);
 
-            var rig=actorArt.GetNode<RiggedCitizenPreview>("RiggedCitizenPreview");
+            var rig=actorArt.GetNode<RiggedCitizenPreview>($"RiggedCitizen_{world.People[0].Id}");
             var skeleton=rig.GetNode<Skeleton3D>("Skeleton3D");
             var player=rig.GetNode<AnimationPlayer>("AnimationPlayer");
             var tree=rig.GetNode<AnimationTree>("AnimationTree");
@@ -169,23 +189,18 @@ public partial class EngineProbe : Node
             Require(tree.Active &&
                 tree.TreeRoot is AnimationNodeBlendSpace1D,
                 "Godot AnimationTree blends the two skeletal clips");
-            int attachmentCount=0;
-            foreach(Node node in skeleton.GetChildren())
-                if(node is BoneAttachment3D attachment)
-                {
-                    attachmentCount++;
-                    Require(attachment.GetChildCount()==1 &&
-                        attachment.GetChild(0) is MeshInstance3D {Mesh: not null},
-                        "bone attachment uses original palette meshes");
-                }
-            Require(attachmentCount==12,
-                "the rig binds torso, head and split articulated limbs");
+            var skinned=rig.GetNode<MeshInstance3D>("SkinnedArt");
+            Require(skinned.Mesh is ArrayMesh &&
+                skinned.Mesh.GetSurfaceCount()==1 &&
+                skinned.Skin.GetBindCount()==13,
+                "original twelve articulated parts share one skinned draw");
             int remaining=0;
             foreach(Node node in actorArt.GetChildren())
                 if(node is MultiMeshInstance3D instance)
                     remaining+=instance.Multimesh.InstanceCount;
-            Require(remaining==5 && actorArt.VisibleCitizenCount==2,
-                "only one selected citizen is rigged; the other stays instanced");
+            Require(remaining==0 && actorArt.RiggedCitizenCount==2 &&
+                actorArt.VisibleCitizenCount==2,
+                "both citizens use keyed skeletons; old batches contain no duplicates");
 
             var thighIndex=skeleton.FindBone("thigh.L");
             Require(thighIndex>=0,"rigged citizen exposes an articulated thigh bone");
@@ -211,8 +226,8 @@ public partial class EngineProbe : Node
             actorArt.Sync();
             Require(actorArt.VisibleCitizenCount==world.People.Count,
                 "rigged preview tracks citizen despawns");
-            GD.Print("PASS RIGGED VILLAGER: 13-bone hierarchy, keyed Idle/Walk, " +
-                "AnimationTree, articulated art, blending and one-citizen opt-in");
+            GD.Print("PASS RIGGED VILLAGER: multiple 13-bone rigs, keyed Idle/Walk, " +
+                "single-surface skinning and independent animation");
         }
         finally
         {
