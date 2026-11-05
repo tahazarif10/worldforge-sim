@@ -113,6 +113,36 @@ public partial class EngineProbe : Node
                 world.Resources.At(wood.x,wood.y).Remaining==wood.resource.Remaining-1 &&
                 world.Tile(wood.x,wood.y)==original,
                 "Gather tool harvests existing forest tree without editing approved foliage/terrain");
+            for(int i=1;i<wood.resource.Remaining;i++)
+                Require(world.TryGather(wood.x,wood.y,out _),"tree harvest reaches zero");
+            Require(world.Resources.HasStump(wood.x,wood.y) &&
+                !world.TryGather(wood.x,wood.y,out _),"depleted tree stops paying out wood");
+            rig.RestoreReviewPose(new CameraReviewPose(wood.x+.5f,wood.y+.5f,19f));
+            view.RefreshNow();
+            Require(view.VisibleStumpCount>0,"depleted tree leaves a persistent stump");
+            var fall=new TreeResourceBatch
+            {
+                Sites=[new Vector2I(wood.x,wood.y)],
+                RestTransforms=[new Transform3D(Basis.Identity,
+                    new Vector3(wood.x+.5f,.6f,wood.y+.5f))],
+                Pivots=[new Vector3(wood.x+.5f,.2f,wood.y+.5f)],
+                Multimesh=new MultiMesh
+                {
+                    TransformFormat=MultiMesh.TransformFormatEnum.Transform3D,
+                    Mesh=new BoxMesh(),InstanceCount=1
+                }
+            };
+            try
+            {
+                fall.Fell(wood.x,wood.y,world.Resources.HasStump);
+                Require(fall.VisibleTrees==1,"tree remains visible for falling animation");
+                for(int step=0;step<4;step++)
+                    fall.AdvanceFalling(.1f,world.Resources.HasStump);
+                Require(fall.VisibleTrees==0,"felled tree disappears after animation");
+                fall.Apply(world.Resources.HasStump);
+                Require(fall.VisibleTrees==0,"streamed depleted tree cannot reappear");
+            }
+            finally {fall.Free();}
         }
         finally
         {

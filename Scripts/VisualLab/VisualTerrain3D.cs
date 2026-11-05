@@ -276,6 +276,7 @@ public partial class VisualTerrain3D : Node3D
             chunk.QueueFree();
         }
         _foliageChunks.Clear();
+        ResetResourceTreeFalls();
         _propCounts.Clear();
         LastPropCount = 0;
 
@@ -956,6 +957,7 @@ public partial class VisualTerrain3D : Node3D
         AddBatched(chunk, "Rocks", boulderMesh, stones);
         AddBatched(chunk, "FlowersShrubs", foliageMesh, shrubs);
         _natureArt?.Populate(chunk, authoredPlacements);
+        ApplyResourceTreeState(chunk);
         ApplyShadowTier(chunk);
         _propCounts[key] = count;
         LastPropCount += count;
@@ -1000,13 +1002,27 @@ public partial class VisualTerrain3D : Node3D
             multi.SetInstanceTransform(i, transforms[i].Transform);
             multi.SetInstanceColor(i, transforms[i].Color);
         }
-        parent.AddChild(new MultiMeshInstance3D
-        {
-            Name = name,
-            Multimesh = multi,
-            MaterialOverride = _propMaterial,
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.On
-        });
+        bool tree=name is "TreeTrunks" or "TreeCrownsLower" or "TreeCrownsUpper";
+        var node=tree
+            ? new TreeResourceBatch
+            {
+                Sites=transforms.ConvertAll(p=>new Vector2I(
+                    Mathf.FloorToInt(p.Transform.Origin.X),
+                    Mathf.FloorToInt(p.Transform.Origin.Z))).ToArray(),
+                RestTransforms=transforms.ConvertAll(p=>p.Transform).ToArray(),
+                Pivots=transforms.ConvertAll(p=>new Vector3(
+                    p.Transform.Origin.X,
+                    p.Transform.Origin.Y -
+                        (name=="TreeTrunks"?.55f:name=="TreeCrownsLower"?1.34f:2f),
+                    p.Transform.Origin.Z)).ToArray(),
+                RestColors=transforms.ConvertAll(p=>p.Color).ToArray()
+            }
+            : new MultiMeshInstance3D();
+        node.Name=name;
+        node.Multimesh=multi;
+        node.MaterialOverride=_propMaterial;
+        node.CastShadow=GeometryInstance3D.ShadowCastingSetting.On;
+        parent.AddChild(node);
     }
 
     private static Transform3D MakeTransform(Vector3 at, Vector3 scale) =>

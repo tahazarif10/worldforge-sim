@@ -220,6 +220,9 @@ public partial class VisualLab3D : Node3D
         // Citizen animation is presentation-only: authoritative WorldState
         // positions, movement probabilities and tick ordering remain unchanged.
         _citizens.Render(delta, _speed);
+        while (_world.Resources.TryTakeFelled(out ResourceSite felled))
+            _terrain.FellResourceTree(felled.X,felled.Y);
+        _terrain.AdvanceResourceTreeFalls((float)delta);
         _resourceArt.Tick(delta);
 
         // Coverage follows camera motion every rendered frame in opt-in mode.

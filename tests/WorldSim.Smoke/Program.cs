@@ -87,4 +87,26 @@ var newWorld = new WorldState(192,144,1315511732);
 Assert(newWorld.Resources.WoodCollected==0 && newWorld.Resources.FoodCollected==0 &&
     newWorld.Resources.FoodSiteCount == rb.Resources.FoodSiteCount,
     "New World initializes repeatable fresh resources and zero inventory");
+var cut=new WorldState(96,96,1315511732);
+var tree=Enumerable.Range(0,cut.Width*cut.Height)
+    .Select(i=>(X:i%cut.Width,Y:i/cut.Width,Stock:cut.Resources.At(i%cut.Width,i/cut.Width)))
+    .First(p=>p.Stock.Kind==ResourceKind.Wood);
+int id=cut.Resources.SiteId(tree.X,tree.Y);
+for(int i=0;i<tree.Stock.Capacity;i++)
+    Assert(cut.TryGather(tree.X,tree.Y,out _),"tree yields each log exactly once");
+Assert(cut.Resources.HasStump(tree.X,tree.Y) && cut.Resources.StumpCount==1 &&
+    cut.Tile(tree.X,tree.Y)==Terrain.Forest &&
+    !cut.TryGather(tree.X,tree.Y,out _),
+    "exhausted tree is a stump in original forest and cannot be double-harvested");
+Assert(cut.Resources.TryTakeFelled(out ResourceSite notice) &&
+    notice.X==tree.X && notice.Y==tree.Y &&
+    !cut.Resources.TryTakeFelled(out _),"tree emits exactly one visual fall event");
+cut.Paint(tree.X,tree.Y,0,Terrain.Forest);
+Assert(cut.Resources.HasStump(tree.X,tree.Y) &&
+    cut.Resources.SiteId(tree.X,tree.Y)==id,"no-op paint retains stump");
+cut.Paint(tree.X,tree.Y,0,Terrain.Grass);
+Assert(!cut.Resources.HasStump(tree.X,tree.Y) && cut.Resources.StumpCount==0,
+    "changing biome removes stump without deleting other trees");
+cut.Paint(tree.X,tree.Y,0,Terrain.Forest);
+Assert(cut.Resources.At(tree.X,tree.Y).Remaining>0,"new forest tree grows after deliberate replanting");
 Console.WriteLine("PASS ALL simulation smoke tests");
