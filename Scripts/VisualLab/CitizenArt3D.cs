@@ -446,6 +446,62 @@ public sealed partial class CitizenArt3D : Node3D
         return b.Finish();
     }
 
+    // Only the opt-in first villager uses these segmented pieces. They reuse
+    // the exact same palette, cloth/leather, faceting and material as the
+    // approved instanced citizen; only the elbow/knee pivots are new.
+    internal static Mesh BuildRigUpperArm(Palette p, Material material)
+    {
+        using var b = new Sculpt(material);
+        b.Frustum(new Vector3(0, -.245f, 0), new Vector2(.09f,.094f),
+            new Vector3(0, -.012f, 0), new Vector2(.12f,.116f), 8, p.Shirt);
+        b.Frustum(new Vector3(0, -.267f, .003f), new Vector2(.097f,.099f),
+            new Vector3(0, -.218f, 0), new Vector2(.106f,.102f), 8, p.Tunic);
+        return b.Finish();
+    }
+
+    internal static Mesh BuildRigForearm(Palette p, Material material)
+    {
+        using var b = new Sculpt(material);
+        b.Frustum(new Vector3(0, -.155f, .003f), new Vector2(.081f,.08f),
+            new Vector3(0, 0, 0), new Vector2(.1f,.095f), 8, p.Shirt);
+        b.Frustum(new Vector3(0, -.128f, .005f), new Vector2(.088f,.085f),
+            new Vector3(0, -.087f, 0), new Vector2(.104f,.099f), 8, p.Tunic);
+        b.Box(new Vector3(0,-.123f,.088f),new Vector3(.172f,.032f,.035f),p.Leather);
+        b.Ellipsoid(new Vector3(0,-.22f,.017f),
+            new Vector3(.084f,.108f,.083f),p.Skin,8,6);
+        return b.Finish();
+    }
+
+    internal static Mesh BuildRigThigh(Palette p, Material material)
+    {
+        using var b = new Sculpt(material);
+        b.Frustum(new Vector3(0,-.29f,0),new Vector2(.098f,.10f),
+            new Vector3(0,-.018f,0),new Vector2(.117f,.119f),8,p.Pants);
+        return b.Finish();
+    }
+
+    internal static Mesh BuildRigShin(Palette p, Material material)
+    {
+        using var b = new Sculpt(material);
+        b.Frustum(new Vector3(0,-.22f,.008f),new Vector2(.096f,.099f),
+            new Vector3(0,-.008f,0),new Vector2(.101f,.103f),8,p.Pants);
+        b.Frustum(new Vector3(0,-.23f,.008f),new Vector2(.109f,.113f),
+            new Vector3(0,-.155f,0),new Vector2(.107f,.106f),8,p.Boots);
+        b.Box(new Vector3(0,-.185f,.099f),
+            new Vector3(.23f,.045f,.03f),p.Leather);
+        return b.Finish();
+    }
+
+    internal static Mesh BuildRigFoot(Palette p, Material material)
+    {
+        using var b = new Sculpt(material);
+        b.Box(new Vector3(0,-.058f,.075f),
+            new Vector3(.22f,.116f,.285f),p.Boots);
+        b.Box(new Vector3(0,-.108f,.142f),
+            new Vector3(.22f,.035f,.105f),p.Boots.Darkened(.16f));
+        return b.Finish();
+    }
+
     /// <summary>Shared lightweight faceted surface authoring; each face owns a normal.</summary>
     private sealed class Sculpt(Material material) : IDisposable
     {
