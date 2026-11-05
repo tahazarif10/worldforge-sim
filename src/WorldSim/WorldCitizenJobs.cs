@@ -132,7 +132,12 @@ public sealed partial class WorldState
             if(gathered.Kind==ResourceKind.Food)
             {
                 citizen.FoodCarried++;
-                citizen.Hunger=Math.Max(0,citizen.Hunger-52);
+                if(citizen.Hunger>=40 && citizen.FoodCarried>0)
+                {
+                    citizen.FoodCarried--;
+                    citizen.FoodEaten++;
+                    citizen.Hunger=Math.Max(0,citizen.Hunger-52);
+                }
             }
             else
                 citizen.WoodCarried++;
