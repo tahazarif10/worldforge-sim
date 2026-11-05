@@ -38,6 +38,9 @@ public sealed partial class CitizenArt3D : Node3D
         public float GoalYaw = Mathf.Pi / 4f;
         public float Stride;
         public float WalkWeight;
+        public float IdleClock;
+        public float IdlePhase;
+        public float IdleRefresh;
         public float GroundHeight;
         public bool GroundDirty = true;
         public bool HasRendered;
@@ -133,7 +136,9 @@ public sealed partial class CitizenArt3D : Node3D
                 {
                     Start = destination,
                     Destination = destination,
-                    Position = destination
+                    Position = destination,
+                    // The citizens never breathe or glance in lockstep.
+                    IdlePhase = citizen.Id * 2.399963f % Mathf.Tau
                 };
                 _poses.Add(citizen.Id, state);
             }
@@ -165,8 +170,9 @@ public sealed partial class CitizenArt3D : Node3D
     }
 
     /// <summary>
-    /// Cosmetic only: smooth positional interpolation, heading, footfall and
-    /// opposing arm/leg swings. Simulation speed and entity state are untouched.
+    /// Cosmetic only: smooth positional interpolation, idle breathing/looking,
+    /// gentle body sway and alternating steps/arm swings. Authoritative citizen
+    /// movement and terrain state are never changed.
     /// </summary>
     public void Render(double delta, int simulationSpeed)
     {
@@ -179,7 +185,11 @@ public sealed partial class CitizenArt3D : Node3D
             for (int i = 0; i < people.Count; i++)
             {
                 Pose state = people[i];
-                if (state.Moving && simulationSpeed > 0)
+                // Preserve the last motion sample even on the frame a step
+                // finishes, so the feet still land at the correct elevation.
+                bool movedThisFrame = state.Moving && simulationSpeed > 0;
+                if (simulationSpeed > 0) state.IdleClock += dt;
+                if (movedThisFrame)
                 {
                     state.Progress = MathF.Min(1f,
                         state.Progress + dt * rate / SimulationStep);
@@ -190,47 +200,71 @@ public sealed partial class CitizenArt3D : Node3D
                 }
                 state.Yaw = Mathf.LerpAngle(state.Yaw, state.GoalYaw,
                     MathF.Min(1f, dt * 12f));
-                float targetWeight = state.Moving && simulationSpeed > 0 ? 1f : 0f;
+                float targetWeight = movedThisFrame ? 1f : 0f;
                 state.WalkWeight = Mathf.Lerp(state.WalkWeight, targetWeight,
                     MathF.Min(1f, dt * 10f));
-                if (state.Moving && simulationSpeed > 0)
+                if (movedThisFrame)
                     state.Stride += dt * 14f * MathF.Sqrt(rate);
 
-                float stride = Mathf.Sin(state.Stride) * state.WalkWeight;
-                float bob = 0.028f * MathF.Abs(Mathf.Sin(state.Stride)) *
-                    state.WalkWeight;
-                // Avoid 97-read terrain fan reconstruction for every idle
-                // citizen every rendered frame. Resample when moving or
-                // after a terrain edit, spawn, or simulation update.
+                // Run idle poses at ~15 FPS instead of uploading all five
+                // MultiMesh transforms for every standing person each frame.
+                // Walking stays at full frame cadence.
+                bool groundChanged = state.GroundDirty;
                 float px = state.Position.X, pz = state.Position.Y;
-                if (state.GroundDirty || state.Moving)
+                if (groundChanged || movedThisFrame)
                 {
                     int cellX = (int)MathF.Floor(px), cellZ = (int)MathF.Floor(pz);
                     state.GroundHeight = _terrain.SurfaceHeightAt(cellX, cellZ,
                         px - cellX, pz - cellZ);
                     state.GroundDirty = false;
                 }
-                if (state.HasRendered && !state.Moving &&
-                    state.WalkWeight < .001f &&
-                    MathF.Abs(Mathf.AngleDifference(state.Yaw, state.GoalYaw)) < .001f)
+                state.IdleRefresh += dt;
+                if (state.HasRendered && !movedThisFrame && !groundChanged &&
+                    state.WalkWeight < .015f && state.IdleRefresh < 1f / 15f)
                     continue;
-                var baseTransform = new Transform3D(
-                    new Basis(Vector3.Up, state.Yaw),
-                    new Vector3(px, state.GroundHeight + bob, pz));
+                state.IdleRefresh = 0f;
 
-                _instances[look, Body].SetInstanceTransform(i, baseTransform);
+                float walk = state.WalkWeight;
+                float idle = 1f - walk;
+                float step = MathF.Sin(state.Stride);
+                float stride = step * walk;
+                float breathing = MathF.Sin(state.IdleClock * 2.1f + state.IdlePhase);
+                float gaze = MathF.Sin(state.IdleClock * .53f + state.IdlePhase * 1.4f);
+                float sway = MathF.Sin(state.IdleClock * 1.1f + state.IdlePhase);
+                float bob = .028f * MathF.Abs(step) * walk +
+                    .009f * breathing * idle;
+
+                // The whole character glances around while idle, and the
+                // torso subtly leans into travel without changing the mesh.
+                var baseTransform = new Transform3D(
+                    new Basis(Vector3.Up, state.Yaw + .095f * gaze * idle),
+                    new Vector3(px, state.GroundHeight + bob, pz));
+                float bodyRoll = .018f * stride + .012f * sway * idle;
+                var bodyTransform = baseTransform * new Transform3D(
+                    new Basis(Vector3.Right, .035f * walk) *
+                        new Basis(Vector3.Forward, bodyRoll),
+                    new Vector3(0, .006f * breathing * idle, 0));
+
+                // A mild counter-swing of the hands plus alternating lifted
+                // boots makes stepping readable at isometric game zoom.
+                float idleArm = .029f *
+                    MathF.Sin(state.IdleClock * 1.55f + state.IdlePhase) * idle;
+                float leftLift = .077f * MathF.Max(0f, step) * walk;
+                float rightLift = .077f * MathF.Max(0f, -step) * walk;
+
+                _instances[look, Body].SetInstanceTransform(i, bodyTransform);
                 _instances[look, LeftArm].SetInstanceTransform(i,
                     baseTransform * Limb(new Vector3(-.305f, 1.035f, 0f),
-                        -.45f * stride));
+                        -.49f * stride + idleArm));
                 _instances[look, RightArm].SetInstanceTransform(i,
                     baseTransform * Limb(new Vector3(.305f, 1.035f, 0f),
-                        .45f * stride));
+                        .49f * stride - idleArm));
                 _instances[look, LeftLeg].SetInstanceTransform(i,
-                    baseTransform * Limb(new Vector3(-.132f, .58f, 0f),
-                        .34f * stride));
+                    baseTransform * Limb(new Vector3(-.132f, .58f + leftLift, 0f),
+                        .36f * stride));
                 _instances[look, RightLeg].SetInstanceTransform(i,
-                    baseTransform * Limb(new Vector3(.132f, .58f, 0f),
-                        -.34f * stride));
+                    baseTransform * Limb(new Vector3(.132f, .58f + rightLift, 0f),
+                        -.36f * stride));
                 state.HasRendered = true;
             }
         }
