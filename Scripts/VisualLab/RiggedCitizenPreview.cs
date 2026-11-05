@@ -37,7 +37,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
 
     public override void _Ready()
     {
-        Name = "RiggedCitizenPreview";
+        // CitizenArt3D sets a unique stable node name for each citizen.
         _skeleton = new Skeleton3D { Name = "Skeleton3D" };
         AddChild(_skeleton);
         BuildSkeleton();
@@ -70,9 +70,11 @@ internal sealed partial class RiggedCitizenPreview : Node3D
             MinSpace=0f,MaxSpace=1f
         };
         blendSpace.AddBlendPoint(
-            new AnimationNodeAnimation {Animation = new StringName("Idle")},0f);
+            new AnimationNodeAnimation {Animation = new StringName("Idle")},0f,
+            -1,new StringName("Idle"));
         blendSpace.AddBlendPoint(
-            new AnimationNodeAnimation {Animation = new StringName("Walk")},1f);
+            new AnimationNodeAnimation {Animation = new StringName("Walk")},1f,
+            -1,new StringName("Walk"));
         // Default NONE freezes an inactive walk clip and repeatedly restarts
         // the first few poses during short grid steps. Keep both timelines
         // advancing through crossfades instead.
