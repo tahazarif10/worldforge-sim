@@ -8,7 +8,9 @@ namespace WorldForge.Streaming;
 
 public sealed class CoastBuildSnapshot
 {
-    public const int MaximumCells=128*128;
+    // Expanded VisualLab preview: 192x144 cells (108 KiB RGBA output).
+    // Remains deliberately bounded; this is not a giant-world coast allocator.
+    public const int MaximumCells=192*144;
     private readonly Terrain[] _tiles;
     public int Width { get; }
     public int Height { get; }

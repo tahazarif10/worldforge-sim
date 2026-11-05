@@ -248,7 +248,8 @@ public partial class VisualTerrain3D : Node3D
     public void BindWorld(WorldState world, ITerrainTileSource? terrainSource = null)
     {
         if (MeshWorkersEnabled && (long)world.Width * world.Height > CoastBuildSnapshot.MaximumCells)
-            throw new ArgumentOutOfRangeException(nameof(world), "Mesh-worker preview supports at most 16384 coast cells.");
+            throw new ArgumentOutOfRangeException(nameof(world),
+                $"Mesh-worker preview supports at most {CoastBuildSnapshot.MaximumCells} coast cells.");
         _world = world;
         // Keep the original direct WorldState path as the default. Region
         // parity mode uses the same shader, water, foliage and camera code.

@@ -76,6 +76,18 @@ byte[] originalCoast=WaterCoastMath.BuildMask(33,25,world.Tile,world.Seed);
 var coast=new CoastBuildSnapshot(33,25,world.Seed,world.Tile);
 world.Paint(16,12,4,Terrain.Forest);
 Check(coast.Build(default).Rgba.SequenceEqual(originalCoast),"coast snapshot preserves exact original mask after edits");
+// Expanded map keeps exact V2 coast pixel math and a bounded worker payload.
+var expanded=new WorldState(192,144,1315511732);
+var expandedCoast=new CoastBuildSnapshot(expanded.Width,expanded.Height,
+    expanded.Seed,expanded.Tile).Build(default);
+var expandedOracle=WaterCoastMath.BuildMask(expanded.Width,expanded.Height,
+    expanded.Tile,expanded.Seed);
+Check(expandedCoast.Rgba.SequenceEqual(expandedOracle) &&
+    expandedCoast.PayloadBytes==192L*144*4 &&
+    expandedCoast.PayloadBytes<=256*1024,
+    "expanded world coast worker matches V2 and remains in 256 KiB reservation");
+Reject(()=>new CoastBuildSnapshot(192,145,1,(_,_)=>Terrain.DeepWater),
+    "expanded preview coast ceiling rejects extra rows before allocation");
 Reject(()=>new CoastBuildSnapshot(8192,8192,1,(_,_)=>Terrain.DeepWater),
     "large global coast allocation refused before sampling");
 
