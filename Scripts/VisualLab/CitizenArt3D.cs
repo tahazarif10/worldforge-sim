@@ -26,11 +26,18 @@ public sealed partial class CitizenArt3D : Node3D
     private VisualTerrain3D? _terrain;
     private RiggedCitizenPreview? _riggedPreview;
     private int _riggedCitizenId = -1;
+    private readonly Dictionary<int,RiggedCitizenPreview> _riggedCitizens=new();
+    private bool _ecoMode;
 
-    // This is intentionally OFF in ordinary play; the approved instanced
-    // characters, old-GPU budgets and all existing scene tests remain intact.
+    // All visible citizens receive the approved PR #92 skeleton/animation
+    // by default. Old batched art remains as an explicit, safe fallback for
+    // the user's old GPU and for quick side-by-side diagnostics.
+    public bool AllRiggedEnabled { get; set; } =
+        !Array.Exists(OS.GetCmdlineUserArgs(),arg=>arg=="--legacy-citizens");
+    // Retained for older test/launch entry points.
     public bool RiggedPreviewEnabled { get; set; } =
         Array.Exists(OS.GetCmdlineUserArgs(),arg=>arg=="--rigged-citizen-demo");
+    public int RiggedCitizenCount => _riggedCitizens.Count;
 
     public int VisibleCitizenCount => _poses.Count;
     public int InstancedDrawBatches => Looks * Parts;
@@ -105,7 +112,7 @@ public sealed partial class CitizenArt3D : Node3D
                 });
             }
         }
-        if (RiggedPreviewEnabled)
+        if (RiggedPreviewEnabled && !AllRiggedEnabled)
         {
             _riggedPreview = new RiggedCitizenPreview
             {
@@ -117,6 +124,9 @@ public sealed partial class CitizenArt3D : Node3D
 
     public void SetEcoMode(bool eco)
     {
+        _ecoMode=eco;
+        foreach(RiggedCitizenPreview rig in _riggedCitizens.Values)
+            rig.SetEcoMode(eco);
         for (int look = 0; look < Looks; look++)
         {
             var body = GetNode<MultiMeshInstance3D>($"Citizen_{look}_{Body}");
@@ -129,6 +139,9 @@ public sealed partial class CitizenArt3D : Node3D
 
     public void Bind(WorldState world, VisualTerrain3D terrain)
     {
+        foreach(RiggedCitizenPreview rig in _riggedCitizens.Values)
+            rig.QueueFree();
+        _riggedCitizens.Clear();
         _world = world;
         _terrain = terrain;
         _riggedCitizenId = -1;
@@ -143,8 +156,8 @@ public sealed partial class CitizenArt3D : Node3D
         if (_world is null || _terrain is null) return;
 
         foreach (List<Pose> group in _groups) group.Clear();
-        if (_riggedPreview is not null && _riggedCitizenId < 0 &&
-            _world.People.Count > 0)
+        if (!AllRiggedEnabled && _riggedPreview is not null &&
+            _riggedCitizenId < 0 && _world.People.Count > 0)
             _riggedCitizenId = _world.People[0].Id;
         var alive = new HashSet<int>();
         foreach (Citizen citizen in _world.People)
@@ -176,14 +189,33 @@ public sealed partial class CitizenArt3D : Node3D
             // citizen; authoritative updates invalidate the cached height.
             state.GroundDirty = true;
             state.HasRendered = false;
-            // Only the first citizen uses the real skeletal preview.
-            // All other citizens retain the existing 15 MultiMesh batches.
-            if (citizen.Id != _riggedCitizenId)
+            if (AllRiggedEnabled)
+            {
+                if (!_riggedCitizens.ContainsKey(citizen.Id))
+                {
+                    var rig = new RiggedCitizenPreview
+                    {
+                        Name = $"RiggedCitizen_{citizen.Id}",
+                        PaletteIndex = (citizen.Id - 1) % Looks,
+                        CitizenId = citizen.Id
+                    };
+                    AddChild(rig);
+                    rig.SetEcoMode(_ecoMode);
+                    _riggedCitizens.Add(citizen.Id,rig);
+                }
+            }
+            else if (citizen.Id != _riggedCitizenId)
                 _groups[(citizen.Id - 1) % Looks].Add(state);
         }
 
         foreach (int id in new List<int>(_poses.Keys))
             if (!alive.Contains(id)) _poses.Remove(id);
+        foreach (int id in new List<int>(_riggedCitizens.Keys))
+        {
+            if (alive.Contains(id)) continue;
+            _riggedCitizens[id].QueueFree();
+            _riggedCitizens.Remove(id);
+        }
         if (_riggedPreview is not null && !alive.Contains(_riggedCitizenId))
         {
             _riggedCitizenId = -1;
@@ -279,7 +311,36 @@ public sealed partial class CitizenArt3D : Node3D
             }
         }
 
-        if (_riggedPreview is not null && _riggedCitizenId > 0 &&
+        if (AllRiggedEnabled)
+        {
+            foreach(var pair in _riggedCitizens)
+            {
+                Pose state=_poses[pair.Key];
+                bool moved=AdvancePose(state,dt,rate,simulationSpeed);
+                float px=state.Position.X,pz=state.Position.Y;
+                if(state.GroundDirty || moved)
+                {
+                    int x=(int)MathF.Floor(px),z=(int)MathF.Floor(pz);
+                    state.GroundHeight=_terrain.SurfaceHeightAt(x,z,
+                        px-x,pz-z);
+                    state.GroundDirty=false;
+                }
+                // Idle motion can be sampled at ~15 Hz, while stepping
+                // remains full-frame. The accumulated idle interval keeps
+                // the AnimationTree clock accurate without 450 full updates
+                // per frame.
+                state.IdleRefresh+=dt;
+                if(!moved && !state.GroundDirty && state.HasRendered &&
+                    state.WalkWeight<.015f && state.IdleRefresh<1f/15f)
+                    continue;
+                float frameDelta=state.IdleRefresh;
+                state.IdleRefresh=0f;
+                pair.Value.Present(state.Position,state.Yaw,state.GroundHeight,
+                    state.WalkWeight,frameDelta,simulationSpeed);
+                state.HasRendered=true;
+            }
+        }
+        else if (_riggedPreview is not null && _riggedCitizenId > 0 &&
             _poses.TryGetValue(_riggedCitizenId, out Pose? selected))
         {
             bool moved = AdvancePose(selected, dt, rate, simulationSpeed);
