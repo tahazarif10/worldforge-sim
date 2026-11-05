@@ -247,13 +247,13 @@ public sealed partial class CitizenArt3D : Node3D
             new Vector3(0, 1.08f, 0), new Vector2(.265f, .19f), 10, p.Shirt);
         b.Frustum(new Vector3(0, .57f, 0), new Vector2(.255f, .19f),
             new Vector3(0, .735f, 0), new Vector2(.245f, .182f), 10, p.Tunic);
-        b.Box(new Vector3(-.205f, .86f, .152f), new Vector3(.082f, .48f, .052f), p.Tunic);
-        b.Box(new Vector3(.205f, .86f, .152f), new Vector3(.082f, .48f, .052f), p.Tunic);
+        b.Box(new Vector3(-.205f, .86f, .205f), new Vector3(.082f, .48f, .052f), p.Tunic);
+        b.Box(new Vector3(.205f, .86f, .205f), new Vector3(.082f, .48f, .052f), p.Tunic);
         b.Box(new Vector3(0, .69f, .185f), new Vector3(.53f, .09f, .075f), p.Leather);
         b.Box(new Vector3(0, .693f, .225f), new Vector3(.092f, .112f, .029f), p.Trim);
         b.Box(new Vector3(0, .693f, .248f), new Vector3(.048f, .064f, .014f), p.Leather);
-        b.Beam(new Vector3(-.205f, 1.05f, .183f),
-            new Vector3(.185f, .74f, .186f), .034f, .034f, p.Leather, 6);
+        b.Beam(new Vector3(-.205f, 1.05f, .226f),
+            new Vector3(.185f, .74f, .226f), .034f, .034f, p.Leather, 6);
         b.Box(new Vector3(.293f, .61f, .02f), new Vector3(.16f, .22f, .17f), p.Leather);
         b.Box(new Vector3(.293f, .67f, .11f), new Vector3(.075f, .045f, .025f), p.Trim);
 
