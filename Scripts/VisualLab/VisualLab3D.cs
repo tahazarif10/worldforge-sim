@@ -16,13 +16,14 @@ public partial class VisualLab3D : Node3D
 {
     private const double TickSeconds = 0.18;
 
-    private enum Brush { Land, Ocean, Sand, Forest, Mountain, Person, Meteor }
+    private enum Brush { Land, Ocean, Sand, Forest, Mountain, Person, Meteor, Gather }
 
     private WorldState _world = null!;
     private ITerrainTileSource _tileSource = null!;
     private bool _regionMirrorPreview;
     private VisualTerrain3D _terrain = null!;
     private CitizenArt3D _citizens = null!;
+    private ResourceArt3D _resourceArt = null!;
     private Godot.Camera3D _camera = null!;
     private DirectionalLight3D _sun = null!;
     private GameHud _hud = null!;
@@ -58,6 +59,8 @@ public partial class VisualLab3D : Node3D
         AddChild(_terrain);
         _citizens = new CitizenArt3D { Name = "Batched3DCitizens" };
         AddChild(_citizens);
+        _resourceArt = new ResourceArt3D { Name = "BerryResources" };
+        AddChild(_resourceArt);
 
         _camera = new Godot.Camera3D
         {
@@ -163,6 +166,7 @@ public partial class VisualLab3D : Node3D
             : new DirectWorldTerrainSource(_world);
         _terrain.BindWorld(_world, _tileSource);
         _citizens.Bind(_world, _terrain);
+        _resourceArt.BindWorld(_world, _terrain, _camera);
         GD.Print("V2 approved renderer and camera: terrain source = " +
             _terrain.TerrainBackendName);
         if (_cameraRig is not null)
@@ -216,6 +220,7 @@ public partial class VisualLab3D : Node3D
         // Citizen animation is presentation-only: authoritative WorldState
         // positions, movement probabilities and tick ordering remain unchanged.
         _citizens.Render(delta, _speed);
+        _resourceArt.Tick(delta);
 
         // Coverage follows camera motion every rendered frame in opt-in mode.
         // Synchronous modes keep their 50ms cadence; workers use per-frame publication budgets.
@@ -274,9 +279,13 @@ public partial class VisualLab3D : Node3D
         }
     }
 
-    private void RefreshHud() =>
-        _hud?.UpdateState(_heightSculptMode ? "Sculpt Height (Shift lowers)" : _brush.ToString(), _radius, _speed, _world.Seed,
-                         _world.People.Count, _world.Tick);
+    private void RefreshHud()
+    {
+        _hud?.UpdateState(_heightSculptMode ? "Sculpt Height (Shift lowers)" : _brush.ToString(),
+            _radius, _speed, _world.Seed, _world.People.Count, _world.Tick);
+        _hud?.UpdateResourceStock(_world.Resources.WoodCollected,
+            _world.Resources.FoodCollected);
+    }
 
     private void SetupHud()
     {
@@ -530,7 +539,8 @@ public partial class VisualLab3D : Node3D
         if (!_cameraRig.TryPickTerrain(screen, out var hit)) return;
         _paintStrokeActive = true;
         _paintStrokePlaneY = hit.Point.Y;
-        _paintStrokeTerrainBatch = _heightSculptMode || _brush != Brush.Person;
+        _paintStrokeTerrainBatch = _heightSculptMode ||
+            _brush is not (Brush.Person or Brush.Gather);
         _paintStrokeActorsDirty = false;
         if (_paintStrokeTerrainBatch)
             _terrain.BeginInteractiveEditBatch();
@@ -567,7 +577,10 @@ public partial class VisualLab3D : Node3D
         _lastPaintX = int.MinValue;
         _lastPaintY = int.MinValue;
         if (commitTerrain)
+        {
             _terrain.CommitInteractiveEditBatch();
+            _resourceArt.RefreshNow();
+        }
         if (updateActors)
             UpdateActors();
     }
@@ -610,6 +623,17 @@ public partial class VisualLab3D : Node3D
                 _world.Meteor(x, y, Math.Max(2, _radius));
                 terrainEdited = true;
                 actorsChanged = true;
+                break;
+            case Brush.Gather:
+                terrainBrush = false;
+                if (_world.TryGather(x, y, out GatherResult gathered))
+                {
+                    _resourceArt.RefreshNow();
+                    RefreshHud();
+                    GD.Print($"Gathered {gathered.Collected} {gathered.Kind} at ({x},{y}); " +
+                        $"{gathered.Remaining} remaining. Wood {_world.Resources.WoodCollected}, " +
+                        $"food {_world.Resources.FoodCollected}");
+                }
                 break;
         }
 

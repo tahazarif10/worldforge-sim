@@ -38,6 +38,7 @@ public partial class EngineProbe : Node
             _mirror=terrain.TerrainBackendName=="region-mirror";
             GetWindow().ContentScaleMode=Window.ContentScaleModeEnum.Disabled;
             await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+            ExerciseGatherResources(lab,terrain,camera);
             ExerciseCitizenArt(lab);
             ExerciseRiggedCitizenPreview(lab,terrain);
             ExercisePicking(lab,terrain,camera);
@@ -55,6 +56,72 @@ public partial class EngineProbe : Node
             GD.PushError("WORKER ENGINE FAILED: "+ex);
             GetTree().Quit(1);
         }
+    }
+
+    private static void ExerciseGatherResources(VisualLab3D lab,
+        VisualTerrain3D terrain, Godot.Camera3D camera)
+    {
+        // End-to-end authoritative resource and camera-only berry rendering,
+        // without altering pre-approved Kenney trees or terrain geometry.
+        var world=(WorldState)typeof(VisualLab3D)
+            .GetField("_world",Hidden)!.GetValue(lab)!;
+        var view=lab.GetNode<ResourceArt3D>("BerryResources");
+        ResourceSite site=world.Resources.FoodSites().First();
+        var rig=(StrategyCameraRig)typeof(VisualLab3D)
+            .GetField("_cameraRig",Hidden)!.GetValue(lab)!;
+        rig.RestoreReviewPose(new CameraReviewPose(site.X+.5f,site.Y+.5f,19f));
+        view.RefreshNow();
+        Require(view.VisibleBushCount>0 && view.VisibleBerryCount>0,
+            "food exists as visible red berry bushes with independent camera batching");
+        var berryMesh=view.GetNode<MultiMeshInstance3D>("BerryFruit");
+        var leafMesh=view.GetNode<MultiMeshInstance3D>("BerryBushLeaves");
+        Require(berryMesh.Multimesh.InstanceCount==view.VisibleBerryCount &&
+            leafMesh.Multimesh.InstanceCount==view.VisibleBushCount*3 &&
+            berryMesh.CastShadow==GeometryInstance3D.ShadowCastingSetting.Off,
+            "resource visuals use two opaque, shadow-free instanced meshes only");
+
+        var field=typeof(VisualLab3D).GetField("_brush",Hidden)!;
+        object oldBrush=field.GetValue(lab)!;
+        var lastX=typeof(VisualLab3D).GetField("_lastPaintX",Hidden)!;
+        var lastY=typeof(VisualLab3D).GetField("_lastPaintY",Hidden)!;
+        int origX=(int)lastX.GetValue(lab)!;
+        int origY=(int)lastY.GetValue(lab)!;
+        int oldFruit=view.VisibleBerryCount;
+        int initial=world.Resources.At(site.X,site.Y).Remaining;
+        try
+        {
+            field.SetValue(lab,Enum.Parse(field.FieldType,"Gather"));
+            typeof(VisualLab3D).GetMethod("ApplyAtCell",Hidden)!
+                .Invoke(lab,[site.X,site.Y]);
+            Require(world.Resources.FoodCollected==1 &&
+                world.Resources.At(site.X,site.Y).Remaining==initial-1 &&
+                view.VisibleBerryCount==oldFruit-1,
+                "Gather HUD tool removes one actual berry immediately without touching terrain");
+            for(int i=0;i<WorldResources.FoodRegrowthTicks;i++)world.Advance();
+            view.RefreshNow();
+            Require(world.Resources.At(site.X,site.Y).Remaining==initial &&
+                view.VisibleBerryCount==oldFruit,
+                "world ticks regrow food and restore berry visuals independently of the camera");
+            var wood=Enumerable.Range(0,world.Width*world.Height)
+                .Select(i=>(x:i%world.Width,y:i/world.Width,
+                    resource:world.Resources.At(i%world.Width,i/world.Width)))
+                .First(p=>p.resource.Kind==ResourceKind.Wood);
+            Terrain original=world.Tile(wood.x,wood.y);
+            typeof(VisualLab3D).GetMethod("ApplyAtCell",Hidden)!
+                .Invoke(lab,[wood.x,wood.y]);
+            Require(world.Resources.WoodCollected==1 &&
+                world.Resources.At(wood.x,wood.y).Remaining==wood.resource.Remaining-1 &&
+                world.Tile(wood.x,wood.y)==original,
+                "Gather tool harvests existing forest tree without editing approved foliage/terrain");
+        }
+        finally
+        {
+            field.SetValue(lab,oldBrush);
+            lastX.SetValue(lab,origX);
+            lastY.SetValue(lab,origY);
+        }
+        GD.Print("PASS RESOURCE ENGINE: two batched berry meshes, Gather tool, " +
+            "wood stock, food harvesting and offscreen tick regrowth");
     }
 
     private static void ExerciseCitizenArt(VisualLab3D lab)

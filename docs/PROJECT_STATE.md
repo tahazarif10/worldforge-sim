@@ -49,6 +49,13 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-05 — Wood and berry resource pilot (host review pending)
+
+Following user approval to start basic gameplay, this candidate adds WorldSim-owned, seeded resource deposits (wood on eligible existing forest trees, food on sparse grassland berries), manual Gather input, fixed-tick berry regrowth and two batched red-berry visuals. The approved 192×144 expanded map, 80% rigged citizens, viewport culling, coastline, camera, brush and Kenney nature rendering remain unchanged. Wood and food counts are HUD-visible; no autonomous citizen collection has been introduced. Camera movement or unloading does not affect resource amounts. Detailed rationale and limitations: [ADR 0012](decisions/0012-deterministic-wood-and-food-resource-slice.md).
+
+**Scope limits:** resource stock is session-local (no disk save yet); exhausted wood is still represented by the original decorative tree until a later harvesting-art phase. New World resets inventory/deposits. User Windows visual/FPS review is pending; do not label it an accepted graphics release.
+
+
 ## 2026-11-05 bounded display-scale and map-size experiment (host approval pending)
 
 The user explicitly requested two visual changes together: all humans displayed at **80%** of the existing height and an experimental **192×144** world beside the original **120×88**. The manual `scripts/run-visual-lab.ps1` launcher defaults to `-WorldSize Expanded` and supports `-WorldSize Compact` for direct A/B comparison; raw `Scenes/VisualLab3D.tscn` without an explicit world-size flag retains the accepted 120×88 QA setup. Human render transforms are scaled around their feet, without modifying citizen positions or the approved rigged animation. WorldState generator, original camera, brush, worker terrain/foliage and coast palette remain unchanged. Expanded coast snapshot has a bounded 27,648-cell limit (108 KiB RGBA) rather than unlimited whole-world allocation, and a new exact-mask parity fixture checks it. See [ADR 0011](decisions/0011-bounded-expanded-visual-lab-map-and-citizen-scale.md).

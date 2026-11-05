@@ -24,6 +24,7 @@ ADRs explain **why** technical choices were made, how they are verified and whic
 | [0010](0010-staged-publication-and-frame-work-evidence.md) | Accepted for V3.4.4 slice 2 | Separate native terrain/foliage admissions, one retained hidden replacement and correctly aligned per-frame work evidence |
 | [0009](0009-bounded-coast-patches-and-host-diagnostics.md) | Accepted for V3.4.4 slice 1 | Bounded coast halo/gutter, exact data parity and automatic failure-preserving host diagnostics |
 | [0011](0011-bounded-expanded-visual-lab-map-and-citizen-scale.md) | Accepted for bounded preview; host acceptance pending | Keep 120×88 golden fixtures, offer 192×144 manual preview and 80% citizen scale with bounded coast worker |
+| [0012](0012-deterministic-wood-and-food-resource-slice.md) | Accepted for scoped resource experiment; host approval pending | Pure WorldSim wood/berry deposits, fixed-tick regrowth and camera-only berry rendering; no early authority or save-format promotion |
 
 Add an ADR when changing: visual backend, camera interaction contract, Godot render mode, data authority, region boundaries, thread/queue/cancellation semantics, save format, world generator or accepted milestone order.
 

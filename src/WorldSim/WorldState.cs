@@ -31,6 +31,7 @@ public sealed class WorldState
         _rng = new Random(seed);
         People = new List<Citizen>();
         Generate();
+        Resources = new WorldResources(width, height, seed, Tile);
     }
 
     public int Width { get; }
@@ -38,6 +39,7 @@ public sealed class WorldState
     public int Seed { get; }
     public long Tick { get; private set; }
     public List<Citizen> People { get; }
+    public WorldResources Resources { get; }
     public int PopulationLimit { get; set; } = 600;
     public bool Contains(int x, int y) => x >= 0 && x < Width && y >= 0 && y < Height;
     public Terrain Tile(int x, int y) => Contains(x, y) ? _tiles[y * Width + x] : throw new ArgumentOutOfRangeException(nameof(x));
@@ -45,7 +47,13 @@ public sealed class WorldState
 
     public void Paint(int cx, int cy, int radius, Terrain kind)
     {
-        Circle(cx, cy, radius, (x, y) => _tiles[y * Width + x] = kind);
+        Circle(cx, cy, radius, (x, y) =>
+        {
+            int index = y * Width + x;
+            if (_tiles[index] == kind) return; // Never refill by repainting the same biome.
+            _tiles[index] = kind;
+            Resources.SetBiome(x, y, kind);
+        });
         People.RemoveAll(p => !Walkable(p.X, p.Y));
     }
 
@@ -54,7 +62,11 @@ public sealed class WorldState
         Circle(cx, cy, radius, (x, y) =>
         {
             int i = y * Width + x;
-            if (_tiles[i] is not (Terrain.DeepWater or Terrain.ShallowWater)) _tiles[i] = Terrain.Burned;
+            if (_tiles[i] is not (Terrain.DeepWater or Terrain.ShallowWater or Terrain.Burned))
+            {
+                _tiles[i] = Terrain.Burned;
+                Resources.SetBiome(x, y, Terrain.Burned);
+            }
         });
         People.RemoveAll(p => DistanceSquared(p.X, p.Y, cx, cy) <= (long)radius * radius);
     }
@@ -65,6 +77,9 @@ public sealed class WorldState
         People.Add(new Citizen(_nextId++, x, y, Tick));
         return true;
     }
+
+    public bool TryGather(int x, int y, out GatherResult result) =>
+        Resources.TryGather(x, y, Tick, out result);
 
     public void Advance()
     {
@@ -88,6 +103,7 @@ public sealed class WorldState
             }
         }
         if (Tick % 60 == 0) People.RemoveAll(p => Tick - p.BornAt > 3500);
+        Resources.Advance(Tick); // Independent of camera and entity rendering.
     }
 
     private void Circle(int cx, int cy, int radius, Action<int, int> apply)
