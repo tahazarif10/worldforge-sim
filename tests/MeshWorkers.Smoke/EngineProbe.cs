@@ -99,6 +99,26 @@ public partial class EngineProbe : Node
             before.SequenceEqual(world.People.Select(p=>(p.Id,p.X,p.Y))),
             "idle/step visuals never mutate citizen simulation");
 
+        var bodies=Enumerable.Range(0,3)
+            .Select(look=>visual.GetNode<MultiMeshInstance3D>($"Citizen_{look}_0").Multimesh)
+            .ToArray();
+        var originals=bodies.Select(m=>m.GetInstanceTransform(0)).ToArray();
+        for(int step=0;step<20;step++)world.Advance();
+        Require(world.People.Any(p=>before.All(a=>a.Id!=p.Id || a.X!=p.X || a.Y!=p.Y)),
+            "simulation supplies at least one independent walking update");
+        typeof(VisualLab3D).GetMethod("UpdateActors",Hidden)!.Invoke(lab,null);
+        visual.Render(.08,1);
+        Require(bodies.Where((m,i)=>!m.GetInstanceTransform(0).Origin
+            .IsEqualApprox(originals[i].Origin)).Any(),
+            "at least one authored villager walks smoothly between two cells");
+
+        visual.SetEcoMode(true);
+        Require(Enumerable.Range(0,3).All(look=>
+            visual.GetNode<MultiMeshInstance3D>($"Citizen_{look}_0").CastShadow ==
+            GeometryInstance3D.ShadowCastingSetting.Off),
+            "Eco turns off optional citizen body shadows without rebuilding meshes");
+        visual.SetEcoMode(false);
+
         world.Meteor(world.People[0].X,world.People[0].Y,1);
         typeof(VisualLab3D).GetMethod("UpdateActors",Hidden)!.Invoke(lab,null);
         Require(visual.VisibleCitizenCount==world.People.Count,
