@@ -24,6 +24,13 @@ public sealed partial class CitizenArt3D : Node3D
     private readonly Dictionary<int, Pose> _poses = new();
     private WorldState? _world;
     private VisualTerrain3D? _terrain;
+    private RiggedCitizenPreview? _riggedPreview;
+    private int _riggedCitizenId = -1;
+
+    // This is intentionally OFF in ordinary play; the approved instanced
+    // characters, old-GPU budgets and all existing scene tests remain intact.
+    public bool RiggedPreviewEnabled { get; set; } =
+        Array.Exists(OS.GetCmdlineUserArgs(),arg=>arg=="--rigged-citizen-demo");
 
     public int VisibleCitizenCount => _poses.Count;
     public int InstancedDrawBatches => Looks * Parts;
@@ -47,11 +54,11 @@ public sealed partial class CitizenArt3D : Node3D
         public bool Moving;
     }
 
-    private readonly record struct Palette(
+    internal readonly record struct Palette(
         Color Skin, Color Hair, Color Shirt, Color Tunic, Color Scarf,
         Color Pants, Color Leather, Color Boots, Color Trim);
 
-    private static readonly Palette[] Palettes =
+    internal static readonly Palette[] Palettes =
     [
         new(new("#edbc91"), new("#6a3e29"), new("#ead7b4"), new("#846344"),
             new("#ba7048"), new("#55473f"), new("#70442d"), new("#453427"), new("#d6b16b")),
@@ -98,6 +105,14 @@ public sealed partial class CitizenArt3D : Node3D
                 });
             }
         }
+        if (RiggedPreviewEnabled)
+        {
+            _riggedPreview = new RiggedCitizenPreview
+            {
+                Name = "RiggedCitizenPreview", Visible = false
+            };
+            AddChild(_riggedPreview);
+        }
     }
 
     public void SetEcoMode(bool eco)
@@ -109,12 +124,15 @@ public sealed partial class CitizenArt3D : Node3D
                 ? GeometryInstance3D.ShadowCastingSetting.Off
                 : GeometryInstance3D.ShadowCastingSetting.On;
         }
+        _riggedPreview?.SetEcoMode(eco);
     }
 
     public void Bind(WorldState world, VisualTerrain3D terrain)
     {
         _world = world;
         _terrain = terrain;
+        _riggedCitizenId = -1;
+        if (_riggedPreview is not null) _riggedPreview.Visible = false;
         _poses.Clear();
         Sync();
     }
@@ -125,6 +143,9 @@ public sealed partial class CitizenArt3D : Node3D
         if (_world is null || _terrain is null) return;
 
         foreach (List<Pose> group in _groups) group.Clear();
+        if (_riggedPreview is not null && _riggedCitizenId < 0 &&
+            _world.People.Count > 0)
+            _riggedCitizenId = _world.People[0].Id;
         var alive = new HashSet<int>();
         foreach (Citizen citizen in _world.People)
         {
@@ -155,11 +176,19 @@ public sealed partial class CitizenArt3D : Node3D
             // citizen; authoritative updates invalidate the cached height.
             state.GroundDirty = true;
             state.HasRendered = false;
-            _groups[(citizen.Id - 1) % Looks].Add(state);
+            // Only the first citizen uses the real skeletal preview.
+            // All other citizens retain the existing 15 MultiMesh batches.
+            if (citizen.Id != _riggedCitizenId)
+                _groups[(citizen.Id - 1) % Looks].Add(state);
         }
 
         foreach (int id in new List<int>(_poses.Keys))
             if (!alive.Contains(id)) _poses.Remove(id);
+        if (_riggedPreview is not null && !alive.Contains(_riggedCitizenId))
+        {
+            _riggedCitizenId = -1;
+            _riggedPreview.Visible = false;
+        }
 
         for (int look = 0; look < Looks; look++)
         for (int part = 0; part < Parts; part++)
@@ -185,26 +214,7 @@ public sealed partial class CitizenArt3D : Node3D
             for (int i = 0; i < people.Count; i++)
             {
                 Pose state = people[i];
-                // Preserve the last motion sample even on the frame a step
-                // finishes, so the feet still land at the correct elevation.
-                bool movedThisFrame = state.Moving && simulationSpeed > 0;
-                if (simulationSpeed > 0) state.IdleClock += dt;
-                if (movedThisFrame)
-                {
-                    state.Progress = MathF.Min(1f,
-                        state.Progress + dt * rate / SimulationStep);
-                    state.Position = state.Start.Lerp(state.Destination,
-                        state.Progress * state.Progress * (3f - 2f * state.Progress));
-                    if (state.Progress >= 1f)
-                        state.Moving = false;
-                }
-                state.Yaw = Mathf.LerpAngle(state.Yaw, state.GoalYaw,
-                    MathF.Min(1f, dt * 12f));
-                float targetWeight = movedThisFrame ? 1f : 0f;
-                state.WalkWeight = Mathf.Lerp(state.WalkWeight, targetWeight,
-                    MathF.Min(1f, dt * 10f));
-                if (movedThisFrame)
-                    state.Stride += dt * 14f * MathF.Sqrt(rate);
+                bool movedThisFrame = AdvancePose(state, dt, rate, simulationSpeed);
 
                 // Run idle poses at ~15 FPS instead of uploading all five
                 // MultiMesh transforms for every standing person each frame.
@@ -268,6 +278,43 @@ public sealed partial class CitizenArt3D : Node3D
                 state.HasRendered = true;
             }
         }
+
+        if (_riggedPreview is not null && _riggedCitizenId > 0 &&
+            _poses.TryGetValue(_riggedCitizenId, out Pose? selected))
+        {
+            bool moved = AdvancePose(selected, dt, rate, simulationSpeed);
+            float px = selected.Position.X, pz = selected.Position.Y;
+            if (selected.GroundDirty || moved)
+            {
+                int x = (int)MathF.Floor(px), z = (int)MathF.Floor(pz);
+                selected.GroundHeight = _terrain.SurfaceHeightAt(x, z,
+                    px - x, pz - z);
+                selected.GroundDirty = false;
+            }
+            _riggedPreview.Visible = true;
+            _riggedPreview.Present(selected.Position,selected.Yaw,
+                selected.GroundHeight,selected.WalkWeight,dt,simulationSpeed);
+        }
+    }
+
+    private static bool AdvancePose(Pose state,float dt,float rate,int simulationSpeed)
+    {
+        // Cosmetic interpolation is the same for the approved batches and
+        // the one optional skeleton. Neither renderer changes WorldState.
+        bool moved = state.Moving && simulationSpeed > 0;
+        if (simulationSpeed > 0) state.IdleClock += dt;
+        if (moved)
+        {
+            state.Progress = MathF.Min(1f,state.Progress + dt * rate / SimulationStep);
+            state.Position = state.Start.Lerp(state.Destination,
+                state.Progress * state.Progress * (3f - 2f * state.Progress));
+            if (state.Progress >= 1f) state.Moving = false;
+            state.Stride += dt * 14f * MathF.Sqrt(rate);
+        }
+        state.Yaw = Mathf.LerpAngle(state.Yaw,state.GoalYaw,MathF.Min(1f,dt*12f));
+        state.WalkWeight = Mathf.Lerp(state.WalkWeight,moved ? 1f : 0f,
+            MathF.Min(1f,dt*10f));
+        return moved;
     }
 
     private static Transform3D Limb(Vector3 anchor, float angle) =>
@@ -284,14 +331,14 @@ public sealed partial class CitizenArt3D : Node3D
         return b.Finish();
     }
 
-    private static Mesh BuildRigTorso(Palette p, Material material)
+    internal static Mesh BuildRigTorso(Palette p, Material material)
     {
         using var b = new Sculpt(material);
         AddTorso(b, p);
         return b.Finish();
     }
 
-    private static Mesh BuildRigHead(Palette p, Material material)
+    internal static Mesh BuildRigHead(Palette p, Material material)
     {
         using var b = new Sculpt(material);
         AddHead(b, p);
