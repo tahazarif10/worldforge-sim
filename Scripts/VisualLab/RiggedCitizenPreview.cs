@@ -229,7 +229,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         clip.TrackSetPath(track,new NodePath("Skeleton3D:"+bone));
         for(int k=0;k<degrees.Length;k++)
         {
-            float time=clip.Length*k/(degrees.Length-1);
+            float time=(float)clip.Length*k/(degrees.Length-1);
             var rotation=new Quaternion(axis,Mathf.DegToRad(degrees[k]));
             clip.RotationTrackInsertKey(track,time,rotation);
         }
