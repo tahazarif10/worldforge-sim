@@ -16,6 +16,7 @@ public sealed class Citizen(int id, int x, int y, long bornAt)
     public CitizenActivity Activity { get; internal set; }
     public int Hunger { get; internal set; } = 60;
     public int FoodCarried { get; internal set; }
+    public int FoodEaten { get; internal set; }
     public int WoodCarried { get; internal set; }
 
     // Small transient job plan, indexed by stable global resource site ID.
