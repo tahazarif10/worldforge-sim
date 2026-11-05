@@ -104,25 +104,40 @@ public sealed class NatureArtLibrary
                     InstanceCount = group.Value.Count
                 };
 
+                bool forestTree=(int)group.Key <= (int)Species.Autumn;
+                var sites=forestTree?new Vector2I[group.Value.Count]:[];
+                var originals=forestTree?new Transform3D[group.Value.Count]:[];
+                var pivots=forestTree?new Vector3[group.Value.Count]:[];
                 for (int i = 0; i < group.Value.Count; i++)
                 {
                     Placement p = group.Value[i];
                     float scale = Mathf.Clamp(p.Height / model.Height, 0.15f, 9f);
                     Basis basis = new Basis(Vector3.Up, p.Angle).Scaled(Vector3.One * scale);
                     Vector3 origin = p.Position - Vector3.Up * (model.LowestY * scale);
-                    batch.SetInstanceTransform(i,
-                        new Transform3D(basis, origin) * part.Local);
+                    Transform3D transform=new Transform3D(basis, origin) * part.Local;
+                    batch.SetInstanceTransform(i,transform);
+                    if(forestTree)
+                    {
+                        sites[i]=new Vector2I(Mathf.FloorToInt(p.Position.X),
+                            Mathf.FloorToInt(p.Position.Z));
+                        originals[i]=transform;
+                        pivots[i]=p.Position;
+                    }
                 }
 
-                chunk.AddChild(new MultiMeshInstance3D
-                {
-                    Name = $"CC0_{group.Key}_{partIndex}",
-                    Multimesh = batch,
-                    MaterialOverride = part.Override,
-                    CastShadow = group.Key is Species.Grass or Species.Flower
-                        ? GeometryInstance3D.ShadowCastingSetting.Off
-                        : GeometryInstance3D.ShadowCastingSetting.On
-                });
+                var node=forestTree
+                    ? new TreeResourceBatch
+                    {
+                        Sites=sites, RestTransforms=originals, Pivots=pivots
+                    }
+                    : new MultiMeshInstance3D();
+                node.Name=$"CC0_{group.Key}_{partIndex}";
+                node.Multimesh=batch;
+                node.MaterialOverride=part.Override;
+                node.CastShadow=group.Key is Species.Grass or Species.Flower
+                    ? GeometryInstance3D.ShadowCastingSetting.Off
+                    : GeometryInstance3D.ShadowCastingSetting.On;
+                chunk.AddChild(node);
             }
         }
         return count;
