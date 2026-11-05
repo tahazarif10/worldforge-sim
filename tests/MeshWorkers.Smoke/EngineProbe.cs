@@ -108,6 +108,11 @@ public partial class EngineProbe : Node
             "simulation supplies at least one independent walking update");
         typeof(VisualLab3D).GetMethod("UpdateActors",Hidden)!.Invoke(lab,null);
         visual.Render(.08,1);
+        GD.Print("CITIZEN WALK DEBUG: before=" +
+            string.Join(";", originals.Select(t=>t.Origin.ToString())) +
+            " after=" + string.Join(";", bodies.Select(m=>
+                m.GetInstanceTransform(0).Origin.ToString())) +
+            " sim=" + string.Join(";", world.People.Select(p=>$"{p.Id}:{p.X},{p.Y}")));
         Require(bodies.Where((m,i)=>!m.GetInstanceTransform(0).Origin
             .IsEqualApprox(originals[i].Origin)).Any(),
             "at least one authored villager walks smoothly between two cells");
