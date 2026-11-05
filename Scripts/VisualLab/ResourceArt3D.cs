@@ -14,16 +14,20 @@ namespace WorldForge.VisualLab;
 public sealed partial class ResourceArt3D : Node3D
 {
     private readonly List<(ResourceSite Site, Vector3 Ground)> _visible = new();
+    private readonly List<Vector3> _stumpOrigins = new();
     private WorldState? _world;
     private VisualTerrain3D? _terrain;
     private Godot.Camera3D? _camera;
     private MultiMesh _leaves = null!;
     private MultiMesh _berries = null!;
+    private MultiMesh _stumps = null!;
+    private MultiMesh _stumpTops = null!;
     private double _refreshElapsed;
     private const float MarginPixels = 96f;
 
     public int VisibleBushCount => _visible.Count;
     public int VisibleBerryCount { get; private set; }
+    public int VisibleStumpCount => _stumpOrigins.Count;
 
     public override void _Ready()
     {
@@ -55,6 +59,24 @@ public sealed partial class ResourceArt3D : Node3D
             TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
             UseColors = true, Mesh = fruitMesh, InstanceCount = 0
         };
+        _stumps = new MultiMesh
+        {
+            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+            Mesh = new CylinderMesh
+            {
+                Height=.23f,TopRadius=.14f,BottomRadius=.19f,RadialSegments=7
+            },
+            InstanceCount = 0
+        };
+        _stumpTops = new MultiMesh
+        {
+            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+            Mesh = new CylinderMesh
+            {
+                Height=.013f,TopRadius=.143f,BottomRadius=.143f,RadialSegments=7
+            },
+            InstanceCount=0
+        };
         AddChild(new MultiMeshInstance3D
         {
             Name = "BerryBushLeaves", Multimesh = _leaves,
@@ -66,6 +88,24 @@ public sealed partial class ResourceArt3D : Node3D
             Name = "BerryFruit", Multimesh = _berries,
             MaterialOverride = plantMaterial,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off
+        });
+        AddChild(new MultiMeshInstance3D
+        {
+            Name="HarvestedTreeStumps",Multimesh=_stumps,
+            MaterialOverride=new StandardMaterial3D
+            {
+                AlbedoColor=new Color("#754831"),Roughness=.96f
+            },
+            CastShadow=GeometryInstance3D.ShadowCastingSetting.Off
+        });
+        AddChild(new MultiMeshInstance3D
+        {
+            Name="StumpCutFaces",Multimesh=_stumpTops,
+            MaterialOverride=new StandardMaterial3D
+            {
+                AlbedoColor=new Color("#c49d70"),Roughness=.96f
+            },
+            CastShadow=GeometryInstance3D.ShadowCastingSetting.Off
         });
     }
 
@@ -93,6 +133,36 @@ public sealed partial class ResourceArt3D : Node3D
         Vector2 size = _camera.GetViewport().GetVisibleRect().Size;
         if (size.X < 1f || size.Y < 1f) return;
         _visible.Clear();
+        _stumpOrigins.Clear();
+        foreach(ResourceSite stump in _world.Resources.StumpSites())
+        {
+            uint hash=EnvironmentArtMath.Hash(stump.X,stump.Y,
+                unchecked(_world.Seed+119));
+            float ox=((hash>>10)%100)/310f+.34f;
+            float oz=((hash>>18)%100)/310f+.34f;
+            float x=stump.X+ox,z=stump.Y+oz;
+            Vector3 center=new(x,.8f,z);
+            if(_camera.IsPositionBehind(center))continue;
+            Vector2 projected=_camera.UnprojectPosition(center);
+            if(projected.X < -MarginPixels || projected.Y < -MarginPixels ||
+                projected.X > size.X+MarginPixels ||
+                projected.Y > size.Y+MarginPixels)continue;
+            float height=_terrain.SurfaceHeightAt(stump.X,stump.Y,ox,oz);
+            _stumpOrigins.Add(new Vector3(x,height,z));
+        }
+
+        if(_stumps.InstanceCount!=_stumpOrigins.Count)
+            _stumps.InstanceCount=_stumpOrigins.Count;
+        if(_stumpTops.InstanceCount!=_stumpOrigins.Count)
+            _stumpTops.InstanceCount=_stumpOrigins.Count;
+        for(int i=0;i<_stumpOrigins.Count;i++)
+        {
+            Vector3 origin=_stumpOrigins[i];
+            _stumps.SetInstanceTransform(i,new Transform3D(
+                Basis.Identity,origin+Vector3.Up*.115f));
+            _stumpTops.SetInstanceTransform(i,new Transform3D(
+                Basis.Identity,origin+Vector3.Up*.235f));
+        }
 
         foreach (ResourceSite site in _world.Resources.FoodSites())
         {
