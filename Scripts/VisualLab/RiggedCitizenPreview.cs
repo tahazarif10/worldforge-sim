@@ -22,6 +22,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
     private Vector2 _previousPosition;
     private bool _hasPreviousPosition;
     private float _headingTurn;
+    private float _gaitPhase;
     private float _previousYaw;
     private bool _hasPreviousYaw;
 
@@ -180,6 +181,8 @@ internal sealed partial class RiggedCitizenPreview : Node3D
             ? _previousPosition.DistanceTo(cellPosition):0f;
         _previousPosition=cellPosition;
         _hasPreviousPosition=true;
+        if(travel>.0001f && travel<1.5f)
+            _gaitPhase=(_gaitPhase+travel*Mathf.Pi)%Mathf.Tau;
         float playbackDelta=travel>.0001f && travel<1.5f
             ? travel*(WalkLength*.5f):dt;
         if(simulationSpeed<=0)playbackDelta=0f;
@@ -195,9 +198,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         _headingTurn=Mathf.Lerp(_headingTurn,Mathf.Clamp(turn*2f,-.10f,.10f),
             1f-MathF.Exp(-dt*8f));
         _skeleton.Rotation=new Vector3(-.028f*_blend,0f,
-            -.025f*_blend*MathF.Sin(2f*Mathf.Pi*
-                (float)(_player.CurrentAnimationPosition/WalkLength))+
-            _headingTurn);
+            -.025f*_blend*MathF.Sin(_gaitPhase)+_headingTurn);
         // No root motion or extra per-citizen physics is introduced.
     }
 
