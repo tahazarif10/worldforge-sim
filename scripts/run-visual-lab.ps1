@@ -1,7 +1,8 @@
 # Launch opt-in 3D style prototype without changing project.godot or main scene.
 # Uses existing portable Godot/.NET on H: and writes its diagnostic log to H:.
 param([Nullable[int]]$WorldSeed = $null, [switch]$ViewportStreaming, [switch]$MeshWorkers, [switch]$RiggedCitizenDemo,
-    [ValidateSet('Compact', 'Expanded')][string]$WorldSize = 'Expanded')
+    [ValidateSet('Compact', 'Expanded')][string]$WorldSize = 'Expanded',
+    [switch]$NoCitizenAI)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
@@ -37,6 +38,10 @@ $godotArgs += '--'
 $dimensions = if ($WorldSize -eq 'Compact') { '120x88' } else { '192x144' }
 $godotArgs += "--world-size=$dimensions"
 Write-Host "World preview size: $dimensions (use -WorldSize Compact to compare)."
+if (-not $NoCitizenAI) {
+    $godotArgs += '--citizen-ai'
+    Write-Host 'Autonomous gathering ON: citizens harvest wood and food even offscreen.'
+}
 if ($null -ne $WorldSeed) {
     Write-Host "Replaying approved 3D world seed $WorldSeed for mountain QA."
     $godotArgs += "--world-seed=$WorldSeed"
