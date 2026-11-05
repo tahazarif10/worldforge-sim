@@ -27,6 +27,14 @@ public sealed partial class CitizenArt3D : Node3D
     private RiggedCitizenPreview? _riggedPreview;
     private int _riggedCitizenId = -1;
     private readonly Dictionary<int,RiggedCitizenPreview> _riggedCitizens=new();
+    private readonly Stack<RiggedCitizenPreview> _rigPool=new();
+    private readonly HashSet<int> _viewWanted=new();
+    private readonly List<int> _viewToRelease=new();
+    private Godot.Camera3D? _viewCamera;
+    private bool _viewDirty=true;
+    private float _viewElapsed;
+    private const float ViewRefreshSeconds=.07f;
+    private const int MaxIdleRigPool=48;
     private bool _ecoMode;
 
     // All visible citizens receive the approved PR #92 skeleton/animation
@@ -37,7 +45,22 @@ public sealed partial class CitizenArt3D : Node3D
     // Retained for older test/launch entry points.
     public bool RiggedPreviewEnabled { get; set; } =
         Array.Exists(OS.GetCmdlineUserArgs(),arg=>arg=="--rigged-citizen-demo");
+    // Active rigs are only for citizens within the extended viewport.
+    // All simulation citizens remain in WorldState and _poses.
     public int RiggedCitizenCount => _riggedCitizens.Count;
+    public int PooledRigCount => _rigPool.Count;
+
+    public void SetViewCamera(Godot.Camera3D camera)
+    {
+        _viewCamera=camera;
+        _viewDirty=true;
+    }
+
+    public void RefreshVisibleCitizens()
+    {
+        _viewDirty=true;
+        UpdateRiggedVisibility(0f);
+    }
 
     public int VisibleCitizenCount => _poses.Count;
     public int InstancedDrawBatches => Looks * Parts;
@@ -139,9 +162,22 @@ public sealed partial class CitizenArt3D : Node3D
 
     public void Bind(WorldState world, VisualTerrain3D terrain)
     {
+        // A New World invalidates every old citizen and all transient visual
+        // poses. Clear the visual pool but never touch simulation ownership.
         foreach(RiggedCitizenPreview rig in _riggedCitizens.Values)
+        {
+            rig.Visible=false;
+            rig.Name=$"RetiredRig_{rig.GetInstanceId()}";
+            rig.QueueFree();
+        }
+        foreach(RiggedCitizenPreview rig in _rigPool)
             rig.QueueFree();
         _riggedCitizens.Clear();
+        _rigPool.Clear();
+        _viewWanted.Clear();
+        _viewToRelease.Clear();
+        _viewDirty=true;
+        _viewElapsed=0f;
         _world = world;
         _terrain = terrain;
         _riggedCitizenId = -1;
@@ -189,33 +225,16 @@ public sealed partial class CitizenArt3D : Node3D
             // citizen; authoritative updates invalidate the cached height.
             state.GroundDirty = true;
             state.HasRendered = false;
-            if (AllRiggedEnabled)
-            {
-                if (!_riggedCitizens.ContainsKey(citizen.Id))
-                {
-                    var rig = new RiggedCitizenPreview
-                    {
-                        Name = $"RiggedCitizen_{citizen.Id}",
-                        PaletteIndex = (citizen.Id - 1) % Looks,
-                        CitizenId = citizen.Id
-                    };
-                    AddChild(rig);
-                    rig.SetEcoMode(_ecoMode);
-                    _riggedCitizens.Add(citizen.Id,rig);
-                }
-            }
-            else if (citizen.Id != _riggedCitizenId)
+            if (!AllRiggedEnabled && citizen.Id != _riggedCitizenId)
                 _groups[(citizen.Id - 1) % Looks].Add(state);
         }
 
         foreach (int id in new List<int>(_poses.Keys))
             if (!alive.Contains(id)) _poses.Remove(id);
-        foreach (int id in new List<int>(_riggedCitizens.Keys))
-        {
-            if (alive.Contains(id)) continue;
-            _riggedCitizens[id].QueueFree();
-            _riggedCitizens.Remove(id);
-        }
+        _viewToRelease.Clear();
+        foreach(int id in _riggedCitizens.Keys)
+            if(!alive.Contains(id))_viewToRelease.Add(id);
+        foreach(int id in _viewToRelease)ReleaseRig(id);
         if (_riggedPreview is not null && !alive.Contains(_riggedCitizenId))
         {
             _riggedCitizenId = -1;
@@ -227,6 +246,7 @@ public sealed partial class CitizenArt3D : Node3D
             if (_instances[look, part].InstanceCount != _groups[look].Count)
                 _instances[look, part].InstanceCount = _groups[look].Count;
 
+        _viewDirty=true;
         Render(0, 1);
     }
 
@@ -313,12 +333,14 @@ public sealed partial class CitizenArt3D : Node3D
 
         if (AllRiggedEnabled)
         {
+            UpdateRiggedVisibility(dt);
             foreach(var pair in _riggedCitizens)
             {
                 Pose state=_poses[pair.Key];
                 bool moved=AdvancePose(state,dt,rate,simulationSpeed);
                 float px=state.Position.X,pz=state.Position.Y;
-                if(state.GroundDirty || moved)
+                bool groundChanged=state.GroundDirty;
+                if(groundChanged || moved)
                 {
                     int x=(int)MathF.Floor(px),z=(int)MathF.Floor(pz);
                     state.GroundHeight=_terrain.SurfaceHeightAt(x,z,
@@ -330,7 +352,7 @@ public sealed partial class CitizenArt3D : Node3D
                 // the AnimationTree clock accurate without 450 full updates
                 // per frame.
                 state.IdleRefresh+=dt;
-                if(!moved && !state.GroundDirty && state.HasRendered &&
+                if(!moved && !groundChanged && state.HasRendered &&
                     state.WalkWeight<.015f && state.IdleRefresh<1f/15f)
                     continue;
                 float frameDelta=state.IdleRefresh;
@@ -356,6 +378,111 @@ public sealed partial class CitizenArt3D : Node3D
             _riggedPreview.Present(selected.Position,selected.Yaw,
                 selected.GroundHeight,selected.WalkWeight,dt,simulationSpeed);
         }
+    }
+
+    /// <summary>
+    /// Visual-only residency. Uses a slightly larger exit band than entry
+    /// to avoid thrashing when a citizen/camera hovers near the viewport edge.
+    /// No WorldState.Advance calls or simulation-time changes belong here.
+    /// </summary>
+    private void UpdateRiggedVisibility(float dt)
+    {
+        if (!AllRiggedEnabled || _world is null || _terrain is null) return;
+        _viewElapsed+=dt;
+        if(!_viewDirty && _viewElapsed<ViewRefreshSeconds)return;
+        _viewElapsed=0f;
+        _viewDirty=false;
+
+        Godot.Camera3D? camera=_viewCamera ?? GetViewport().GetCamera3D();
+        if(camera is null || !camera.IsInsideTree())return;
+        Vector2 size=camera.GetViewport().GetVisibleRect().Size;
+        if(size.X<1f || size.Y<1f)return;
+
+        // Frustum-aware screen-space culling works with the approved
+        // oblique orthographic camera, zoom-at-cursor and any viewport size.
+        float minor=Mathf.Min(size.X,size.Y);
+        float enterMargin=Mathf.Max(64f,minor*.10f);
+        float exitMargin=Mathf.Max(96f,minor*.17f);
+        _viewWanted.Clear();
+        foreach(Citizen citizen in _world.People)
+        {
+            Pose state=_poses[citizen.Id];
+            float x=state.Destination.X,z=state.Destination.Y;
+            int tileX=(int)MathF.Floor(x),tileZ=(int)MathF.Floor(z);
+            // Cheap coarse height only when outside the view; full surface
+            // sampling is done exactly once when a rig becomes resident.
+            float y=_riggedCitizens.ContainsKey(citizen.Id)
+                ? state.GroundHeight : _terrain.HeightAt(tileX,tileZ);
+            bool resident=_riggedCitizens.ContainsKey(citizen.Id);
+            float margin=resident?exitMargin:enterMargin;
+            var center=new Vector3(x,y+.8f,z);
+            if(camera.IsPositionBehind(center))continue;
+            Vector2 screen=camera.UnprojectPosition(center);
+            if(screen.X>=-margin && screen.Y>=-margin &&
+               screen.X<=size.X+margin && screen.Y<=size.Y+margin)
+                _viewWanted.Add(citizen.Id);
+        }
+
+        // Release before acquiring: panning reuses the same native nodes.
+        _viewToRelease.Clear();
+        foreach(int id in _riggedCitizens.Keys)
+            if(!_viewWanted.Contains(id))_viewToRelease.Add(id);
+        foreach(int id in _viewToRelease)ReleaseRig(id);
+
+        foreach(Citizen citizen in _world.People)
+        {
+            if(!_viewWanted.Contains(citizen.Id) ||
+                _riggedCitizens.ContainsKey(citizen.Id))continue;
+            int palette=(citizen.Id-1)%Looks;
+            RiggedCitizenPreview rig;
+            if(_rigPool.Count>0)
+            {
+                rig=_rigPool.Pop();
+                rig.AssignCitizen(citizen.Id,palette);
+                rig.Name=$"RiggedCitizen_{citizen.Id}";
+            }
+            else
+            {
+                rig=new RiggedCitizenPreview
+                {
+                    Name=$"RiggedCitizen_{citizen.Id}",
+                    PaletteIndex=palette,CitizenId=citizen.Id
+                };
+                AddChild(rig);
+            }
+            rig.SetEcoMode(_ecoMode);
+            rig.Visible=true;
+            _riggedCitizens.Add(citizen.Id,rig);
+
+            // A region that was offscreen for thousands of ticks must resume
+            // at its current authoritative tile, not replay every old step.
+            Pose state=_poses[citizen.Id];
+            state.Position=state.Destination;
+            state.Start=state.Destination;
+            state.Progress=1f;state.Moving=false;
+            state.WalkWeight=0f;state.HasRendered=false;
+            state.GroundDirty=true;state.IdleRefresh=0f;
+            int currentX=(int)MathF.Floor(state.Position.X);
+            int currentZ=(int)MathF.Floor(state.Position.Y);
+            state.GroundHeight=_terrain.SurfaceHeightAt(currentX,currentZ,
+                state.Position.X-currentX,state.Position.Y-currentZ);
+            state.GroundDirty=false;
+            // Native draw is correctly placed immediately on camera return,
+            // even before the next Process/AnimationTree update.
+            rig.Present(state.Position,state.Yaw,state.GroundHeight,
+                0f,0f,simulationSpeed:0);
+        }
+    }
+
+    private void ReleaseRig(int id)
+    {
+        if(!_riggedCitizens.Remove(id,out RiggedCitizenPreview? rig))return;
+        rig.Visible=false;
+        rig.Name=$"PooledRig_{rig.GetInstanceId()}";
+        if(_rigPool.Count<MaxIdleRigPool)
+            _rigPool.Push(rig);
+        else
+            rig.QueueFree();
     }
 
     private static bool AdvancePose(Pose state,float dt,float rate,int simulationSpeed)

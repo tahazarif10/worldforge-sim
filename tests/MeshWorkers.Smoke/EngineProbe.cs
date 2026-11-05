@@ -68,6 +68,12 @@ public partial class EngineProbe : Node
         for(int x=3;x<world.Width-3 && spawned<3;x++)
             if(world.Spawn(x,z))spawned++;
         Require(spawned==3,"three visible-style citizen fixtures can spawn");
+        var camera=lab.GetNode<Godot.Camera3D>("IsometricCamera");
+        var camRig=(StrategyCameraRig)typeof(VisualLab3D)
+            .GetField("_cameraRig",Hidden)!.GetValue(lab)!;
+        camRig.RestoreReviewPose(new CameraReviewPose(
+            world.People[0].X+.5f,world.People[0].Y+.5f,19f));
+        visual.SetViewCamera(camera);
         typeof(VisualLab3D).GetMethod("UpdateActors",Hidden)!.Invoke(lab,null);
         visual.Render(.03,1);
         Require(visual.VisibleCitizenCount==3,"citizen rendering follows authoritative spawn");
@@ -149,8 +155,8 @@ public partial class EngineProbe : Node
         typeof(VisualLab3D).GetMethod("UpdateActors",Hidden)!.Invoke(lab,null);
         Require(visual.VisibleCitizenCount==world.People.Count,
             "citizen art releases stale instances after meteor removals");
-        Require(visual.RiggedCitizenCount==world.People.Count,
-            "meteor removes the skinned actor as well as the simulation citizen");
+        Require(visual.RiggedCitizenCount<=world.People.Count,
+            "meteor removes the skinned actor without leaking active rigs");
         GD.Print("PASS CITIZEN ART: all citizens rigged, 3 shared skinned palettes, " +
             "one draw per person, simulation-safe animation and removal");
     }
@@ -164,6 +170,8 @@ public partial class EngineProbe : Node
         terrain.BindWorld(world);
         var actorArt=new CitizenArt3D {AllRiggedEnabled=true};
         lab.AddChild(actorArt);
+        var camera=lab.GetNode<Godot.Camera3D>("IsometricCamera");
+        actorArt.SetViewCamera(camera);
         actorArt.Bind(world,terrain);
         try
         {
@@ -172,6 +180,10 @@ public partial class EngineProbe : Node
             for(int x=3;x<world.Width-3 && placed<2;x++)
                 if(world.Spawn(x,y))placed++;
             Require(placed==2,"rigged fixture provides two walkable citizens");
+            var rigCamera=(StrategyCameraRig)typeof(VisualLab3D)
+                .GetField("_cameraRig",Hidden)!.GetValue(lab)!;
+            rigCamera.RestoreReviewPose(new CameraReviewPose(
+                world.People[0].X+.5f,world.People[0].Y+.5f,19f));
             actorArt.Sync();
             actorArt.Render(.05f,1);
 
@@ -222,6 +234,36 @@ public partial class EngineProbe : Node
 
             actorArt.SetEcoMode(true);
             actorArt.SetEcoMode(false);
+
+            // Viewport residency must remove both rigs without pausing world
+            // simulation, then reuse the same native objects on return.
+            var originalRigIds=actorArt.GetChildren().OfType<RiggedCitizenPreview>()
+                .Select(node=>node.GetInstanceId()).ToHashSet();
+            Require(originalRigIds.Count==2,"both visible skeletons exist before pan");
+            long ticking=world.Tick;
+            rigCamera.FocusAt(115f,80f);
+            actorArt.RefreshVisibleCitizens();
+            Require(actorArt.RiggedCitizenCount==0 && actorArt.PooledRigCount==2 &&
+                actorArt.VisibleCitizenCount==2,
+                "offscreen actors release all skeletal animation while keeping simulation state");
+            for(int i=0;i<4;i++)world.Advance();
+            actorArt.Sync();
+            Require(world.Tick==ticking+4 && actorArt.RiggedCitizenCount==0,
+                "offscreen citizen simulation advances without creating visuals");
+            rigCamera.FocusAt(world.People[0].X+.5f,world.People[0].Y+.5f);
+            actorArt.RefreshVisibleCitizens();
+            Require(actorArt.RiggedCitizenCount>0,
+                "bringing camera back restores at least the focused actor");
+            var reused=actorArt.GetChildren().OfType<RiggedCitizenPreview>()
+                .Where(node=>node.Visible).Select(node=>node.GetInstanceId()).ToHashSet();
+            Require(reused.IsSubsetOf(originalRigIds) && reused.Count>0,
+                "camera return reuses pooled skeleton objects rather than constructing replacements");
+            var returned=actorArt.GetNode<RiggedCitizenPreview>(
+                $"RiggedCitizen_{world.People[0].Id}");
+            Require(MathF.Abs(returned.Position.X-world.People[0].X-.5f)<.001f &&
+                MathF.Abs(returned.Position.Z-world.People[0].Y-.5f)<.001f,
+                "offscreen advancement resumes at current authoritative position without catch-up replay");
+
             world.Meteor(tracked.X,tracked.Y,1);
             actorArt.Sync();
             Require(actorArt.VisibleCitizenCount==world.People.Count,

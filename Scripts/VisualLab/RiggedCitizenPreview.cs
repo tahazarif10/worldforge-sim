@@ -131,6 +131,34 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         return index;
     }
 
+    /// <summary>
+    /// Reuse a hidden rig for a different visible citizen without rebuilding
+    /// its skeleton, AnimationTree or native mesh buffers.
+    /// </summary>
+    public void AssignCitizen(int id,int palette)
+    {
+        if(id<1 || palette<0 || palette>=CitizenArt3D.Palettes.Length)
+            throw new ArgumentOutOfRangeException(nameof(id));
+        CitizenId=id;
+        if(PaletteIndex!=palette)
+        {
+            PaletteIndex=palette;
+            var art=RiggedCitizenSkinLibrary.Get(palette,_skeleton);
+            _visual.Mesh=art.Mesh;
+            _visual.Skin=art.Skin;
+        }
+        _previousPosition=Vector2.Zero;
+        _hasPreviousPosition=false;
+        _previousYaw=0f;
+        _hasPreviousYaw=false;
+        _headingTurn=0f;
+        _gaitPhase=0f;
+        _blend=0f;
+        _tree.Set("parameters/blend_position",0f);
+        // Offset independent idle phases without extra character resources.
+        _tree.Advance((id*2.399963f)%IdleLength);
+    }
+
     public void SetEcoMode(bool eco)
     {
         _visual.CastShadow=eco

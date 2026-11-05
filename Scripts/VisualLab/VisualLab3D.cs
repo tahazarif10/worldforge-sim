@@ -69,6 +69,9 @@ public partial class VisualLab3D : Node3D
             Current = true
         };
         AddChild(_camera);
+        // The same approved strategy camera drives visual citizen residency.
+        // Simulation remains global even when the camera shows a tiny region.
+        _citizens.SetViewCamera(_camera);
 
         CreateWorld(InitialSeed());
         GD.Print("V2 reference world seed: " + _world.Seed);
