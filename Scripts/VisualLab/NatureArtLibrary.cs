@@ -63,8 +63,6 @@ public sealed class NatureArtLibrary
                     continue;
                 }
                 model.Height = MathF.Max(0.05f, model.Height - model.LowestY);
-                if (i is (int)Species.Grass or (int)Species.Flower)
-                    PrepareSmallFoliageMaterials(model);
                 _models[i] = model;
                 total++;
             }
@@ -72,57 +70,6 @@ public sealed class NatureArtLibrary
         }
         LoadedModels = total;
         GD.Print($"V2 authored Kenney nature models loaded: {LoadedModels}/{AssetNames.Length}");
-    }
-
-    /// <summary>
-    /// Kenney's thin leaf and flower polygons can become nearly black on their
-    /// reverse sides under Compatibility directional lighting. These models
-    /// already do not cast shadows: the problem is RECEIVE lighting, not
-    /// CastShadow. Preserve every imported albedo color, texture, alpha and
-    /// vertex color, but render both sides without directional light darkening.
-    /// Only Grass and Flower are adapted; trunks, trees and rocks are untouched.
-    /// Prepared once per GLB part, then shared across all chunk MultiMeshes.
-    /// </summary>
-    private static void PrepareSmallFoliageMaterials(Model model)
-    {
-        for (int i = 0; i < model.Parts.Count; i++)
-        {
-            var part = model.Parts[i];
-            if (part.Override is BaseMaterial3D overrideMaterial)
-            {
-                model.Parts[i] = (part.Mesh, part.Local,
-                    WithoutBlackLeafFaces(overrideMaterial));
-                continue;
-            }
-            if (part.Override is not null) continue; // Preserve authored shaders.
-
-            // MaterialOverride would collapse multiple surface materials into
-            // one. Clone the mesh resource once and retain each surface's
-            // original distinct material/texture.
-            Mesh copy = (Mesh)part.Mesh.Duplicate();
-            bool adapted = false;
-            for (int surface = 0; surface < copy.GetSurfaceCount(); surface++)
-            {
-                if (part.Mesh.SurfaceGetMaterial(surface) is not BaseMaterial3D source)
-                    continue;
-                copy.SurfaceSetMaterial(surface, WithoutBlackLeafFaces(source));
-                adapted = true;
-            }
-            if (adapted)
-                model.Parts[i] = (copy, part.Local, null);
-            else
-                copy.Dispose();
-        }
-    }
-
-    private static BaseMaterial3D WithoutBlackLeafFaces(BaseMaterial3D original)
-    {
-        // Duplicate the whole imported material, rather than replacing it with
-        // a flat generic tint: glTF albedo textures, alpha, UVs and colors remain.
-        var copy = (BaseMaterial3D)original.Duplicate();
-        copy.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
-        copy.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
-        return copy;
     }
 
     public bool Has(Species species) => _models[(int)species] is not null;
