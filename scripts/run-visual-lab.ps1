@@ -1,6 +1,6 @@
 # Launch opt-in 3D style prototype without changing project.godot or main scene.
 # Uses existing portable Godot/.NET on H: and writes its diagnostic log to H:.
-param([Nullable[int]]$WorldSeed = $null, [switch]$ViewportStreaming, [switch]$MeshWorkers)
+param([Nullable[int]]$WorldSeed = $null, [switch]$ViewportStreaming, [switch]$MeshWorkers, [switch]$RiggedCitizenDemo)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
@@ -30,7 +30,7 @@ Write-Host 'Launching stand-alone 3D visual lab, preserving the 2D main scene.'
 Write-Host "Log: $log"
 $godotArgs = @('--path', $root, '--scene', 'res://Scenes/VisualLab3D.tscn',
     '--rendering-method', 'gl_compatibility', '--log-file', $log)
-if ($null -ne $WorldSeed -or $ViewportStreaming -or $MeshWorkers) { $godotArgs += '--' }
+if ($null -ne $WorldSeed -or $ViewportStreaming -or $MeshWorkers -or $RiggedCitizenDemo) { $godotArgs += '--' }
 if ($null -ne $WorldSeed) {
     Write-Host "Replaying approved 3D world seed $WorldSeed for mountain QA."
     $godotArgs += "--world-seed=$WorldSeed"
@@ -42,5 +42,9 @@ if ($ViewportStreaming -or $MeshWorkers) {
 if ($MeshWorkers) {
     Write-Host 'Experimental mesh workers ON: bounded numeric jobs and main-thread publication; host performance pending.'
     $godotArgs += '--mesh-workers'
+}
+if ($RiggedCitizenDemo) {
+    Write-Host 'One rigged citizen preview ON: all other villagers remain instanced.'
+    $godotArgs += '--rigged-citizen-demo'
 }
 & $editor.FullName @godotArgs
