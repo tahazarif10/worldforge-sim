@@ -77,7 +77,10 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         {
             Name="AnimationTree",
             AnimPlayer=new NodePath("../AnimationPlayer"),
-            TreeRoot=blendSpace
+            TreeRoot=blendSpace,
+            // The same render callback that interpolates world movement now
+            // advances the AnimationTree, so tests and gameplay are in sync.
+            CallbackModeProcess=AnimationMixer.AnimationCallbackModeProcess.Manual
         };
         AddChild(_tree);
         _tree.Active=true;
@@ -153,6 +156,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         float desired=simulationSpeed>0?Mathf.Clamp(movementBlend,0f,1f):0f;
         _blend=Mathf.MoveToward(_blend,desired,MathF.Max(0f,delta)*6f);
         _tree.Set("parameters/blend_position",_blend);
+        _tree.Advance(MathF.Max(0f,delta));
         // The simulation is authoritative; no animation root motion,
         // modified citizen position or independent pathfinding is introduced.
     }
