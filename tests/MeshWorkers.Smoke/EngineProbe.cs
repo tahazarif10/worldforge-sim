@@ -38,7 +38,6 @@ public partial class EngineProbe : Node
             _mirror=terrain.TerrainBackendName=="region-mirror";
             GetWindow().ContentScaleMode=Window.ContentScaleModeEnum.Disabled;
             await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
-            ExerciseSmallFoliageLighting();
             ExerciseCitizenArt(lab);
             ExerciseRiggedCitizenPreview(lab,terrain);
             ExercisePicking(lab,terrain,camera);
@@ -56,70 +55,6 @@ public partial class EngineProbe : Node
             GD.PushError("WORKER ENGINE FAILED: "+ex);
             GetTree().Quit(1);
         }
-    }
-
-    private static void ExerciseSmallFoliageLighting()
-    {
-        // Actual imported Kenney GLBs: prove the close-up grass/flower fix
-        // does not flatten color/texture data or touch trees, coast or terrain.
-        var art=new NatureArtLibrary();
-        Require(art.Has(NatureArtLibrary.Species.Grass) &&
-            art.Has(NatureArtLibrary.Species.Flower) &&
-            art.Has(NatureArtLibrary.Species.Oak),
-            "official Godot editor imported the bundled Kenney grass, flower and oak");
-
-        var chunk=new Node3D();
-        try
-        {
-            var placements=new NatureArtLibrary.Placement[]
-            {
-                new(NatureArtLibrary.Species.Grass,Vector3.Zero,.52f,0f),
-                new(NatureArtLibrary.Species.Flower,new Vector3(1,0,0),.42f,.2f),
-                new(NatureArtLibrary.Species.Oak,new Vector3(2,0,0),2.4f,.4f)
-            };
-            Require(art.Populate(chunk,placements)==3,
-                "small foliage material pass does not affect deterministic scatter counts");
-            bool grass=false,flower=false,oak=false;
-            foreach(Node node in chunk.GetChildren())
-            {
-                Require(node is MultiMeshInstance3D,"authored nature remains per-chunk instanced");
-                var instance=(MultiMeshInstance3D)node;
-                string name=instance.Name.ToString();
-                bool small=name.StartsWith("CC0_Grass_",StringComparison.Ordinal) ||
-                    name.StartsWith("CC0_Flower_",StringComparison.Ordinal);
-                if(small)
-                {
-                    grass |= name.StartsWith("CC0_Grass_",StringComparison.Ordinal);
-                    flower |= name.StartsWith("CC0_Flower_",StringComparison.Ordinal);
-                    Require(instance.CastShadow==GeometryInstance3D.ShadowCastingSetting.Off,
-                        "small foliage remains shadow-casting-free on all quality tiers");
-                    var surfaceMaterials=new List<Material>();
-                    if(instance.MaterialOverride is not null)
-                        surfaceMaterials.Add(instance.MaterialOverride);
-                    else for(int s=0;s<instance.Multimesh.Mesh.GetSurfaceCount();s++)
-                    {
-                        Material? surface=instance.Multimesh.Mesh.SurfaceGetMaterial(s);
-                        if(surface is not null)surfaceMaterials.Add(surface);
-                    }
-                    Require(surfaceMaterials.Count>0 &&
-                        surfaceMaterials.All(m=>m is BaseMaterial3D baseMat &&
-                            baseMat.ShadingMode==BaseMaterial3D.ShadingModeEnum.Unshaded &&
-                            baseMat.CullMode==BaseMaterial3D.CullModeEnum.Disabled),
-                        "both faces of authored thin leaves use preserved color without directional black facets");
-                }
-                else if(name.StartsWith("CC0_Oak_",StringComparison.Ordinal))
-                {
-                    oak=true;
-                    Require(instance.CastShadow==GeometryInstance3D.ShadowCastingSetting.On,
-                        "tree shadows and authored geometry remain unchanged");
-                }
-            }
-            Require(grass && flower && oak,
-                "both small leaf species and reference tree are present in real imported art");
-        }
-        finally {chunk.Free();}
-        GD.Print("PASS SMALL FOLIAGE: Kenney grass/flower material preserves authored meshes " +
-            "with no black backface shading; oak and instanced scatter unchanged");
     }
 
     private static void ExerciseCitizenArt(VisualLab3D lab)

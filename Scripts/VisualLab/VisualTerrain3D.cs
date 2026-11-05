@@ -243,18 +243,6 @@ public partial class VisualTerrain3D : Node3D
         Metallic = 0f
     };
 
-    // Procedural fallback for missing imported grass/flower assets only.
-    // Solid leaf colors stay unchanged but thin back-facing facets cannot turn black.
-    private readonly StandardMaterial3D _smallFoliageMaterial = new()
-    {
-        VertexColorUseAsAlbedo = true,
-        AlbedoColor = Colors.White,
-        Roughness = 0.93f,
-        Metallic = 0f,
-        ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-        CullMode = BaseMaterial3D.CullModeEnum.Disabled
-    };
-
     public int LastPropCount { get; private set; }
 
     public void BindWorld(WorldState world, ITerrainTileSource? terrainSource = null)
@@ -1016,10 +1004,8 @@ public partial class VisualTerrain3D : Node3D
         {
             Name = name,
             Multimesh = multi,
-            MaterialOverride = name == "FlowersShrubs" ? _smallFoliageMaterial : _propMaterial,
-            CastShadow = name == "FlowersShrubs"
-                ? GeometryInstance3D.ShadowCastingSetting.Off
-                : GeometryInstance3D.ShadowCastingSetting.On
+            MaterialOverride = _propMaterial,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.On
         });
     }
 
