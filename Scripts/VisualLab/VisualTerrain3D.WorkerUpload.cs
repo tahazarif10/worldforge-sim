@@ -57,6 +57,9 @@ public partial class VisualTerrain3D
             AddBatched(chunk,"Rocks",rockMesh,stones);
             AddBatched(chunk,"FlowersShrubs",foliageMesh,shrubs);
             _natureArt?.Populate(chunk,authored);
+            // Worker results are immutable snapshots. Suppress trees depleted
+            // since the snapshot was captured before publishing the scene.
+            ApplyResourceTreeState(chunk);
             ApplyShadowTier(chunk);
             return chunk;
         }
