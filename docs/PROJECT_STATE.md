@@ -49,6 +49,13 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-05 bounded display-scale and map-size experiment (host approval pending)
+
+The user explicitly requested two visual changes together: all humans displayed at **80%** of the existing height and an experimental **192×144** world beside the original **120×88**. The manual `scripts/run-visual-lab.ps1` launcher defaults to `-WorldSize Expanded` and supports `-WorldSize Compact` for direct A/B comparison; raw `Scenes/VisualLab3D.tscn` without an explicit world-size flag retains the accepted 120×88 QA setup. Human render transforms are scaled around their feet, without modifying citizen positions or the approved rigged animation. WorldState generator, original camera, brush, worker terrain/foliage and coast palette remain unchanged. Expanded coast snapshot has a bounded 27,648-cell limit (108 KiB RGBA) rather than unlimited whole-world allocation, and a new exact-mask parity fixture checks it. See [ADR 0011](decisions/0011-bounded-expanded-visual-lab-map-and-citizen-scale.md).
+
+This entry documents an **experimental implementation**, not Windows physical approval. After safe merge, manually inspect both dimensions using the same seed, especially forest/ocean/coast painting, mountain terrain, camera and citizen proportions, and compare FPS; do not infer a speedup from the unchanged viewport worker budget.
+
+
 **Source audit updated 2026-11-04.** This file is the factual status ledger, not the entire history and not a promise of future implementation. The prior chronology is preserved verbatim in [PROJECT_HISTORY_2026-10-30.md](PROJECT_HISTORY_2026-10-30.md). The actionable future plan is [ROADMAP.md](ROADMAP.md).
 
 
