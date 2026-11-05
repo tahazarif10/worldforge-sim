@@ -99,23 +99,25 @@ public partial class EngineProbe : Node
             before.SequenceEqual(world.People.Select(p=>(p.Id,p.X,p.Y))),
             "idle/step visuals never mutate citizen simulation");
 
-        var bodies=Enumerable.Range(0,3)
-            .Select(look=>visual.GetNode<MultiMeshInstance3D>($"Citizen_{look}_0").Multimesh)
-            .ToArray();
-        var originals=bodies.Select(m=>m.GetInstanceTransform(0)).ToArray();
+        // Dummy/headless Godot returns zero for native MultiMesh readback,
+        // even before a movement. Assert the display-side interpolation state
+        // instead; real pixel animation still needs the user's Windows GPU.
+        var poses=(System.Collections.IDictionary)typeof(CitizenArt3D)
+            .GetField("_poses",Hidden)!.GetValue(visual)!;
+        Vector2 DisplayPosition(int id)
+        {
+            object pose=poses[id] ?? throw new InvalidOperationException("Missing citizen visual pose.");
+            return (Vector2)pose.GetType().GetField("Position")!.GetValue(pose)!;
+        }
+        var initialPositions=world.People.ToDictionary(p=>p.Id,p=>DisplayPosition(p.Id));
         for(int step=0;step<20;step++)world.Advance();
         Require(world.People.Any(p=>before.All(a=>a.Id!=p.Id || a.X!=p.X || a.Y!=p.Y)),
             "simulation supplies at least one independent walking update");
         typeof(VisualLab3D).GetMethod("UpdateActors",Hidden)!.Invoke(lab,null);
         visual.Render(.08,1);
-        GD.Print("CITIZEN WALK DEBUG: before=" +
-            string.Join(";", originals.Select(t=>t.Origin.ToString())) +
-            " after=" + string.Join(";", bodies.Select(m=>
-                m.GetInstanceTransform(0).Origin.ToString())) +
-            " sim=" + string.Join(";", world.People.Select(p=>$"{p.Id}:{p.X},{p.Y}")));
-        Require(bodies.Where((m,i)=>!m.GetInstanceTransform(0).Origin
-            .IsEqualApprox(originals[i].Origin)).Any(),
-            "at least one authored villager walks smoothly between two cells");
+        Require(world.People.Any(p=>!DisplayPosition(p.Id)
+            .IsEqualApprox(initialPositions[p.Id])),
+            "at least one authored villager advances its render pose before the next tick");
 
         visual.SetEcoMode(true);
         Require(Enumerable.Range(0,3).All(look=>
