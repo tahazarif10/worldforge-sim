@@ -187,6 +187,9 @@ public partial class EngineProbe : Node
             Require(remaining==5 && actorArt.VisibleCitizenCount==2,
                 "only one selected citizen is rigged; the other stays instanced");
 
+            var thighIndex=skeleton.FindBone("thigh.L");
+            Require(thighIndex>=0,"rigged citizen exposes an articulated thigh bone");
+            Quaternion idleThigh=skeleton.GetBonePoseRotation(thighIndex);
             var tracked=world.People[0];
             Vector3 before=rig.Position;
             for(int i=0;i<35 &&
@@ -198,6 +201,9 @@ public partial class EngineProbe : Node
             Require(!rig.Position.IsEqualApprox(before) && rig.WalkBlend>0 &&
                 world.Tick==tick,
                 "first citizen visibly interpolates toward a moved cell without modifying simulation");
+            Quaternion walkingThigh=skeleton.GetBonePoseRotation(thighIndex);
+            Require(Math.Abs(walkingThigh.GetAngle()-idleThigh.GetAngle())>.02f,
+                "keyed walk clip actually animates a Skeleton3D bone");
 
             actorArt.SetEcoMode(true);
             actorArt.SetEcoMode(false);
