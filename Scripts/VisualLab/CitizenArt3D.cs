@@ -165,7 +165,11 @@ public sealed partial class CitizenArt3D : Node3D
         // A New World invalidates every old citizen and all transient visual
         // poses. Clear the visual pool but never touch simulation ownership.
         foreach(RiggedCitizenPreview rig in _riggedCitizens.Values)
+        {
+            rig.Visible=false;
+            rig.Name=$"RetiredRig_{rig.GetInstanceId()}";
             rig.QueueFree();
+        }
         foreach(RiggedCitizenPreview rig in _rigPool)
             rig.QueueFree();
         _riggedCitizens.Clear();
@@ -458,6 +462,15 @@ public sealed partial class CitizenArt3D : Node3D
             state.Progress=1f;state.Moving=false;
             state.WalkWeight=0f;state.HasRendered=false;
             state.GroundDirty=true;state.IdleRefresh=0f;
+            int currentX=(int)MathF.Floor(state.Position.X);
+            int currentZ=(int)MathF.Floor(state.Position.Y);
+            state.GroundHeight=_terrain.SurfaceHeightAt(currentX,currentZ,
+                state.Position.X-currentX,state.Position.Y-currentZ);
+            state.GroundDirty=false;
+            // Native draw is correctly placed immediately on camera return,
+            // even before the next Process/AnimationTree update.
+            rig.Present(state.Position,state.Yaw,state.GroundHeight,
+                0f,0f,simulationSpeed:0);
         }
     }
 
