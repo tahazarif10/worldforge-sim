@@ -38,6 +38,7 @@ public partial class EngineProbe : Node
             _mirror=terrain.TerrainBackendName=="region-mirror";
             GetWindow().ContentScaleMode=Window.ContentScaleModeEnum.Disabled;
             await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
+            ExerciseCitizenArt(lab);
             ExercisePicking(lab,terrain,camera);
             await CompareRetainedRenderer(terrain,camera);
             await ExerciseStaging(terrain,camera);
@@ -52,6 +53,58 @@ public partial class EngineProbe : Node
             GD.PushError("WORKER ENGINE FAILED: "+ex);
             GetTree().Quit(1);
         }
+    }
+
+    private static void ExerciseCitizenArt(VisualLab3D lab)
+    {
+        var world=(WorldState)typeof(VisualLab3D).GetField("_world",Hidden)!.GetValue(lab)!;
+        var visual=lab.GetNode<CitizenArt3D>("Batched3DCitizens");
+        Require(visual.InstancedDrawBatches==15 && visual.VisibleCitizenCount==0,
+            "stylized citizens start as bounded shared draw batches, not egg-shaped spheres");
+
+        int spawned=0;
+        for(int z=3;z<world.Height-3 && spawned<3;z++)
+        for(int x=3;x<world.Width-3 && spawned<3;x++)
+            if(world.Spawn(x,z))spawned++;
+        Require(spawned==3,"three visible-style citizen fixtures can spawn");
+        typeof(VisualLab3D).GetMethod("UpdateActors",Hidden)!.Invoke(lab,null);
+        visual.Render(.03,1);
+        Require(visual.VisibleCitizenCount==3,"citizen rendering follows authoritative spawn");
+        int total=0,bodyMeshes=0;
+        foreach(Node node in visual.GetChildren())
+        {
+            Require(node is MultiMeshInstance3D,"each citizen piece is a batched render node");
+            var batch=((MultiMeshInstance3D)node).Multimesh;
+            Require(batch.Mesh is ArrayMesh && batch.Mesh.GetSurfaceCount()==1,
+                "faceted original citizen art uses a single shared colored surface per piece");
+            total+=batch.InstanceCount;
+            if(node.Name.ToString().EndsWith("_0",StringComparison.Ordinal))
+            {
+                bodyMeshes++;
+                Require(batch.Mesh.GetAabb().Size.Y>1.5f &&
+                    batch.Mesh.GetAabb().Size.X>.5f,
+                    "citizen body has a distinct large head, clothing and realistic readable silhouette");
+                using var arrays=batch.Mesh.SurfaceGetArrays(0);
+                Require(arrays[(int)Mesh.ArrayType.Color].AsColorArray().Length>300,
+                    "hair, face, tunic, scarf and accessories have authored vertex colors");
+            }
+        }
+        Require(total==3*5 && bodyMeshes==3,"all citizen palettes use one shared mesh per body and limb");
+        // Cosmetic interpolation must not advance the simulation clock or move
+        // the WorldState authority; rendering remains independent of gameplay.
+        long tick=world.Tick;
+        var before=world.People.Select(p=>(p.Id,p.X,p.Y)).ToArray();
+        visual.Render(.12,1);
+        Require(world.Tick==tick &&
+            before.SequenceEqual(world.People.Select(p=>(p.Id,p.X,p.Y))),
+            "idle/step visuals never mutate citizen simulation");
+
+        for(int z=0;z<3;z++)
+            world.Meteor(world.People[0].X,world.People[0].Y,1);
+        typeof(VisualLab3D).GetMethod("UpdateActors",Hidden)!.Invoke(lab,null);
+        Require(visual.VisibleCitizenCount==world.People.Count,
+            "citizen art releases stale instances after meteor removals");
+        GD.Print("PASS CITIZEN ART: 3 stylized palettes, shared body/limb meshes, safe animation and removal");
     }
 
     private static void Require(bool ok,string label)
