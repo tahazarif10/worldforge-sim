@@ -12,7 +12,7 @@ namespace WorldForge.VisualLab;
 /// of pieces out of the SceneTree; no independent citizen MeshInstance nodes.
 /// This class only draws WorldState citizens; it never changes their behavior.
 /// </summary>
-public sealed class CitizenArt3D : Node3D
+public sealed partial class CitizenArt3D : Node3D
 {
     private const int Looks = 3;
     private const int Body = 0, LeftArm = 1, RightArm = 2, LeftLeg = 3, RightLeg = 4;
@@ -91,6 +91,17 @@ public sealed class CitizenArt3D : Node3D
                         : GeometryInstance3D.ShadowCastingSetting.Off
                 });
             }
+        }
+    }
+
+    public void SetEcoMode(bool eco)
+    {
+        for (int look = 0; look < Looks; look++)
+        {
+            var body = GetNode<MultiMeshInstance3D>($"Citizen_{look}_{Body}");
+            body.CastShadow = eco
+                ? GeometryInstance3D.ShadowCastingSetting.Off
+                : GeometryInstance3D.ShadowCastingSetting.On;
         }
     }
 
