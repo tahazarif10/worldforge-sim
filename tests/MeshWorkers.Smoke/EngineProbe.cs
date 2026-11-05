@@ -44,6 +44,7 @@ public partial class EngineProbe : Node
             await CompareRetainedRenderer(terrain,camera);
             await ExerciseStaging(terrain,camera);
             await ExercisePipeline(lab,terrain,camera);
+            ExerciseExpandedWorld(terrain,camera);
             GD.Print($"PASS WORKER ENGINE / {(_mirror?"region-mirror":"direct")}: " +
                 $"{_parityCases} native geometry/foliage parity cases; {_comparedVertices} vertices; " +
                 "bounded publication, camera reversal/resize, dirty coast, stale work, failures and teardown");
@@ -277,6 +278,24 @@ public partial class EngineProbe : Node
         {
             actorArt.Free();
         }
+    }
+
+    private void ExerciseExpandedWorld(VisualTerrain3D terrain,Godot.Camera3D camera)
+    {
+        // The user-facing expansion must boot with the existing worker/coast
+        // mode, on BOTH direct and mirror backends, without promoting V3.0.
+        var expanded=new WorldState(192,144,1315511732);
+        Bind(terrain,expanded);
+        Require(expanded.Width==192 && expanded.Height==144 &&
+            terrain.MeshWorkersEnabled && terrain.ViewportStreamingEnabled,
+            "the 192x144 preview is accepted by the original V2 renderer/worker path");
+        var rig=Rig(terrain,camera,expanded.Width,expanded.Height);
+        rig.RestoreReviewPose(new CameraReviewPose(96,72,79));
+        terrain.UpdateVisibility(camera,maxNewChunks:0);
+        Require(terrain.StreamingDiagnostics.MissingSurfaceVisibleChunks==0,
+            "expanded map maintains surface coverage with zero detail admission");
+        GD.Print("PASS EXPANDED WORLD ENGINE / "+
+            (_mirror?"mirror":"direct")+": 192x144 world, unchanged camera, bounded worker coast and surface coverage");
     }
 
     private static void Require(bool ok,string label)
