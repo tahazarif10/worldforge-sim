@@ -273,9 +273,33 @@ public sealed partial class CitizenArt3D : Node3D
     private static Transform3D Limb(Vector3 anchor, float angle) =>
         new(new Basis(Vector3.Right, angle), anchor);
 
+    // Keep exactly the previous complete body mesh for every ordinary
+    // MultiMesh citizen. The one optional rigged preview attaches the same
+    // authored torso/head geometry to separate spine and neck bones.
     private static Mesh BuildBody(Palette p, Material material)
     {
         using var b = new Sculpt(material);
+        AddTorso(b, p);
+        AddHead(b, p);
+        return b.Finish();
+    }
+
+    private static Mesh BuildRigTorso(Palette p, Material material)
+    {
+        using var b = new Sculpt(material);
+        AddTorso(b, p);
+        return b.Finish();
+    }
+
+    private static Mesh BuildRigHead(Palette p, Material material)
+    {
+        using var b = new Sculpt(material);
+        AddHead(b, p);
+        return b.Finish();
+    }
+
+    private static void AddTorso(Sculpt b, Palette p)
+    {
         // Tunic: wide shoulders, tapered waist, contrasting leather vest.
         b.Frustum(new Vector3(0, .59f, 0), new Vector2(.235f, .17f),
             new Vector3(0, 1.08f, 0), new Vector2(.265f, .19f), 10, p.Shirt);
@@ -291,6 +315,10 @@ public sealed partial class CitizenArt3D : Node3D
         b.Box(new Vector3(.293f, .61f, .02f), new Vector3(.16f, .22f, .17f), p.Leather);
         b.Box(new Vector3(.293f, .67f, .11f), new Vector3(.075f, .045f, .025f), p.Trim);
 
+    }
+
+    private static void AddHead(Sculpt b, Palette p)
+    {
         // Skin and head: a deliberately legible large face at strategy zoom.
         b.Frustum(new Vector3(0, 1.04f, 0), new Vector2(.078f, .075f),
             new Vector3(0, 1.20f, 0), new Vector2(.075f, .072f), 8, p.Skin);
@@ -337,7 +365,6 @@ public sealed partial class CitizenArt3D : Node3D
             new Vector3(.128f, .22f, .056f), p.Scarf.Darkened(.08f));
         b.Beam(new Vector3(.16f, .94f, .221f),
             new Vector3(.20f, .87f, .208f), .066f, .012f, p.Scarf, 4);
-        return b.Finish();
     }
 
     private static Mesh BuildArm(Palette p, Material material)
