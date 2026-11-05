@@ -39,6 +39,7 @@ public partial class EngineProbe : Node
             GetWindow().ContentScaleMode=Window.ContentScaleModeEnum.Disabled;
             await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
             ExerciseCitizenArt(lab);
+            ExerciseRiggedCitizenPreview(lab,terrain);
             ExercisePicking(lab,terrain,camera);
             await CompareRetainedRenderer(terrain,camera);
             await ExerciseStaging(terrain,camera);
@@ -131,6 +132,86 @@ public partial class EngineProbe : Node
         Require(visual.VisibleCitizenCount==world.People.Count,
             "citizen art releases stale instances after meteor removals");
         GD.Print("PASS CITIZEN ART: 3 stylized palettes, shared body/limb meshes, safe animation and removal");
+    }
+
+    private static void ExerciseRiggedCitizenPreview(VisualLab3D lab,
+        VisualTerrain3D terrain)
+    {
+        // Only the opt-in prototype becomes skeletal. This probe proves the
+        // skeleton/bone attachments and keyed AnimationTree exist without
+        // changing any accepted ordinary-play MultiMesh behavior.
+        var world = new WorldState(40,40,1315511732);
+        terrain.BindWorld(world);
+        var actorArt=new CitizenArt3D {RiggedPreviewEnabled=true};
+        lab.AddChild(actorArt);
+        actorArt.Bind(world,terrain);
+        try
+        {
+            int placed=0;
+            for(int y=3;y<world.Height-3 && placed<2;y++)
+            for(int x=3;x<world.Width-3 && placed<2;x++)
+                if(world.Spawn(x,y))placed++;
+            Require(placed==2,"rigged fixture provides two walkable citizens");
+            actorArt.Sync();
+            actorArt.Render(.05f,1);
+
+            var rig=actorArt.GetNode<RiggedCitizenPreview>("RiggedCitizenPreview");
+            var skeleton=rig.GetNode<Skeleton3D>("Skeleton3D");
+            var player=rig.GetNode<AnimationPlayer>("AnimationPlayer");
+            var tree=rig.GetNode<AnimationTree>("AnimationTree");
+            Require(rig.Visible && rig.BoneCount==13 &&
+                skeleton.GetBoneCount()==13,
+                "one demo villager has real spine/neck/elbow/knee/ankle skeleton");
+            Require(player.HasAnimation("Idle") && player.HasAnimation("Walk") &&
+                player.GetAnimation("Idle").GetTrackCount()>=5 &&
+                player.GetAnimation("Walk").GetTrackCount()>=10,
+                "the rig has authored keyframe Idle and Walk clips");
+            Require(tree.Active &&
+                tree.TreeRoot is AnimationNodeBlendSpace1D,
+                "Godot AnimationTree blends the two skeletal clips");
+            int attachmentCount=0;
+            foreach(Node node in skeleton.GetChildren())
+                if(node is BoneAttachment3D attachment)
+                {
+                    attachmentCount++;
+                    Require(attachment.GetChildCount()==1 &&
+                        attachment.GetChild(0) is MeshInstance3D {Mesh: not null},
+                        "bone attachment uses original palette meshes");
+                }
+            Require(attachmentCount==12,
+                "the rig binds torso, head and split articulated limbs");
+            int remaining=0;
+            foreach(Node node in actorArt.GetChildren())
+                if(node is MultiMeshInstance3D instance)
+                    remaining+=instance.Multimesh.InstanceCount;
+            Require(remaining==5 && actorArt.VisibleCitizenCount==2,
+                "only one selected citizen is rigged; the other stays instanced");
+
+            var tracked=world.People[0];
+            Vector3 before=rig.Position;
+            for(int i=0;i<35 &&
+                tracked.X+.5f==before.X && tracked.Y+.5f==before.Z;i++)
+                world.Advance();
+            actorArt.Sync();
+            long tick=world.Tick;
+            actorArt.Render(.09f,1);
+            Require(!rig.Position.IsEqualApprox(before) && rig.WalkBlend>0 &&
+                world.Tick==tick,
+                "first citizen visibly interpolates toward a moved cell without modifying simulation");
+
+            actorArt.SetEcoMode(true);
+            actorArt.SetEcoMode(false);
+            world.Meteor(tracked.X,tracked.Y,1);
+            actorArt.Sync();
+            Require(actorArt.VisibleCitizenCount==world.People.Count,
+                "rigged preview tracks citizen despawns");
+            GD.Print("PASS RIGGED VILLAGER: 13-bone hierarchy, keyed Idle/Walk, " +
+                "AnimationTree, articulated art, blending and one-citizen opt-in");
+        }
+        finally
+        {
+            actorArt.Free();
+        }
     }
 
     private static void Require(bool ok,string label)
