@@ -37,6 +37,9 @@ internal sealed partial class RiggedCitizenPreview : Node3D
 
     public override void _Ready()
     {
+        // Scale around feet: world-space Position still uses the exact tile
+        // surface elevation. Animation data, poses and bone pivots are intact.
+        Scale = Vector3.One * CitizenArt3D.CitizenVisualScale;
         // CitizenArt3D sets a unique stable node name for each citizen.
         _skeleton = new Skeleton3D { Name = "Skeleton3D" };
         AddChild(_skeleton);
