@@ -5,16 +5,28 @@ namespace WorldSim;
 
 public enum Terrain : byte { DeepWater, ShallowWater, Sand, Grass, Forest, Mountain, Burned }
 
+public enum CitizenActivity : byte { Idle, Walking, Picking, Chopping }
+
 public sealed class Citizen(int id, int x, int y, long bornAt)
 {
     public int Id { get; } = id;
     public int X { get; internal set; } = x;
     public int Y { get; internal set; } = y;
     public long BornAt { get; } = bornAt;
+    public CitizenActivity Activity { get; internal set; }
+    public int Hunger { get; internal set; } = 60;
+    public int FoodCarried { get; internal set; }
+    public int WoodCarried { get; internal set; }
+
+    // Small transient job plan, indexed by stable global resource site ID.
+    internal readonly List<int> Route=new();
+    internal int RouteIndex,ReservedSiteId,TargetX,TargetY,WorkTicks;
+    internal ResourceKind TargetKind;
+    internal long NextPlanTick;
 }
 
 /// <summary>Deterministic simulation; no dependency on Godot, drawing, or input APIs.</summary>
-public sealed class WorldState
+public sealed partial class WorldState
 {
     private readonly Terrain[] _tiles;
     private readonly Random _rng;
@@ -55,6 +67,7 @@ public sealed class WorldState
             Resources.SetBiome(x, y, kind);
         });
         People.RemoveAll(p => !Walkable(p.X, p.Y));
+        if(AutonomousGatheringEnabled)CleanupResourceReservations();
     }
 
     public void Meteor(int cx, int cy, int radius)
@@ -69,6 +82,7 @@ public sealed class WorldState
             }
         });
         People.RemoveAll(p => DistanceSquared(p.X, p.Y, cx, cy) <= (long)radius * radius);
+        if(AutonomousGatheringEnabled)CleanupResourceReservations();
     }
 
     public bool Spawn(int x, int y)
@@ -84,13 +98,20 @@ public sealed class WorldState
     public void Advance()
     {
         Tick++;
-        foreach (Citizen p in People)
+        if(AutonomousGatheringEnabled)
+            AdvanceCitizenJobs();
+        else
         {
-            if (_rng.NextDouble() >= 0.70) continue;
-            int direction = _rng.Next(4);
-            int nx = p.X + (direction == 0 ? -1 : direction == 1 ? 1 : 0);
-            int ny = p.Y + (direction == 2 ? -1 : direction == 3 ? 1 : 0);
-            if (Walkable(nx, ny)) { p.X = nx; p.Y = ny; }
+            // Approved legacy random motion is unchanged for direct scene
+            // fixtures. Manual VisualLab explicitly opts into citizen AI.
+            foreach (Citizen p in People)
+            {
+                if (_rng.NextDouble() >= 0.70) continue;
+                int direction = _rng.Next(4);
+                int nx = p.X + (direction == 0 ? -1 : direction == 1 ? 1 : 0);
+                int ny = p.Y + (direction == 2 ? -1 : direction == 3 ? 1 : 0);
+                if (Walkable(nx, ny)) { p.X = nx; p.Y = ny; }
+            }
         }
         if (Tick % 45 == 0 && People.Count is >= 2 && People.Count < PopulationLimit)
         {
