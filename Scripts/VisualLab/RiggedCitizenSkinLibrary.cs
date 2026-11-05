@@ -102,7 +102,7 @@ internal static class RiggedCitizenSkinLibrary
         }
         var art=new Art(mesh,skin,positions.Count);
         Cache[palette]=art;
-        GD.Print($"Rigged citizen palette {palette}: one skinned mesh, {positions.Count} vertices, {skin.BindCount} bones");
+        GD.Print($"Rigged citizen palette {palette}: one skinned mesh, {positions.Count} vertices, {skin.GetBindCount()} bones");
         return art;
     }
 }
