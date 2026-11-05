@@ -16,6 +16,10 @@ public partial class GameHud : PanelContainer
     private Label _selection = null!;
     private Label _speedLabel = null!;
     private Label _performance = null!;
+    private int _woodCollected, _foodCollected;
+    private int _lastFps;
+    private double _lastWorstFrame;
+    private bool _hasFps;
 
     public event Action<int>? ToolSelected;
     public event Action<int>? RadiusChangeRequested;
@@ -54,7 +58,7 @@ public partial class GameHud : PanelContainer
         heading.CustomMinimumSize = new Vector2(158, 43);
         tools.AddChild(heading);
 
-        var terrainNames = new[] { "Land", "Ocean", "Sand", "Forest", "Mountain", "Person", "Meteor" };
+        var terrainNames = new[] { "Land", "Ocean", "Sand", "Forest", "Mountain", "Person", "Meteor", "Gather" };
         for (int index = 0; index < terrainNames.Length; index++)
         {
             int selected = index;
@@ -118,10 +122,30 @@ public partial class GameHud : PanelContainer
         SetTextIfChanged(_readout, $"Seed {seed}    People {population}    Tick {tick}     Left-click paint / spawn   |   Right-drag pan   |   Wheel zoom   |   Space pause");
     }
 
-    /// <summary>Updates once per second; worst-frame time is based on _Process deltas, not a GPU profiler.</summary>
+    public void UpdateResourceStock(int wood, int food)
+    {
+        if (wood < 0 || food < 0) throw new ArgumentOutOfRangeException(nameof(wood));
+        _woodCollected = wood;
+        _foodCollected = food;
+        RefreshPerformance();
+    }
+
+    /// <summary>Updates once per second; worst-frame time uses _Process, not a GPU profiler.</summary>
     public void UpdatePerformance(int fps, double worstFrameMilliseconds)
     {
-        SetTextIfChanged(_performance, $"FPS: {fps}    Worst frame: {worstFrameMilliseconds:F1} ms  (1s interval)");
+        _hasFps = true;
+        _lastFps = fps;
+        _lastWorstFrame = worstFrameMilliseconds;
+        RefreshPerformance();
+    }
+
+    private void RefreshPerformance()
+    {
+        string frame = _hasFps
+            ? $"FPS: {_lastFps}    Worst frame: {_lastWorstFrame:F1} ms (1s interval)"
+            : "FPS: measuring...";
+        SetTextIfChanged(_performance,
+            $"{frame}     Collected: Wood {_woodCollected}  |  Food {_foodCollected}");
     }
 
     private static void SetTextIfChanged(Label label, string value)
