@@ -67,7 +67,9 @@ public partial class GameHud : PanelContainer
                 SetSelectedTool(selected);
                 ToolSelected?.Invoke(selected);
             }, 100, 43);
-            button.TooltipText = $"Choose {terrainNames[index]} brush";
+            button.TooltipText = selected == 7
+                ? "Click a forest tree for wood or a red berry bush for food."
+                : $"Choose {terrainNames[index]} brush";
             tools.AddChild(button);
             _toolButtons.Add(button);
         }
@@ -119,7 +121,10 @@ public partial class GameHud : PanelContainer
     {
         SetTextIfChanged(_selection, $"Brush: {toolName}  |  Radius: {radius}");
         SetTextIfChanged(_speedLabel, $"Time  {speed}x");
-        SetTextIfChanged(_readout, $"Seed {seed}    People {population}    Tick {tick}     Left-click paint / spawn   |   Right-drag pan   |   Wheel zoom   |   Space pause");
+        string action = toolName == "Gather"
+            ? "Left-click tree / red berries to gather"
+            : "Left-click paint / spawn";
+        SetTextIfChanged(_readout, $"Seed {seed}    People {population}    Tick {tick}     {action}   |   Right-drag pan   |   Wheel zoom   |   Space pause");
     }
 
     public void UpdateResourceStock(int wood, int food)
