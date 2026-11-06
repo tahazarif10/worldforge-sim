@@ -144,5 +144,6 @@ Assert(qa.Resources.FoodCollected==qb.Resources.FoodCollected &&
     "independent worlds replay identical citizen routes, work and resource stocks");
 Assert(qa.WorkingCitizenCount>=0 && qa.WorkingCitizenCount<=qa.People.Count,
     "active worker count is bounded by actual population");
+InventorySmoke.Run();
 HouseSmoke.Run();
 Console.WriteLine("PASS ALL simulation smoke tests");
