@@ -5,7 +5,7 @@ namespace WorldSim;
 
 public enum Terrain : byte { DeepWater, ShallowWater, Sand, Grass, Forest, Mountain, Burned }
 
-public enum CitizenActivity : byte { Idle, Walking, Picking, Chopping }
+public enum CitizenActivity : byte { Idle, Walking, Picking, Chopping, Delivering, Building, Resting }
 
 public sealed class Citizen(int id, int x, int y, long bornAt)
 {
@@ -18,6 +18,9 @@ public sealed class Citizen(int id, int x, int y, long bornAt)
     public int FoodCarried { get; internal set; }
     public int FoodEaten { get; internal set; }
     public int WoodCarried { get; internal set; }
+    public int HomeId { get; internal set; }
+    public int Energy { get; internal set; } = 85;
+    internal HouseJob HouseTask;
 
     // Small transient job plan, indexed by stable global resource site ID.
     internal readonly List<int> Route=new();
@@ -69,6 +72,7 @@ public sealed partial class WorldState
         });
         People.RemoveAll(p => !Walkable(p.X, p.Y));
         if(AutonomousGatheringEnabled)CleanupResourceReservations();
+        if(AutonomousHousingEnabled)InvalidateFirstHouseIfNecessary();
     }
 
     public void Meteor(int cx, int cy, int radius)
@@ -84,6 +88,7 @@ public sealed partial class WorldState
         });
         People.RemoveAll(p => DistanceSquared(p.X, p.Y, cx, cy) <= (long)radius * radius);
         if(AutonomousGatheringEnabled)CleanupResourceReservations();
+        if(AutonomousHousingEnabled)InvalidateFirstHouseIfNecessary();
     }
 
     public bool Spawn(int x, int y)
@@ -125,6 +130,7 @@ public sealed partial class WorldState
             }
         }
         if (Tick % 60 == 0) People.RemoveAll(p => Tick - p.BornAt > 3500);
+        if(AutonomousHousingEnabled && Tick%20==0)MaintainHouseResidents();
         Resources.Advance(Tick); // Independent of camera and entity rendering.
     }
 
