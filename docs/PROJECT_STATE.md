@@ -49,6 +49,15 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-06 — Generation 1 old-world timber/stone cottage visual model (player review pending)
+
+The user explicitly requested one **first-generation architectural archetype**, old-fashioned/rustic, with long-term future modular upgrade potential; they authorized implementing the art and handing it back **without checking/waiting for CI**, and will run it themselves on Windows. The previous blocky hut was replaced solely in `Scripts/VisualLab/WoodenHouseArt3D.cs` with an original stylized **handmade low-poly wattle-and-timber cottage**: individually colored fieldstone plinth, irregular oak floor planks and sill rails, posts and angled braces, rafters, layered warm ochre thatch/shingles, uneven eaves, earth/clay infill, exposed timber laths, handmade oak door and iron fittings, small amber windows and shutters, simple stone flue plus firewood/storage. Old-world restrained scale, no V2 art/shader or camera changes.
+
+**Optimization:** the details are consolidated once at scene startup into 22 named, individually staged, vertex-colored SurfaceTool/ArrayMesh **modules**, all sharing one opaque rough material (no BoxMesh-per-detail, imported assets, new lights, per-frame mesh generation, dynamic resource ownership or expensive shader effects). All existing house instances reuse the same geometry/materials through the original `HouseModel` and bounded duplicate nodes. Four construction states remain externally identical: Planned survey; Foundation stone/timber floor; Frame posts/rafters; Roof thatch; Complete walls, door, windows and lived-in detail. The original `RenderedHouseId`, `RenderedStage`, `ActivePartCount` and `HouseModel` interfaces remain, with 4/5/9/13/18 active module counts respectively for existing staged-native smoke expectations.
+
+**Strict scope:** no `WorldSim`, house count/wood costs/capacity, save schema, AI, citizens, pathfinding, terrain, brush, FPS renderer, scene, `project.godot`, camera, tools or menu changes. This is a **single Gen1 type** reused wherever homes already exist, not a new tier/upgrade mechanic. [ADR 0020](decisions/0020-modular-first-generation-rustic-house.md) records the module contract. No CI or physical Windows test has been executed for this change on request. User's next check: launch existing H: VisualLab, put down citizens, watch Planned→Foundation→Frame→Roof→Complete, photograph roof/door at closer zoom and report visual issues.
+
+
 ## 2026-11-06 — Live authored trees, rocks, flowers and ground during held painting (candidate)
 
 **User report after PR #111:** the ground now paints immediately, but Kenney trees, rocks, flowers and other nature details appear/disappear only once the slower final foliage chunk is rebuilt. This was an intentional terrain-only preview limitation, not a bug in the brush input, and is addressed without asking users to use the experimental V3 worker renderer.
