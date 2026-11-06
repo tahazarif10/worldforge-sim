@@ -129,6 +129,7 @@ public partial class VisualTerrain3D : Node3D
         foreach (var key in new List<(int X, int Y)>(_foliageChunks.Keys))
             RebuildVegetationChunk(key.X, key.Y);
         SynchronizeViewportResidentGeometry();
+        ResetLiveBrushPreviews();
     }
 
     public float ReliefAt(int x, int y)
@@ -252,6 +253,7 @@ public partial class VisualTerrain3D : Node3D
         if (MeshWorkersEnabled && (long)world.Width * world.Height > CoastBuildSnapshot.MaximumCells)
             throw new ArgumentOutOfRangeException(nameof(world),
                 $"Mesh-worker preview supports at most {CoastBuildSnapshot.MaximumCells} coast cells.");
+        ResetLiveBrushPreviews();
         _world = world;
         // Keep the original direct WorldState path as the default. Region
         // parity mode uses the same shader, water, foliage and camera code.
@@ -366,6 +368,7 @@ public partial class VisualTerrain3D : Node3D
             if (desired.Contains(key)) continue;
             _chunks[key].QueueFree();
             _chunks.Remove(key);
+            CompleteLiveBrushChunk(key);
             if (_foliageChunks.Remove(key, out Node3D? foliage))
                 foliage.QueueFree();
             if (_propCounts.Remove(key, out int oldCount))
@@ -411,22 +414,15 @@ public partial class VisualTerrain3D : Node3D
         _interactivePreviewSeconds += Math.Min(delta, 0.1);
         if (!MeshWorkersEnabled && !ViewportStreamingEnabled)
         {
-            // The ordinary H: launcher previously deferred ALL geometry until
-            // mouse release. Refresh one camera-resident 16x16 chunk at a time:
-            // users see the stroke as it moves, without one large rebuild spike.
-            _interactiveCoastPreviewSeconds += Math.Min(delta, 0.1);
-            if (_interactivePreviewSeconds >= InteractivePreviewIntervalSeconds)
+            // The V2 manual launcher uses a dedicated live top-surface mesh.
+            // All heavy foliage/chunk publication is deferred, but the coast
+            // mask is refreshed at a bounded cadence while flooding land.
+            _interactiveCoastPreviewSeconds += Math.Min(delta,0.1);
+            if(_interactiveCoastPreviewSeconds>=0.20 && _batchedCoastDirty)
             {
-                _interactivePreviewSeconds = 0;
-                PreviewOneSynchronousStrokeChunk();
-            }
-            // Coalesce coast texture changes; never rebuild the whole mask
-            // for each mouse-motion event.
-            if (_interactiveCoastPreviewSeconds >= 0.24 && _batchedCoastDirty)
-            {
-                _interactiveCoastPreviewSeconds = 0;
-                _coastDirty = true;
-                _batchedCoastDirty = false;
+                _interactiveCoastPreviewSeconds=0;
+                _coastDirty=true;
+                _batchedCoastDirty=false;
                 RefreshCoastMask();
             }
             return;
@@ -457,31 +453,6 @@ public partial class VisualTerrain3D : Node3D
         }
     }
 
-    private void PreviewOneSynchronousStrokeChunk()
-    {
-        // Prefer what is nearest to the cursor. Old/invisible queued chunks
-        // are still represented by authoritative tiles and built on demand.
-        (int X,int Y) best=default;
-        int bestDistance=int.MaxValue;
-        bool found=false;
-        foreach(var key in _batchedViewportDirty)
-        {
-            int distance=Math.Abs(key.X-_interactiveLastChunkX)+
-                Math.Abs(key.Y-_interactiveLastChunkY);
-            if(!_chunks.ContainsKey(key))distance+=10000;
-            if(distance>=bestDistance)continue;
-            bestDistance=distance;
-            best=key;
-            found=true;
-        }
-        if(!found)return;
-        _batchedViewportDirty.Remove(best);
-        _changedChunks.Remove(best);
-        if(!_chunks.ContainsKey(best))return;
-        BuildChunk(best.X,best.Y);
-        RebuildVegetationChunk(best.X,best.Y);
-    }
-
     public void CommitInteractiveEditBatch()
     {
         if (!_interactiveEditBatch) return;
@@ -500,11 +471,10 @@ public partial class VisualTerrain3D : Node3D
             _batchedCoastDirty = false;
         }
 
-        // No full-map release hitch: update the nearest couple of chunks now,
-        // then let the normal frame pump drain the rest in bounded batches.
-        if (!MeshWorkersEnabled)
-            FlushChanges(maxSynchronousChunks:2);
-        else
+        // Never synchronously rebuild full foliage when the mouse goes up.
+        // Live temporary terrain remains visible until each full chunk is
+        // published by the bounded normal frame pump.
+        if(MeshWorkersEnabled)
             RefreshViewportFallbacks();
     }
 
@@ -529,7 +499,10 @@ public partial class VisualTerrain3D : Node3D
         {
             _changedChunks.Add((cx, cy));
             if (_interactiveEditBatch)
-                _batchedViewportDirty.Add((cx, cy));
+            {
+                _batchedViewportDirty.Add((cx,cy));
+                QueueLiveBrushPreview(cx,cy);
+            }
             else
                 MarkViewportChunkDirty(cx, cy);
         }
@@ -568,8 +541,11 @@ public partial class VisualTerrain3D : Node3D
                 BuildChunk(key.X,key.Y);
                 RebuildVegetationChunk(key.X,key.Y);
                 AcknowledgeViewportChunk(key.X,key.Y);
+                CompleteLiveBrushChunk(key);
                 built++;
             }
+            else
+                CompleteLiveBrushChunk(key);
             done.Add(key);
         }
         foreach(var key in done)_changedChunks.Remove(key);

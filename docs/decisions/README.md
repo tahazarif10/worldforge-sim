@@ -30,6 +30,7 @@ ADRs explain **why** technical choices were made, how they are verified and whic
 | [0015](0015-atomic-living-world-save-and-resume.md) | Candidate; host acceptance pending | Verified whole-world saves including workers, house, resource regrowth and height sculpt under H:, with last-good backup |
 | [0016](0016-bounded-three-house-village.md) | Implemented candidate; host test pending | Three-demand-driven homes, independent jobs and materials, ordered save-v2 migration while preserving V2 art and camera |
 | [0017](0017-explicit-empty-new-game-and-game-menu.md) | Implemented candidate; host test pending | Empty manual new-game startup, explicit Continue, functional start/pause/settings/help menus and protected saved-game replacement |
+| [0018](0018-independent-live-terrain-paint-preview.md) | Implemented candidate; physical brush acceptance pending | Immediate terrain-only held-brush preview, bounded mouse-event coalescing and deferred atomic foliage handoff |
 
 Add an ADR when changing: visual backend, camera interaction contract, Godot render mode, data authority, region boundaries, thread/queue/cancellation semantics, save format, world generator or accepted milestone order.
 
