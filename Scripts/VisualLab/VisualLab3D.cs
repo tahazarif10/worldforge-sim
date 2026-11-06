@@ -385,7 +385,7 @@ public partial class VisualLab3D : Node3D
             if(k.CtrlPressed && k.Keycode==Key.S)
             {
                 EndPaintStroke();
-                SaveWorldNow();
+                SaveWorldNow(explicitUserRequest:true);
                 return;
             }
             if(k.CtrlPressed && k.Keycode==Key.L)
