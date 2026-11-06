@@ -297,8 +297,9 @@ public partial class VisualLab3D : Node3D
     {
         _hud?.UpdateState(_heightSculptMode ? "Sculpt Height (Shift lowers)" : _brush.ToString(),
             _radius, _speed, _world.Seed, _world.People.Count, _world.Tick);
-        _hud?.UpdateResourceStock(_world.Resources.WoodCollected,
-            _world.Resources.FoodCollected,_world.WorkingCitizenCount);
+        WorldInventory stock=_world.Inventory;
+        _hud?.UpdateResourceStock(stock.WoodAvailable,stock.FoodAvailable,
+            _world.WorkingCitizenCount,stock.WoodHarvested,stock.FoodHarvested);
         WoodenHouse? house=_world.FirstHouse;
         _hud?.UpdateShelterStatus(!_world.AutonomousHousingEnabled
             ? "Off"

@@ -70,8 +70,7 @@ public sealed partial class WorldState
             _tiles[index] = kind;
             Resources.SetBiome(x, y, kind);
         });
-        People.RemoveAll(p => !Walkable(p.X, p.Y));
-        if(AutonomousGatheringEnabled)CleanupResourceReservations();
+        RemoveCitizens(p => !Walkable(p.X,p.Y));
         if(AutonomousHousingEnabled)InvalidateFirstHouseIfNecessary();
     }
 
@@ -86,8 +85,7 @@ public sealed partial class WorldState
                 Resources.SetBiome(x, y, Terrain.Burned);
             }
         });
-        People.RemoveAll(p => DistanceSquared(p.X, p.Y, cx, cy) <= (long)radius * radius);
-        if(AutonomousGatheringEnabled)CleanupResourceReservations();
+        RemoveCitizens(p => DistanceSquared(p.X,p.Y,cx,cy) <= (long)radius*radius);
         if(AutonomousHousingEnabled)InvalidateFirstHouseIfNecessary();
     }
 
@@ -98,8 +96,14 @@ public sealed partial class WorldState
         return true;
     }
 
-    public bool TryGather(int x, int y, out GatherResult result) =>
-        Resources.TryGather(x, y, Tick, out result);
+    /// <summary>Manual Gather stores the result in debug chest inventory.</summary>
+    public bool TryGather(int x,int y,out GatherResult result)
+    {
+        if(!Resources.TryGather(x,y,Tick,out result))return false;
+        if(result.Kind==ResourceKind.Wood)ManualWoodStock+=result.Collected;
+        else if(result.Kind==ResourceKind.Food)ManualFoodStock+=result.Collected;
+        return true;
+    }
 
     public void Advance()
     {
@@ -129,7 +133,7 @@ public sealed partial class WorldState
                 Spawn(p.X + _rng.Next(-2, 3), p.Y + _rng.Next(-2, 3));
             }
         }
-        if (Tick % 60 == 0) People.RemoveAll(p => Tick - p.BornAt > 3500);
+        if (Tick % 60 == 0) RemoveCitizens(p=>Tick-p.BornAt>3500);
         if(AutonomousHousingEnabled && Tick%20==0)MaintainHouseResidents();
         Resources.Advance(Tick); // Independent of camera and entity rendering.
     }
