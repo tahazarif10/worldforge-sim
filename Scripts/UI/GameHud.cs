@@ -17,6 +17,7 @@ public partial class GameHud : PanelContainer
     private Label _speedLabel = null!;
     private Label _performance = null!;
     private int _woodCollected, _foodCollected, _workers;
+    private string _shelterStatus="Off";
     private int _lastFps;
     private double _lastWorstFrame;
     private bool _hasFps;
@@ -137,6 +138,12 @@ public partial class GameHud : PanelContainer
         RefreshPerformance();
     }
 
+    public void UpdateShelterStatus(string status)
+    {
+        _shelterStatus=status;
+        RefreshPerformance();
+    }
+
     /// <summary>Updates once per second; worst-frame time uses _Process, not a GPU profiler.</summary>
     public void UpdatePerformance(int fps, double worstFrameMilliseconds)
     {
@@ -152,7 +159,7 @@ public partial class GameHud : PanelContainer
             ? $"FPS: {_lastFps}    Worst frame: {_lastWorstFrame:F1} ms (1s interval)"
             : "FPS: measuring...";
         SetTextIfChanged(_performance,
-            $"{frame}     Collected: Wood {_woodCollected}  |  Food {_foodCollected}  |  Gathering {_workers}");
+            $"{frame}     Wood {_woodCollected} | Food {_foodCollected} | Working {_workers} | House {_shelterStatus}");
     }
 
     private static void SetTextIfChanged(Label label, string value)
