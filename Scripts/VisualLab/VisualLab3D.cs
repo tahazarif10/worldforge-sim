@@ -100,7 +100,10 @@ public partial class VisualLab3D : Node3D
             (x, y) => _terrain.ReliefAt(x, y),
             () => _terrain.SmoothLandEnabled,
             (x,y,u,v) => _terrain.SurfaceHeightAt(x,y,u,v),
-            _terrain.MeshWorkersEnabled ? _terrain.SurfaceFanAt : null);
+            _terrain.MeshWorkersEnabled ? _terrain.SurfaceFanAt : null,
+            // The H: playable launcher can inspect houses in close-up;
+            // raw V2 screenshot/CI scenes retain the previous 19-unit bound.
+            minimumSize: _menuRequestedOnLaunch ? 5.5f : 19f);
         _terrain.UpdateVisibility(_camera, maxNewChunks: 64);
         SetupHud();
         _frameProbe.Begin("interactive-" + Guid.NewGuid().ToString("N"), "mixed");

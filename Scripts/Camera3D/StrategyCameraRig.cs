@@ -22,8 +22,9 @@ public sealed class StrategyCameraRig
     private Vector3 _dragAnchor;
     private bool _dragging;
 
-    private const float MinimumSize = 19f;
+    private const float DefaultMinimumSize = 19f;
     private const float MaximumSize = 160f;
+    private readonly float _minimumSize;
     private const float KeyboardPixelsPerSecond = 520f;
     private float _size = 79f;
 
@@ -31,8 +32,12 @@ public sealed class StrategyCameraRig
         int worldWidth, int worldHeight, Func<int, int, float>? liftAt = null,
         Func<bool>? smoothEnabled = null,
         Func<int,int,float,float,float>? sampleSurface = null,
-        Func<int,int,TerrainGridPicker.SurfaceFan>? surfaceFan = null)
+        Func<int,int,TerrainGridPicker.SurfaceFan>? surfaceFan = null,
+        float minimumSize = DefaultMinimumSize)
     {
+        if (!float.IsFinite(minimumSize) || minimumSize <= 0f || minimumSize > MaximumSize)
+            throw new ArgumentOutOfRangeException(nameof(minimumSize));
+        _minimumSize = minimumSize;
         _camera = camera;
         _heightAt = heightAt;
         _liftAt = liftAt ?? ((_, _) => 0f);
@@ -60,7 +65,7 @@ public sealed class StrategyCameraRig
         if (!float.IsFinite(pose.PivotX) || !float.IsFinite(pose.PivotZ) ||
             !float.IsFinite(pose.Size) || pose.PivotX < 0 || pose.PivotX > _width ||
             pose.PivotZ < 0 || pose.PivotZ > _height ||
-            pose.Size < MinimumSize || pose.Size > MaximumSize)
+            pose.Size < _minimumSize || pose.Size > MaximumSize)
             throw new ArgumentOutOfRangeException(nameof(pose));
         _dragging = false;
         _pivot = new Vector3(pose.PivotX, 0, pose.PivotZ);
@@ -100,7 +105,7 @@ public sealed class StrategyCameraRig
 
     public void ZoomAt(Vector2 screen, float scale)
     {
-        float next = Mathf.Clamp(_size * scale, MinimumSize, MaximumSize);
+        float next = Mathf.Clamp(_size * scale, _minimumSize, MaximumSize);
         if (Mathf.Abs(next - _size) < 0.00001f) return;
 
         float elevation = TryPickTerrain(screen, out var hit) ? hit.Point.Y : 0.12f;

@@ -49,6 +49,13 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-06 — Manual launcher close-up camera zoom for Gen1.1 house inspection
+
+The user approved Gen1.1 and wants to zoom closer to inspect roof, timber, door and window details. The previous 3D camera rig clamped orthographic Size at 19, preventing usable close-ups. The existing `StrategyCameraRig` constructor now accepts a **validated optional minimum zoom size**, defaulting to the original 19 for all raw V2 scenes, reference poses and automated fixtures. Only the H: manual launcher with `--game-menu` passes 5.5 as the minimum, allowing about 3.45x closer views using the same cursor-anchored mouse-wheel zoom. All other camera parameters, pitch, mouse pan, camera-picking, max zoom (160), streaming and population/house logic stay unchanged.
+
+This change is limited to two C# files plus documentation. The user asked for quick hands-on review; no new CI or physical Windows FPS PASS is claimed. Manual check: zoom all the way in on a completed Gen1.1 house and verify mouse-wheel anchor, door/small shutter details, right-drag and returning to wide overview.
+
+
 ## 2026-11-06 — Gen 1.1 cottage art polish (user Windows visual test pending)
 
 The user approved another **art-only improvement of the existing Gen1 archetype**, specifically stronger roof silhouette, less mechanical timber and stonework, clearer old-style door/window details and restrained lived-in props. `WoodenHouseArt3D.cs` now builds **overlapping, tapered weathered thatch bundles** (5 courses × 7 sections per roof face), each with deliberately offset borders, varied color, slightly drooping straw edges and correct outward-facing vertex normals. A ragged eave fringe and hand-bound ridge improve the silhouette at gameplay zoom. Fieldstones have varied heights/offsets/tilts, and completed gables get a low-cost open oak outline with king post. Small uneven plaster weathering, wattle laths, pegged iron doors, deeper window sills/shutters and layered chimney masonry make the finished cottage feel hand-built rather than a perfectly regular box. Firewood and the chest now sit **outside** the walls and low stepping stones indicate the entry.
