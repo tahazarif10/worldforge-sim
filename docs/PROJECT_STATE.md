@@ -49,6 +49,15 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-06 — Live direct-mode terrain painting and smaller floating HUD (hands-on review pending)
+
+The user observed that held terrain brushing in the ordinary H: VisualLab did **not visually paint until mouse release**, disliked the large dark HUD, and perceived repeatable hitches. Source identified `VisualTerrain3D.PreviewInteractiveEditBatch` as worker-only and a direct-mode early return from `UpdateVisibility`. Direct-mode interactive strokes now publish one camera-resident dirty 16×16 chunk at a ~65 ms cadence, prioritizing the latest brush neighborhood, with coastline edits coalesced on a slower ~240 ms preview cadence. Edits still modify authoritative `WorldState` immediately. Release no longer triggers an unbounded rebuild of all remaining chunks; the synchronous queue drains two chunks per bounded frame pump (and any standard `FlushChanges()` call outside the game loop retains its existing unbounded contract). The resource art's existing 150 ms update takes over the previous extra full-world mouse-release refresh. Multiple fixed simulation ticks per rendered frame now perform one (final-state) visual citizen sync, not a repeated sync for each intermediate tick.
+
+The overly wide, two-row dark rectangle has been replaced by **two one-row floating panels**: left for four native tool-category dropdowns, active tool, brush radius, time and MENU; right for people/homes, wood/food, FPS and an INFO dropdown. The full statistics popup is populated **only when opened**, not rewritten every 250 ms. The root leaves transparent screen space between panels; the Godot anchor height was reduced to ~57 px for both 3D and legacy scenes. No terrain shader, coastal palette, camera algorithm, simulation rules, house placement, storage schema, original project.godot or default draw mode was changed.
+
+This is deliberately a **hands-on candidate**, not a claim that a Windows GPU profiler or full acceptance has run. Request the user's actual brush responsiveness/UI screenshot and any remaining frame stutter before altering rendering architecture.
+
+
 ## 2026-11-06 — Compact categorized in-game toolbar (user visual test pending)
 
 The previous four-row dark HUD covered approximately 180–220 screen pixels at the top and its right-hand buttons/statistics overflowed the window. Only **menu presentation** changes in this iteration. `GameHud` now uses a bounded two-row toolbar (roughly 96–100 px including margins): native drop-down menus for **TERRAIN** (Land/Ocean/Sand/Mountain), **NATURE** (Forest/Gather), **LIFE** (Person) and **POWERS** (Meteor), one active-brush label, compact radius +/- and time-speed menu, FPS indicator, a clipped single-line resource/population/home summary and a DETAILS popup for full figures. The old 2D scene retains New World and excludes its unsupported Gather brush. The manual VisualLab keeps MENU for the functional start/pause overlay. HUD layout bounds were shortened in both game scenes.

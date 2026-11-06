@@ -169,7 +169,7 @@ public partial class GameRoot : Node2D
         _hud.OffsetLeft = 16;
         _hud.OffsetRight = -16;
         _hud.OffsetTop = 16;
-        _hud.OffsetBottom = 112;
+        _hud.OffsetBottom = 73;
 
         _hud.ToolSelected += index => { _brush = (Brush)index; RefreshHud(); };
         _hud.RadiusChangeRequested += delta => { _radius = Math.Clamp(_radius + delta, 0, 12); RefreshHud(); };

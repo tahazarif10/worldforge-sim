@@ -226,17 +226,20 @@ public partial class VisualLab3D : Node3D
         {
             _tickAccumulator += delta * _speed;
             int steps = 0;
-            while (_tickAccumulator >= TickSeconds && steps++ < 12)
+            while (_tickAccumulator >= TickSeconds && steps < 12)
             {
                 _world.Advance();
                 _tickAccumulator -= TickSeconds;
-                UpdateActors();
+                steps++;
             }
+            // Only the final world state is rendered. A long frame at 4x
+            // must not rebuild the same citizen poses up to twelve times.
+            if(steps>0)UpdateActors();
             if (_tickAccumulator > TickSeconds * 12) _tickAccumulator = TickSeconds;
         }
 
-        // Feed held-brush edits to background workers while the mouse remains
-        // down; previously the entire preview waited for mouse release.
+        // Publish held-brush edits at a bounded cadence in BOTH the ordinary
+        // synchronous launcher and opt-in worker mode, not only on mouse up.
         if (_paintStrokeActive && _paintStrokeTerrainBatch)
             _terrain.PreviewInteractiveEditBatch(delta);
 
@@ -263,11 +266,11 @@ public partial class VisualLab3D : Node3D
         }
 
         _terrainRefresh += delta;
-        if (_terrainRefresh >= 0.16)
+        if (_terrainRefresh >= 0.065)
         {
             _terrainRefresh = 0;
             ulong flushStart = recordWork ? Time.GetTicksUsec() : 0;
-            _terrain.FlushChanges();
+            _terrain.FlushChanges(maxSynchronousChunks:2);
             if (recordWork) flushMs = (Time.GetTicksUsec()-flushStart)/1000d;
         }
 
@@ -335,7 +338,7 @@ public partial class VisualLab3D : Node3D
         _hud.OffsetLeft = 12;
         _hud.OffsetRight = -12;
         _hud.OffsetTop = 12;
-        _hud.OffsetBottom = 108;
+        _hud.OffsetBottom = 69;
 
         _hud.ToolSelected += tool =>
         {
@@ -641,7 +644,8 @@ public partial class VisualLab3D : Node3D
         if (commitTerrain)
         {
             _terrain.CommitInteractiveEditBatch();
-            _resourceArt.RefreshNow();
+            // ResourceArt's regular bounded refresh follows the terrain
+            // edit; an extra full-world scan here caused mouse-up hitches.
         }
         if (updateActors)
             UpdateActors();
