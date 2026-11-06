@@ -230,12 +230,17 @@ public partial class EngineProbe : Node
         var liveRoot=terrain.GetNodeOrNull<Node3D>(
             $"FoliageBatches/LiveNature_{treeKey.Item1}_{treeKey.Item2}") ??
             throw new InvalidOperationException("Native live Kenney foliage node missing.");
+        bool hasNativeBatch=liveRoot.GetChildren().OfType<MultiMeshInstance3D>()
+            .Any(node=>node.Name.ToString().StartsWith("LiveCC0_") &&
+                node.Multimesh.VisibleInstanceCount>0);
+        GD.Print($"LIVE NATURE CHECK: site={treeX},{treeZ}; " +
+            $"liveVisible={liveRoot.Visible}, previousVisible={initialFoliage.Visible}, " +
+            $"species={terrain.LiveNatureSpeciesAt(treeX,treeZ)}, expected={expectedForest}, " +
+            $"batch={hasNativeBatch}, built={terrain.FoliageChunksRebuilt}, before={built}; " +
+            $"parts={string.Join(",",liveRoot.GetChildren().OfType<MultiMeshInstance3D>().Select(node=>node.Name+":"+node.Multimesh.VisibleInstanceCount))}");
         Require(liveRoot.Visible && !initialFoliage.Visible &&
             terrain.LiveNatureSpeciesAt(treeX,treeZ)==expectedForest &&
-            liveRoot.GetChildren().OfType<MultiMeshInstance3D>()
-                .Any(node=>node.Name.ToString().StartsWith("LiveCC0_") &&
-                    node.Multimesh.VisibleInstanceCount>0) &&
-            terrain.FoliageChunksRebuilt==built,
+            hasNativeBatch && terrain.FoliageChunksRebuilt==built,
             "new Kenney tree is GPU-instanced BEFORE release, without rebuilding a full foliage chunk");
 
         world.Paint(treeX,treeZ,0,Terrain.Grass);
