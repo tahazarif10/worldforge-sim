@@ -294,7 +294,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
 
     public void Present(Vector2 cellPosition,float yaw,float elevation,
         float movementBlend,float delta,int simulationSpeed,
-        CitizenActivity activity=CitizenActivity.Idle)
+        CitizenActivity activity=CitizenActivity.Idle,int carriedWood=0)
     {
         Position=new Vector3(cellPosition.X,elevation,cellPosition.Y);
         Rotation=new Vector3(0,yaw,0);
@@ -308,7 +308,11 @@ internal sealed partial class RiggedCitizenPreview : Node3D
             _=>Mathf.Clamp(movementBlend,0f,1f)
         };
         _axe.Visible=simulationSpeed>0 && activity==CitizenActivity.Chopping;
-        _lumber.Visible=activity==CitizenActivity.Delivering;
+        // The logs belong to the citizen's inventory, not to the transient
+        // Delivering state. Keep them visible while travelling and waiting,
+        // then remove exactly when the real handoff consumes carried wood.
+        _lumber.Visible=carriedWood>0 &&
+            activity is not (CitizenActivity.Building or CitizenActivity.Chopping);
         _hammer.Visible=simulationSpeed>0 && activity==CitizenActivity.Building;
         // Exponential damping avoids a fixed-speed, hard-edged transition.
         // Starting a step responds faster than settling back to idle.
