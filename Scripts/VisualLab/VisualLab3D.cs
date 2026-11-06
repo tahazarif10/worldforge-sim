@@ -335,7 +335,7 @@ public partial class VisualLab3D : Node3D
         _hud.OffsetLeft = 12;
         _hud.OffsetRight = -12;
         _hud.OffsetTop = 12;
-        _hud.OffsetBottom = 194;
+        _hud.OffsetBottom = 108;
 
         _hud.ToolSelected += tool =>
         {
