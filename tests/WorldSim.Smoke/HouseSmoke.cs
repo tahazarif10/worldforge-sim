@@ -52,6 +52,13 @@ internal static class HouseSmoke
             sawDelivery|=a.People.Any(p=>p.Activity==CitizenActivity.Delivering);
             sawConstruction|=a.People.Any(p=>p.Activity==CitizenActivity.Building);
             sawRest|=a.People.Any(p=>p.Activity==CitizenActivity.Resting);
+            if(a.People.Count(p=>p.Role==CitizenRole.Builder)>2 ||
+                a.People.Count(p=>p.Role==CitizenRole.Hauler)>2)
+                throw new InvalidOperationException(
+                    "HOUSE SMOKE FAILED: house roles exceed two simultaneous workers");
+            if(a.People.Any(p=>p.WoodCarried>4))
+                throw new InvalidOperationException(
+                    "HOUSE SMOKE FAILED: a worker carries more than four logs");
 
             // Material flows only from previously harvested logs in hands.
             int stored=a.FirstHouse?.WoodDelivered ?? 0;
