@@ -146,4 +146,5 @@ Assert(qa.WorkingCitizenCount>=0 && qa.WorkingCitizenCount<=qa.People.Count,
     "active worker count is bounded by actual population");
 InventorySmoke.Run();
 HouseSmoke.Run();
+SaveSmoke.Run();
 Console.WriteLine("PASS ALL simulation smoke tests");
