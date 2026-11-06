@@ -50,27 +50,28 @@ public sealed partial class WorldState
                 Activity=p.Activity,Role=p.Role,
                 Hunger=p.Hunger,Energy=p.Energy,FoodCarried=p.FoodCarried,
                 FoodEaten=p.FoodEaten,WoodCarried=p.WoodCarried,HomeId=p.HomeId,
-                HouseTask=p.HouseTask,HouseWorkX=p.HouseWorkX,HouseWorkY=p.HouseWorkY,
+                HouseTask=p.HouseTask,HouseTargetId=p.HouseTargetId,
+                HouseWorkX=p.HouseWorkX,HouseWorkY=p.HouseWorkY,
                 ReservedSiteId=p.ReservedSiteId,TargetX=p.TargetX,TargetY=p.TargetY,
                 TargetKind=p.TargetKind,WorkTicks=p.WorkTicks,
                 NextPlanTick=p.NextPlanTick,RouteIndex=p.RouteIndex,
                 Route=p.Route.ToArray()
             });
-        if(FirstHouse is WoodenHouse h)
-            save.House=new WoodenHouseSaveState
+        foreach(WoodenHouse h in _houses)
+            save.Houses.Add(new WoodenHouseSaveState
             {
                 Id=h.Id,X=h.X,Y=h.Y,FoundedAt=h.FoundedAt,
                 GroundHeight=h.GroundHeight,Stage=h.Stage,
                 WoodDelivered=h.WoodDelivered,WorkDone=h.WorkDone,
                 Residents=h.Residents,Contributors=h.ContributorIds()
-            };
+            });
         return save;
     }
 
     public static WorldState RestoreSave(WorldSaveState save)
     {
         ArgumentNullException.ThrowIfNull(save);
-        if(save.Version!=1 || save.Width<16 || save.Height<16 ||
+        if(save.Version is not (1 or 2) || save.Width<16 || save.Height<16 ||
             save.Width>1024 || save.Height>1024 ||
             save.Tiles is null ||
             save.Tiles.Length!=checked(save.Width*save.Height) ||
@@ -110,9 +111,26 @@ public sealed partial class WorldState
         }
         world.Resources.Restore(save.Resources);
 
-        if(save.House is WoodenHouseSaveState hs)
+        // Existing V1 single-house files are upgraded in memory on load.
+        // V2 carries an ordered set of up to three independently owned houses.
+        var savedHouses=new List<WoodenHouseSaveState>();
+        if(save.Version==1)
         {
-            if(hs.Id<1 || hs.Id>=save.NextHouseId ||
+            if(save.House is not null)savedHouses.Add(save.House);
+        }
+        else
+        {
+            if(save.Houses is null || save.House is not null)
+                throw new InvalidDataException("Invalid V2 house collection.");
+            savedHouses.AddRange(save.Houses);
+        }
+        if(savedHouses.Count>MaxHouseCount)
+            throw new InvalidDataException("Too many saved houses.");
+        var houseIds=new HashSet<int>();
+        foreach(WoodenHouseSaveState hs in savedHouses)
+        {
+            if(hs is null || hs.Id<1 || hs.Id>=save.NextHouseId ||
+                !houseIds.Add(hs.Id) ||
                 hs.FoundedAt<0 || hs.FoundedAt>save.Tick ||
                 hs.X<1 || hs.Y<1 || hs.X+2>=world.Width ||
                 hs.Y+3>=world.Height ||
@@ -122,8 +140,9 @@ public sealed partial class WorldState
                 hs.WorkDone is <0 or >32 ||
                 hs.Residents is <0 or >WoodenHouse.Capacity ||
                 hs.Contributors is null ||
-                hs.Contributors.Length>save.PopulationLimit)
-                throw new InvalidDataException("Invalid saved wooden house.");
+                hs.Contributors.Length>save.PopulationLimit ||
+                !world.IsValidHousePlot(hs.X,hs.Y))
+                throw new InvalidDataException("Invalid or overlapping saved house.");
             var house=new WoodenHouse(hs.Id,hs.X,hs.Y,hs.FoundedAt)
             {
                 GroundHeight=hs.GroundHeight,Stage=hs.Stage,
@@ -131,20 +150,27 @@ public sealed partial class WorldState
                 Residents=hs.Residents
             };
             house.RestoreContributors(hs.Contributors);
-            world.FirstHouse=house;
+            world._houses.Add(house);
         }
 
         var ids=new HashSet<int>();
         foreach(CitizenSaveState cs in save.Citizens)
         {
-            if(cs is null || cs.Id<1 || cs.Id>=save.NextCitizenId ||
+            if(cs is null)
+                throw new InvalidDataException("Null citizen in world save.");
+            int targetHouseId=save.Version==1 && cs.HouseTask!=HouseJob.None
+                ? world.FirstHouse?.Id??0 : cs.HouseTargetId;
+            if(cs.Id<1 || cs.Id>=save.NextCitizenId ||
                 !ids.Add(cs.Id) || !world.Walkable(cs.X,cs.Y) ||
                 cs.BornAt<0 || cs.BornAt>save.Tick ||
                 cs.Hunger is <0 or >100 || cs.Energy is <0 or >100 ||
                 cs.FoodCarried<0 || cs.FoodEaten<0 || cs.WoodCarried<0 ||
                 cs.HomeId<0 ||
-                (cs.HomeId>0 && (world.FirstHouse is null ||
-                    cs.HomeId!=world.FirstHouse.Id)) ||
+                (cs.HomeId>0 && !world._houses.Exists(h=>
+                    h.Id==cs.HomeId && h.Stage==HouseStage.Complete)) ||
+                (cs.HouseTask==HouseJob.None && targetHouseId!=0) ||
+                (cs.HouseTask!=HouseJob.None && !world._houses.Exists(h=>
+                    h.Id==targetHouseId)) ||
                 cs.Activity>CitizenActivity.Resting ||
                 cs.Role>CitizenRole.Resident ||
                 cs.HouseTask>HouseJob.Rest ||
@@ -164,6 +190,7 @@ public sealed partial class WorldState
                 Energy=cs.Energy,FoodCarried=cs.FoodCarried,
                 FoodEaten=cs.FoodEaten,WoodCarried=cs.WoodCarried,
                 HomeId=cs.HomeId,HouseTask=cs.HouseTask,
+                HouseTargetId=targetHouseId,
                 HouseWorkX=cs.HouseWorkX,HouseWorkY=cs.HouseWorkY,
                 ReservedSiteId=cs.ReservedSiteId,TargetX=cs.TargetX,
                 TargetY=cs.TargetY,TargetKind=cs.TargetKind,
@@ -179,10 +206,10 @@ public sealed partial class WorldState
                     throw new InvalidDataException("Duplicate or invalid resource reservation.");
             }
         }
-        if(world.FirstHouse is WoodenHouse restoredHouse &&
-            restoredHouse.Residents!=world.People.FindAll(p=>
+        foreach(WoodenHouse restoredHouse in world._houses)
+            if(restoredHouse.Residents!=world.People.FindAll(p=>
                 p.HomeId==restoredHouse.Id).Count)
-            throw new InvalidDataException("House occupancy does not match residents.");
+                throw new InvalidDataException("House occupancy does not match residents.");
         if(!world.Inventory.IsConserved)
             throw new InvalidDataException("Saved resources do not balance.");
         return world;

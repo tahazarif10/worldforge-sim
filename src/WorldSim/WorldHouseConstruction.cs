@@ -36,16 +36,21 @@ public sealed class WoodenHouse(int id,int x,int y,long foundedAt)
 }
 
 /// <summary>
-/// One-house V4.0 pilot. WorldSim owns house location, build progress,
-/// allocated material and occupants. Only individual citizens carry wood to
-/// the site and work there; no free material, camera-dependent work or
-/// second simulation clock. Opt-in alongside autonomous gathering.
+/// Bounded three-home village. One construction site is active at a time;
+/// independently owned materials, residents and worker assignments are
+/// authoritative in WorldSim, never in the renderer or wall clock.
 /// </summary>
 public sealed partial class WorldState
 {
     public bool AutonomousHousingEnabled { get; set; }
-    public WoodenHouse? FirstHouse { get; private set; }
-    public int CompletedHouseCount => FirstHouse?.Stage==HouseStage.Complete?1:0;
+    public const int MaxHouseCount=3;
+    private readonly List<WoodenHouse> _houses=new();
+    public IReadOnlyList<WoodenHouse> Houses => _houses;
+    // Compatibility view for original one-home integration/tests.
+    public WoodenHouse? FirstHouse => _houses.Count==0?null:_houses[0];
+    public WoodenHouse? ActiveConstructionHouse =>
+        _houses.FirstOrDefault(h=>h.Stage!=HouseStage.Complete);
+    public int CompletedHouseCount => _houses.Count(h=>h.Stage==HouseStage.Complete);
     public int HouseWoodLost { get; private set; }
     public int HouseRevision { get; private set; }
 
@@ -88,35 +93,43 @@ public sealed partial class WorldState
         _=>int.MaxValue
     };
 
-    public void InvalidateFirstHouseIfNecessary()
-    {
-        WoodenHouse? house=FirstHouse;
-        if(house is null)return;
-        if(IsValidHousePlot(house.X,house.Y))
-        {
-            if(TryHouseElevation(house.X,house.Y,out float top) &&
-                house.GroundHeight!=top)
-            {
-                house.GroundHeight=top;
-                HouseRevision++;
-            }
-            return;
-        }
+    public void InvalidateFirstHouseIfNecessary() => InvalidateHousesIfNecessary();
 
-        // The structure is destroyed by terrain edits/disasters, never
-        // silently refunded. This tracks where invested lumber went.
-        HouseWoodLost+=house.WoodDelivered;
-        FirstHouse=null;
-        HouseRevision++;
-        foreach(Citizen citizen in People)
+    private void InvalidateHousesIfNecessary()
+    {
+        bool demolished=false;
+        foreach(WoodenHouse house in _houses.ToArray())
         {
-            if(citizen.HomeId==house.Id)citizen.HomeId=0;
-            if(citizen.HouseTask!=HouseJob.None)CancelHouseJob(citizen);
+            if(IsValidHousePlot(house.X,house.Y,house.Id))
+            {
+                if(TryHouseElevation(house.X,house.Y,out float top) &&
+                    house.GroundHeight!=top)
+                {
+                    house.GroundHeight=top;
+                    HouseRevision++;
+                }
+                continue;
+            }
+
+            // Never refund already invested logs after a terrain edit/meteor.
+            HouseWoodLost+=house.WoodDelivered;
+            _houses.Remove(house);
+            HouseRevision++;
+            demolished=true;
+            foreach(Citizen citizen in People)
+            {
+                if(citizen.HomeId==house.Id)citizen.HomeId=0;
+                if(citizen.HouseTargetId==house.Id)CancelHouseJob(citizen);
+            }
         }
-        _nextHousePlacementTick=Tick+25;
+        if(demolished)
+        {
+            _nextHousePlacementTick=Tick+25;
+            MaintainHouseResidents();
+        }
     }
 
-    private bool IsValidHousePlot(int x,int y)
+    private bool IsValidHousePlot(int x,int y,int existingId=0)
     {
         if(x<1 || y<1 || x+2>=Width || y+3>=Height ||
             !Walkable(x,y+2) || !Walkable(x+1,y+2) ||
@@ -127,9 +140,14 @@ public sealed partial class WorldState
             if(Tile(x+dx,y+dy)!=Terrain.Grass ||
                 Resources.At(x+dx,y+dy).Kind!=ResourceKind.None)
                 return false;
-        // Never place a new structure on top of an existing person.
-        // Once placed, WorldState.Walkable also blocks this footprint.
-        if(FirstHouse is null && People.Exists(p=>
+        // Keep each 2x2 footprint and both entrance tiles distinct, with
+        // a small gap between cabins for readable village navigation.
+        foreach(WoodenHouse other in _houses)
+            if(other.Id!=existingId &&
+                x<=other.X+2 && x+2>=other.X &&
+                y<=other.Y+3 && y+3>=other.Y)
+                return false;
+        if(existingId==0 && People.Exists(p=>
             p.X>=x && p.X<x+2 && p.Y>=y && p.Y<y+2))
             return false;
         return TryHouseElevation(x,y,out _);
@@ -159,26 +177,32 @@ public sealed partial class WorldState
         return true;
     }
 
-    private void TryStartFirstHouse()
+    private void TryStartNextHouse()
     {
-        if(FirstHouse is not null || Tick<_nextHousePlacementTick ||
-            People.Count<2 || Resources.WoodCollected<2)return;
+        // Build a second home for citizen #5, a third for citizen #9.
+        // Do not spawn empty buildings or parallel projects requiring fake wood.
+        if(_houses.Count>=MaxHouseCount || ActiveConstructionHouse is not null ||
+            Tick<_nextHousePlacementTick ||
+            People.Count<2 || Resources.WoodCollected<2 ||
+            (_houses.Count>0 &&
+                People.Count<=_houses.Count*WoodenHouse.Capacity))
+            return;
         _nextHousePlacementTick=Tick+20;
-        // Seed-free, repeatable growing-radius candidate order near the first
-        // living citizen. Never clear terrain or consume resources to place.
-        Citizen anchor=People[0];
+        int ax=_houses.Count==0?People[0].X:_houses[^1].X+1;
+        int ay=_houses.Count==0?People[0].Y:_houses[^1].EntranceY;
+        // Deterministic expanding search beside the established settlement.
         for(int radius=1;radius<=HouseMaxPlacementRadius;radius++)
         for(int dy=-radius;dy<=radius;dy++)
         for(int dx=-radius;dx<=radius;dx++)
         {
             if(Math.Abs(dx)+Math.Abs(dy)!=radius)continue;
-            int x=anchor.X+dx,y=anchor.Y+dy;
+            int x=ax+dx,y=ay+dy;
             if(!IsValidHousePlot(x,y))continue;
             if(!TryHouseElevation(x,y,out float top))continue;
-            FirstHouse=new WoodenHouse(_nextHouseId++,x,y,Tick)
+            _houses.Add(new WoodenHouse(_nextHouseId++,x,y,Tick)
             {
                 GroundHeight=top
-            };
+            });
             HouseRevision++;
             return;
         }
@@ -186,32 +210,48 @@ public sealed partial class WorldState
 
     private void MaintainHouseResidents()
     {
-        WoodenHouse? house=FirstHouse;
-        if(house?.Stage!=HouseStage.Complete)return;
-        int residents=0;
         foreach(Citizen citizen in People)
+            if(citizen.HomeId!=0 && !_houses.Any(h=>
+                h.Id==citizen.HomeId && h.Stage==HouseStage.Complete))
+                citizen.HomeId=0;
+
+        foreach(WoodenHouse house in _houses)
         {
-            if(citizen.HomeId!=house.Id)continue;
-            if(residents<WoodenHouse.Capacity)residents++;
-            else citizen.HomeId=0;
+            int residents=0;
+            if(house.Stage==HouseStage.Complete)
+            {
+                foreach(Citizen citizen in People)
+                {
+                    if(citizen.HomeId!=house.Id)continue;
+                    if(residents<WoodenHouse.Capacity)residents++;
+                    else citizen.HomeId=0;
+                }
+            }
+            if(house.Residents!=residents)
+            {
+                house.Residents=residents;
+                HouseRevision++;
+            }
         }
         foreach(Citizen citizen in People)
         {
-            if(residents>=WoodenHouse.Capacity)break;
             if(citizen.HomeId!=0)continue;
-            citizen.HomeId=house.Id;
-            residents++;
-        }
-        if(house.Residents!=residents)
-        {
-            house.Residents=residents;
-            HouseRevision++;
+            foreach(WoodenHouse house in _houses)
+            {
+                if(house.Stage!=HouseStage.Complete ||
+                    house.Residents>=WoodenHouse.Capacity)continue;
+                citizen.HomeId=house.Id;
+                house.Residents++;
+                HouseRevision++;
+                break;
+            }
         }
     }
 
     private void CancelHouseJob(Citizen citizen)
     {
         citizen.HouseTask=HouseJob.None;
+        citizen.HouseTargetId=0;
         citizen.HouseWorkX=0;
         citizen.HouseWorkY=0;
         citizen.Role=CitizenRole.None;
@@ -223,37 +263,44 @@ public sealed partial class WorldState
 
     private bool TryAssignHouseJob(Citizen citizen)
     {
-        WoodenHouse? house=FirstHouse;
-        if(house is null)return false;
+        WoodenHouse? home=_houses.Find(h=>
+            h.Id==citizen.HomeId && h.Stage==HouseStage.Complete);
+        WoodenHouse? house;
         HouseJob task;
-        if(house.Stage==HouseStage.Complete)
+        if(home is not null && citizen.Energy<=25)
         {
-            if(citizen.HomeId!=house.Id || citizen.Energy>25)return false;
+            house=home;
             task=HouseJob.GoHome;
         }
-        else if(house.WoodDelivered<NextWoodThreshold(house.Stage))
-        {
-            if(citizen.WoodCarried<=0)return false;
-            task=HouseJob.DeliverWood;
-        }
         else
-            task=HouseJob.Build;
+        {
+            house=ActiveConstructionHouse;
+            if(house is null)return false;
+            if(house.WoodDelivered<NextWoodThreshold(house.Stage))
+            {
+                if(citizen.WoodCarried<=0)return false;
+                task=HouseJob.DeliverWood;
+            }
+            else task=HouseJob.Build;
+        }
 
         int maxWorkers=task switch
         {
             HouseJob.Build or HouseJob.DeliverWood=>2,
             _=>WoodenHouse.Capacity
         };
-        if(People.Count(person=>person.HouseTask==task)>=maxWorkers)
+        if(People.Count(person=>person.HouseTargetId==house.Id &&
+            person.HouseTask==task)>=maxWorkers)
             return false;
-        // Each concurrent builder/hauler gets a separate door-side work spot
-        // rather than stacking multiple skinned citizens in one exact tile.
-        int first=People.Count(person=>person.HouseTask==task &&
-            person.HouseWorkX==house.EntranceX) == 0 ? 0 : 1;
+        // Distinct door-side work spots; quotas are per structure.
+        int first=People.Count(person=>person.HouseTargetId==house.Id &&
+            person.HouseTask==task &&
+            person.HouseWorkX==house.EntranceX)==0?0:1;
         int tx=house.EntranceX+first,ty=house.EntranceY;
         if(!TryPlanHousePath(citizen,tx,ty))return false;
         citizen.HouseWorkX=tx;
         citizen.HouseWorkY=ty;
+        citizen.HouseTargetId=house.Id;
         citizen.HouseTask=task;
         citizen.Role=task switch
         {
@@ -311,7 +358,7 @@ public sealed partial class WorldState
     private bool AdvanceHouseJob(Citizen citizen)
     {
         if(citizen.HouseTask==HouseJob.None)return false;
-        WoodenHouse? house=FirstHouse;
+        WoodenHouse? house=_houses.Find(h=>h.Id==citizen.HouseTargetId);
         if(house is null)
         {
             CancelHouseJob(citizen);

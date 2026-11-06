@@ -40,7 +40,7 @@ public sealed partial class WorldState
             return new WorldInventory(
                 carriedWood+ManualWoodStock,
                 carriedFood+ManualFoodStock,
-                carriedWood,carriedFood,FirstHouse?.WoodDelivered??0,
+                carriedWood,carriedFood,Houses.Sum(h=>h.WoodDelivered),
                 HouseWoodLost+WoodLostOnDeath,eaten,FoodLostOnDeath,
                 Resources.WoodCollected,Resources.FoodCollected,
                 ManualWoodStock,ManualFoodStock);

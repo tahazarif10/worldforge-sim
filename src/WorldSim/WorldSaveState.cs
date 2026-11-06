@@ -6,7 +6,7 @@ namespace WorldSim;
 /// <summary>Versioned WorldSim-only session snapshot. Numeric, no Godot types.</summary>
 public sealed class WorldSaveState
 {
-    public int Version { get; set; }=1;
+    public int Version { get; set; }=2;
     public int Width { get; set; }
     public int Height { get; set; }
     public int Seed { get; set; }
@@ -28,7 +28,9 @@ public sealed class WorldSaveState
     public int FoodLostOnDeath { get; set; }
     public int FoodConsumedByDeceased { get; set; }
     public List<CitizenSaveState> Citizens { get; set; }=[];
+    // V1 single-house saves remain readable. V2 stores all homes here.
     public WoodenHouseSaveState? House { get; set; }
+    public List<WoodenHouseSaveState> Houses { get; set; }=[];
 }
 
 public sealed class CitizenSaveState
@@ -46,6 +48,7 @@ public sealed class CitizenSaveState
     public int WoodCarried { get; set; }
     public int HomeId { get; set; }
     public HouseJob HouseTask { get; set; }
+    public int HouseTargetId { get; set; }
     public int HouseWorkX { get; set; }
     public int HouseWorkY { get; set; }
     public int ReservedSiteId { get; set; }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace WorldSim;
 
@@ -60,7 +61,7 @@ public sealed partial class WorldState
     private void AdvanceCitizenJobs()
     {
         CleanupResourceReservations();
-        if(AutonomousHousingEnabled)TryStartFirstHouse();
+        if(AutonomousHousingEnabled)TryStartNextHouse();
         int searches=0;
         foreach(Citizen person in People)
         {
@@ -117,14 +118,14 @@ public sealed partial class WorldState
 
             person.Activity=CitizenActivity.Idle;
             if(searches>=SearchBudgetPerTick || Tick<person.NextPlanTick)continue;
-            if(AutonomousHousingEnabled && FirstHouse is WoodenHouse shelter)
+            if(AutonomousHousingEnabled)
             {
-                bool needsHouseTrip=shelter.Stage==HouseStage.Complete
-                    ? person.HomeId==shelter.Id && person.Energy<=25
-                    : shelter.WoodDelivered <
-                        (shelter.Stage==HouseStage.Planned ? 3 :
-                         shelter.Stage==HouseStage.Foundation ? 8 : WoodenHouse.RequiredWood)
-                        ? person.WoodCarried>0 : true;
+                WoodenHouse? shelter=ActiveConstructionHouse;
+                bool needsRest=person.HomeId!=0 && person.Energy<=25 &&
+                    Houses.Any(h=>h.Id==person.HomeId && h.Stage==HouseStage.Complete);
+                bool needsHouseTrip=needsRest || (shelter is not null &&
+                    (shelter.WoodDelivered<NextWoodThreshold(shelter.Stage)
+                        ? person.WoodCarried>0 : true));
                 if(needsHouseTrip)
                 {
                     searches++;
@@ -138,7 +139,7 @@ public sealed partial class WorldState
             // When no more wood is needed, a portion become foragers rather
             // than all four searching the same tree/resource category.
             bool needHouseWood=AutonomousHousingEnabled &&
-                FirstHouse is {Stage: not HouseStage.Complete} construction &&
+                ActiveConstructionHouse is WoodenHouse construction &&
                 construction.WoodDelivered<NextWoodThreshold(construction.Stage);
             ResourceKind first=person.Hunger>=70 || person.WoodCarried>=MaxWoodCarry
                 ? ResourceKind.Food

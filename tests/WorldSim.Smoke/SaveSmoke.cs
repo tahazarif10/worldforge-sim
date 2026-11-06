@@ -24,15 +24,11 @@ internal static class SaveSmoke
                 .SequenceEqual(b.People.Select(p=>
                     (p.Id,p.X,p.Y,p.BornAt,p.Hunger,p.Energy,
                      p.WoodCarried,p.FoodCarried,p.FoodEaten,p.HomeId,p.Activity,p.Role))) &&
-            (a.FirstHouse is null)==(b.FirstHouse is null) &&
-            (a.FirstHouse is null ||
-                a.FirstHouse.Id==b.FirstHouse!.Id &&
-                a.FirstHouse.X==b.FirstHouse.X &&
-                a.FirstHouse.Y==b.FirstHouse.Y &&
-                a.FirstHouse.Stage==b.FirstHouse.Stage &&
-                a.FirstHouse.WoodDelivered==b.FirstHouse.WoodDelivered &&
-                a.FirstHouse.WorkDone==b.FirstHouse.WorkDone &&
-                a.FirstHouse.Residents==b.FirstHouse.Residents) &&
+            a.Houses.Select(h=>(h.Id,h.X,h.Y,h.Stage,h.WoodDelivered,
+                h.WorkDone,h.Residents,h.ContributorCount))
+                .SequenceEqual(b.Houses.Select(h=>
+                    (h.Id,h.X,h.Y,h.Stage,h.WoodDelivered,
+                     h.WorkDone,h.Residents,h.ContributorCount))) &&
             Enumerable.Range(0,a.Width*a.Height).All(i=>
                 a.Tile(i%a.Width,i/a.Width)==b.Tile(i%b.Width,i/b.Width) &&
                 a.Resources.At(i%a.Width,i/a.Width)==

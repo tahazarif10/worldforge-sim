@@ -49,6 +49,13 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-06 — Opt-in village expands to three independent wooden homes (host test pending)
+
+The user explicitly requested fast hands-on delivery of housing beyond the first hut, prioritizing their own Windows playtest over repeated CI/performance rounds. Autonomous housing now builds **one new site at a time** when population exceeds completed available beds: first house after two workers, house two beyond four citizens, and house three beyond eight citizens (hard cap three, four beds each). Sites search deterministically around the existing village, avoid all other footprints and entrances, and respect the existing resource/slope/grass rules. Residents, deliveries, work positions and build progress are per-house, not global. Each additional home consumes twelve newly carried real logs through the same construction stages; existing homes retain their spent timber. A destroyed house loses only its own invested lumber and clears only its own assigned occupants/jobs.
+
+V2-compatible art keeps the original first-house node/probe and shows two separate additional cabins with independently staged meshes and viewport culling. The inventory ledger includes lumber invested across **all** homes. WorldSaveState schema v2 serializes the ordered housing list and the citizen's specific target-house job, while accepting old v1 single-house saves via migration. Existing H:-only auto resume / Ctrl+S / Ctrl+L remain. Core tests were extended for placement, occupancy, conservation and multi-house snapshot roundtrip. See [ADR 0016](decisions/0016-bounded-three-house-village.md). This is a **code candidate**, not a claim of a passed user's physical Windows run or visual acceptance; the user is the next tester.
+
+
 ## 2026-11-06 — Whole living-world save/resume candidate (host verification pending)
 
 Opt-in V4.0 VisualLab sessions now have a single versioned world snapshot containing the biome grid, exact fixed tick and AI birth RNG, citizens/roles/jobs/navigation, resources and regrowth deadlines, tree stumps, manually gathered stock, current house stage/materials/residents, losses and all modified V2 sculpt elevation regions. Checkpoint writes are checksummed, temp-file/rename protected, with last-good backup fallback. The manual launcher enables auto-resume for the same world seed and size, saves on normal exit and allows Ctrl+S/Ctrl+L; `-FreshWorld` never loads or overwrites a saved world, and raw Godot scenes remain unchanged. Existing F11/F12 height-only shortcuts still work. Core save/reload/replay, conservation and corrupt-backup tests are added. [ADR 0015](decisions/0015-atomic-living-world-save-and-resume.md).

@@ -17,6 +17,8 @@ public sealed partial class WoodenHouseArt3D : Node3D
     private readonly List<(Node3D Part,HouseStage From,HouseStage Through)> _parts=new();
     private readonly Dictionary<string,StandardMaterial3D> _materials=new();
     private Node3D _house=new();
+    // The existing model is the first home; two bounded copies share its art.
+    private readonly List<Node3D> _extraModels=new();
     private WorldState? _world;
     private VisualTerrain3D? _terrain;
     private Godot.Camera3D? _camera;
@@ -116,6 +118,14 @@ public sealed partial class WoodenHouseArt3D : Node3D
                     "#765035",HouseStage.Complete);
         }
         SetStage(HouseStage.Planned);
+        for(int i=1;i<WorldState.MaxHouseCount;i++)
+        {
+            var copy=(Node3D)_house.Duplicate();
+            copy.Name=$"HouseModel{i+1}";
+            copy.Visible=false;
+            AddChild(copy);
+            _extraModels.Add(copy);
+        }
     }
 
     private void Box(string name,Vector3 size,Vector3 at,string color,
@@ -151,6 +161,7 @@ public sealed partial class WoodenHouseArt3D : Node3D
         _shownStage=HouseStage.Planned;
         _elapsed=0;
         _house.Visible=false;
+        foreach(Node3D extra in _extraModels)extra.Visible=false;
         RefreshNow();
     }
 
@@ -165,6 +176,7 @@ public sealed partial class WoodenHouseArt3D : Node3D
     public void RefreshNow()
     {
         if(_world is null || _terrain is null || _camera is null)return;
+        RefreshExtraHouses();
         WoodenHouse? site=_world.FirstHouse;
         if(site is null)
         {
@@ -201,6 +213,46 @@ public sealed partial class WoodenHouseArt3D : Node3D
             projected.Y>=-ViewMarginPixels &&
             projected.X<=view.X+ViewMarginPixels &&
             projected.Y<=view.Y+ViewMarginPixels;
+    }
+
+    private void RefreshExtraHouses()
+    {
+        if(_world is null || _camera is null)return;
+        for(int index=1;index<=_extraModels.Count;index++)
+        {
+            Node3D model=_extraModels[index-1];
+            if(index>=_world.Houses.Count)
+            {
+                model.Visible=false;
+                continue;
+            }
+            WoodenHouse site=_world.Houses[index];
+            // The duplicates contain the same ordered parts as HouseModel.
+            // Assign independent construction stages without cloning materials
+            // on every frame or touching authoritative simulation state.
+            int partIndex=0;
+            foreach(Node child in model.GetChildren())
+            {
+                if(partIndex>=_parts.Count)break;
+                var rule=_parts[partIndex++];
+                if(child is Node3D part)
+                    part.Visible=site.Stage>=rule.From && site.Stage<=rule.Through;
+            }
+            float y=site.GroundHeight;
+            model.Position=new Vector3(site.X+1f,y,site.Y+1f);
+            Vector3 center=new(site.X+1f,y+1.1f,site.Y+1f);
+            if(_camera.IsPositionBehind(center))
+            {
+                model.Visible=false;
+                continue;
+            }
+            Vector2 projected=_camera.UnprojectPosition(center);
+            Vector2 view=_camera.GetViewport().GetVisibleRect().Size;
+            model.Visible=projected.X>=-ViewMarginPixels &&
+                projected.Y>=-ViewMarginPixels &&
+                projected.X<=view.X+ViewMarginPixels &&
+                projected.Y<=view.Y+ViewMarginPixels;
+        }
     }
 
     private void SetStage(HouseStage stage)
