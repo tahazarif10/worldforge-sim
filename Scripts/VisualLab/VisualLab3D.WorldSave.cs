@@ -29,14 +29,16 @@ public partial class VisualLab3D
             $"seed_{_world.Seed}_{_world.Width}x{_world.Height}.wfs");
     }
 
-    private void SaveWorldNow(bool explicitUserRequest=false)
+    private bool SaveWorldNow(bool explicitUserRequest=false)
     {
-        // A corrupt or mismatched checkpoint must never be overwritten
-        // automatically by a fresh session that failed to resume it.
-        if(_worldResumeBlocked && !explicitUserRequest)return;
+        // Never save the main-menu preview, a fresh-session-over-old-save,
+        // or a previously corrupted slot without explicit user confirmation.
+        if(_menuRequestedOnLaunch && !_playSessionStarted)return false;
+        if(_protectCurrentSave)return false;
+        if(_worldResumeBlocked && !explicitUserRequest)return false;
         string? file=CurrentWorldSaveFile();
-        if(file is null)return;
-        if(_restoringWorld || _paintStrokeActive)return;
+        if(file is null)return false;
+        if(_restoringWorld || _paintStrokeActive)return false;
         try
         {
             var snapshot=new LivingWorldSave
@@ -49,10 +51,12 @@ public partial class VisualLab3D
             GD.Print($"WORLD SAVED tick={_world.Tick}, citizens={_world.People.Count}, "+
                 $"houses={_world.Houses.Count}, completed={_world.CompletedHouseCount}, "+
                 $"sculpt regions={snapshot.Elevation.Count}: {file}");
+            return true;
         }
         catch(Exception ex)
         {
             GD.PushError("WORLD SAVE FAILED (previous save kept): "+ex.Message);
+            return false;
         }
     }
 
@@ -101,6 +105,7 @@ public partial class VisualLab3D
             finally {_restoringWorld=false;}
 
             _worldResumeBlocked=false;
+            _protectCurrentSave=false;
             GD.Print($"WORLD RESTORED from {(backup?"BACKUP":"PRIMARY")}: "+
                 $"tick {_world.Tick}; citizens {_world.People.Count}; "+
                 $"houses {_world.Houses.Count}, completed {_world.CompletedHouseCount}; "+
@@ -110,6 +115,7 @@ public partial class VisualLab3D
         catch(Exception ex)
         {
             _worldResumeBlocked=true;
+            _protectCurrentSave=true;
             GD.PushError("WORLD LOAD REFUSED: "+ex.Message+
                 " (automatic overwriting disabled; original save preserved)");
             return false;
@@ -118,7 +124,8 @@ public partial class VisualLab3D
 
     public override void _ExitTree()
     {
-        if(_resumeWorldEnabled && _world is not null)
+        if(_resumeWorldEnabled && _world is not null &&
+            (!_menuRequestedOnLaunch || _playSessionStarted))
             SaveWorldNow();
     }
 }

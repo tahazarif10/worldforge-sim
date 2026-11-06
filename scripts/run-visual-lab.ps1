@@ -35,6 +35,9 @@ $godotArgs = @('--path', $root, '--scene', 'res://Scenes/VisualLab3D.tscn',
 # The launcher previews the larger world by default; the unchanged direct
 # scene and acceptance fixtures retain 120x88 when no size is supplied.
 $godotArgs += '--'
+# Only the manual H: launcher shows the menu; direct scenes and CI keep
+# their original startup behavior.
+$godotArgs += '--game-menu'
 $dimensions = if ($WorldSize -eq 'Compact') { '120x88' } else { '192x144' }
 $godotArgs += "--world-size=$dimensions"
 Write-Host "World preview size: $dimensions (use -WorldSize Compact to compare)."
@@ -43,12 +46,13 @@ if (-not $NoCitizenAI) {
     $godotArgs += '--citizen-housing'
     if (-not $FreshWorld) {
         $godotArgs += '--resume-world'
-        Write-Host 'Save/resume ON: continue the same seed and world size automatically; Ctrl+S saves, Ctrl+L reloads.'
+        Write-Host 'Start menu ON: New World starts with ZERO citizens; Continue explicitly loads old saves.'
+        Write-Host 'Esc opens pause/settings/help; Ctrl+S saves, Ctrl+L asks before loading.'
     }
     else {
-        Write-Host 'Fresh world mode: existing save will not be loaded or overwritten during this run.'
+        Write-Host 'Fresh world mode: no save loaded or written. Start menu still opens with zero citizens.'
     }
-    Write-Host 'Autonomous gathering and first wooden shelter ON: citizens deliver, build and rest even offscreen.'
+    Write-Host 'Autonomous gathering and three-house village ON after you manually place citizens.'
 }
 if ($null -ne $WorldSeed) {
     Write-Host "Replaying approved 3D world seed $WorldSeed for mountain QA."

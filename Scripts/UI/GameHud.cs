@@ -26,6 +26,7 @@ public partial class GameHud : PanelContainer
     public event Action<int>? RadiusChangeRequested;
     public event Action<int>? SpeedRequested;
     public event Action? NewWorldRequested;
+    public event Action? MenuRequested;
 
     private static readonly Color Background = new("#142130F2");
     private static readonly Color Surface = new("#283C4D");
@@ -34,7 +35,7 @@ public partial class GameHud : PanelContainer
     private static readonly Color Foreground = new("#F6F4E9");
     private static readonly Color Muted = new("#B6C9D4");
 
-    public GameHud()
+    public GameHud(bool showGameMenu=false)
     {
         Name = "GameHud";
         MouseFilter = Control.MouseFilterEnum.Stop;
@@ -58,6 +59,12 @@ public partial class GameHud : PanelContainer
         Label heading = MakeLabel("WORLD FORGE", 21, Foreground);
         heading.CustomMinimumSize = new Vector2(158, 43);
         tools.AddChild(heading);
+        if(showGameMenu)
+        {
+            var menu=MakeButton("MENU",()=>MenuRequested?.Invoke(),88,43);
+            menu.TooltipText="Pause, save, load, help and game settings (Esc).";
+            tools.AddChild(menu);
+        }
 
         var terrainNames = new[] { "Land", "Ocean", "Sand", "Forest", "Mountain", "Person", "Meteor", "Gather" };
         for (int index = 0; index < terrainNames.Length; index++)
@@ -122,9 +129,11 @@ public partial class GameHud : PanelContainer
     {
         SetTextIfChanged(_selection, $"Brush: {toolName}  |  Radius: {radius}");
         SetTextIfChanged(_speedLabel, $"Time  {speed}x");
-        string action = toolName == "Gather"
-            ? "Left-click tree / red berries to gather"
-            : "Left-click paint / spawn";
+        string action = population==0
+            ? "EMPTY WORLD — choose PERSON and left-click land to add citizens"
+            : toolName == "Gather"
+                ? "Left-click trees / berries to gather"
+                : "Left-click paint / spawn";
         SetTextIfChanged(_readout, $"Seed {seed}    People {population}    Tick {tick}     {action}   |   Right-drag pan   |   Wheel zoom   |   Space pause");
     }
 
