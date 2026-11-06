@@ -776,9 +776,13 @@ public partial class VisualLab3D : Node3D
         }
 
         if (terrainEdited)
+        {
             _terrain.MarkChanged(x, y,
                 _brush == Brush.Meteor ? Math.Max(2, _radius) : _radius,
                 coastlineChanged);
+            if(_paintStrokeActive && _paintStrokeTerrainBatch)
+                _resourceArt.RequestInteractiveBiomeRefresh();
+        }
         if (actorsChanged)
         {
             if (_paintStrokeActive && _paintStrokeTerrainBatch)

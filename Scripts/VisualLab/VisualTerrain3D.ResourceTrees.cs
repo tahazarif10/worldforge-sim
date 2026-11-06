@@ -24,8 +24,11 @@ public partial class VisualTerrain3D
 
     public void FellResourceTree(int x,int z)
     {
-        if(!_world.Resources.HasStump(x,z) ||
-            !_foliageChunks.TryGetValue((x/16,z/16),out Node3D? chunk))return;
+        if(!_world.Resources.HasStump(x,z))return;
+        // A harvested tree must not survive inside the temporary live
+        // foliage cache while its old (hidden) chunk is rebuilding.
+        UpdateLiveNatureStump(x,z);
+        if(!_foliageChunks.TryGetValue((x/16,z/16),out Node3D? chunk))return;
         foreach(Node node in chunk.GetChildren())
         {
             if(node is TreeResourceBatch trees &&

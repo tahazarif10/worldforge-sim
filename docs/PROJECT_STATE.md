@@ -49,6 +49,14 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-06 — Live authored trees, rocks, flowers and ground during held painting (candidate)
+
+**User report after PR #111:** the ground now paints immediately, but Kenney trees, rocks, flowers and other nature details appear/disappear only once the slower final foliage chunk is rebuilt. This was an intentional terrain-only preview limitation, not a bug in the brush input, and is addressed without asking users to use the experimental V3 worker renderer.
+
+**Implementation:** `VisualTerrain3D.LiveNature.cs` adds a camera-resident, per-16×16 editable **native MultiMesh cache** keyed by logical tile and authored CC0 species. The first touched chunk populates bounded species batches once; subsequent brush passes only swap/update changed instance slots. Meshes, local transforms, material overrides and deterministic placement math are read from the **same cached `NatureArtLibrary` models** as final V2 drawing. Forest trees, grass/flowers, sand rocks, sparse mountain accents and stump removal are supported; blank/water tiles remove species instances immediately. The old foliage chunk is hidden only when the complete live chunk has been populated. The existing actual terrain and foliage replacement must be ready before both temporary overlays retire. No GLB import in mouse callbacks and no full native foliage regeneration on every mouse movement. The incremental per-species instance buffers grow geometrically, compact on deletion, and reuse resources; their owned nodes are freed on world reset/unload.
+
+The already-live colored terrain and the live nature cache are presented together in the same interactive frame. Separate berry/stump resource MultiMeshes are gently refreshed at a coalesced ~50 ms cadence only when painting changes them, without changing their world-state accounting. A native headless V2 default-mode smoke now checks a CC0 tree appears before mouse release, disappears immediately on Land repaint, reuses instance batches, survives mouse-up and hands off to the final full art. This is implementation/CI evidence, **not** a claim of zero latency or successful physical Windows Radeon R9 M395X FPS/visual testing. See [ADR 0019](decisions/0019-live-native-nature-instancing.md).
+
 ## 2026-11-06 — Truly immediate V2 brush surface and frame-coalesced input (candidate; Windows acceptance pending)
 
 **User issue:** even after PR #110, drawing grass/forest/coast/height on the normal `run-visual-lab.ps1` game still looked frozen until mouse-up. The prior change merely rebuilt complete terrain **and expensive foliage** chunks every ~65 ms; the synchronous V2 visibility pump was still suppressed during a held stroke. This is not an adequate interactive painting path.

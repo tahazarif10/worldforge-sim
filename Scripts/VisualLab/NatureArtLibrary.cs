@@ -74,6 +74,37 @@ public sealed class NatureArtLibrary
 
     public bool Has(Species species) => _models[(int)species] is not null;
 
+    /// <summary>
+    /// Expose the SAME cached mesh parts and transforms used by final foliage
+    /// publication to the editable MultiMesh cache. Neither path reimports
+    /// GLBs, allocates separate mesh geometry or substitutes preview models.
+    /// </summary>
+    public int PartCount(Species species) => _models[(int)species]?.Parts.Count ?? 0;
+
+    public (Mesh Mesh,Material? Override) Part(Species species,int index)
+    {
+        Model model=_models[(int)species] ??
+            throw new InvalidOperationException("Nature model was not imported.");
+        var part=model.Parts[index];
+        return (part.Mesh,part.Override);
+    }
+
+    public Transform3D PlacementTransform(Placement placement,int partIndex)
+    {
+        Model model=_models[(int)placement.Species] ??
+            throw new InvalidOperationException("Nature model was not imported.");
+        return MakePlacementTransform(model,placement,model.Parts[partIndex].Local);
+    }
+
+    private static Transform3D MakePlacementTransform(
+        Model model,Placement placement,Transform3D partLocal)
+    {
+        float scale=Mathf.Clamp(placement.Height/model.Height,0.15f,9f);
+        Basis basis=new Basis(Vector3.Up,placement.Angle).Scaled(Vector3.One*scale);
+        Vector3 origin=placement.Position-Vector3.Up*(model.LowestY*scale);
+        return new Transform3D(basis,origin)*partLocal;
+    }
+
     /// <summary>Instantiates GLB geometry as spatially culled per-chunk batches.</summary>
     public int Populate(Node3D chunk, IReadOnlyList<Placement> placements)
     {
@@ -111,10 +142,7 @@ public sealed class NatureArtLibrary
                 for (int i = 0; i < group.Value.Count; i++)
                 {
                     Placement p = group.Value[i];
-                    float scale = Mathf.Clamp(p.Height / model.Height, 0.15f, 9f);
-                    Basis basis = new Basis(Vector3.Up, p.Angle).Scaled(Vector3.One * scale);
-                    Vector3 origin = p.Position - Vector3.Up * (model.LowestY * scale);
-                    Transform3D transform=new Transform3D(basis, origin) * part.Local;
+                    Transform3D transform=MakePlacementTransform(model,p,part.Local);
                     batch.SetInstanceTransform(i,transform);
                     if(forestTree)
                     {

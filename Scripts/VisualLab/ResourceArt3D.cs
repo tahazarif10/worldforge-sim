@@ -23,6 +23,7 @@ public sealed partial class ResourceArt3D : Node3D
     private MultiMesh _stumps = null!;
     private MultiMesh _stumpTops = null!;
     private double _refreshElapsed;
+    private bool _brushResourcesDirty;
     private const float MarginPixels = 96f;
 
     public int VisibleBushCount => _visible.Count;
@@ -115,15 +116,22 @@ public sealed partial class ResourceArt3D : Node3D
         _terrain = terrain;
         _camera = camera;
         _refreshElapsed = 0;
+        _brushResourcesDirty=false;
         RefreshNow();
     }
+
+    // Bushes and harvested stumps have their own existing small MultiMeshes.
+    // Coalesce brush invalidations; no full-world berry pass occurs in a raw
+    // mouse-move callback. The live Kenney cache remains independently instant.
+    public void RequestInteractiveBiomeRefresh() => _brushResourcesDirty=true;
 
     /// <summary>Throttled projection: no work on offscreen foliage per frame.</summary>
     public void Tick(double delta)
     {
         _refreshElapsed += Math.Clamp(delta, 0, 0.1);
-        if (_refreshElapsed < 0.15) return;
+        if (_refreshElapsed < (_brushResourcesDirty ? 0.05 : 0.15)) return;
         _refreshElapsed = 0;
+        _brushResourcesDirty=false;
         RefreshNow();
     }
 
