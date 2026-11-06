@@ -59,6 +59,73 @@ public partial class EngineProbe : Node
         }
     }
 
+    private static void ExerciseFirstHouseArt(VisualLab3D lab,
+        VisualTerrain3D terrain,Godot.Camera3D camera)
+    {
+        var original=(WorldState)typeof(VisualLab3D)
+            .GetField("_world",Hidden)!.GetValue(lab)!;
+        var art=lab.GetNode<WoodenHouseArt3D>("FirstWoodenHouse");
+        Require(art.RenderedHouseId==0,
+            "raw VisualLab without --citizen-housing preserves original scene baseline");
+        var fixture=new WorldState(96,96,20261106)
+        {
+            AutonomousGatheringEnabled=true,AutonomousHousingEnabled=true,
+            PopulationLimit=4
+        };
+        fixture.Paint(48,48,20,Terrain.Grass);
+        fixture.Paint(48,48,8,Terrain.Forest);
+        Require(fixture.Spawn(48,48)&&fixture.Spawn(49,49),
+            "house art fixture has two real citizens");
+        var firstTree=Enumerable.Range(0,fixture.Width*fixture.Height)
+            .Select(i=>(X:i%fixture.Width,Y:i/fixture.Width,
+                Deposit:fixture.Resources.At(i%fixture.Width,i/fixture.Width)))
+            .First(p=>p.Deposit.Kind==ResourceKind.Wood);
+        Require(fixture.TryGather(firstTree.X,firstTree.Y,out _) &&
+            fixture.TryGather(firstTree.X,firstTree.Y,out _),
+            "two harvested logs allow villagers to locate their first house plot");
+        fixture.Advance();
+        WoodenHouse house=fixture.FirstHouse ??
+            throw new InvalidOperationException("A grass plot was not selected near villagers.");
+        var rig=(StrategyCameraRig)typeof(VisualLab3D)
+            .GetField("_cameraRig",Hidden)!.GetValue(lab)!;
+        var previousPose=rig.ReviewPose;
+        try
+        {
+            rig.RestoreReviewPose(new CameraReviewPose(house.X+1,house.Y+1,19f));
+            art.BindWorld(fixture,terrain,camera);
+            art.RefreshNow();
+            Require(art.RenderedHouseId==house.Id &&
+                art.RenderedStage==HouseStage.Planned &&
+                art.ActivePartCount>=4 &&
+                art.GetNode<Node3D>("HouseModel").Visible,
+                "planned hut draws only survey markers on the existing camera view");
+
+            var setter=typeof(WoodenHouse).GetProperty("Stage")!
+                .GetSetMethod(true)!;
+            int lastParts=art.ActivePartCount;
+            foreach(HouseStage stage in new[]{
+                HouseStage.Foundation,HouseStage.Frame,HouseStage.Roof,
+                HouseStage.Complete})
+            {
+                setter.Invoke(house,[stage]);
+                art.RefreshNow();
+                Require(art.RenderedStage==stage &&
+                    art.ActivePartCount>=lastParts,
+                    "foundation, frame, pitched roof and final wooden walls unlock in order");
+                lastParts=art.ActivePartCount;
+            }
+            Require(art.ActivePartCount>12,
+                "complete first hut uses visible low-poly wood/roof meshes, not one placeholder");
+        }
+        finally
+        {
+            art.BindWorld(original,terrain,camera);
+            rig.RestoreReviewPose(previousPose);
+        }
+        GD.Print("PASS HOUSE ENGINE: planned/foundation/frame/roof/complete geometry " +
+            "and unchanged original VisualLab housing default");
+    }
+
     private static void ExerciseGatherResources(VisualLab3D lab,
         VisualTerrain3D terrain, Godot.Camera3D camera)
     {
