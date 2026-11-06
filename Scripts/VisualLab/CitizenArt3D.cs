@@ -82,6 +82,7 @@ public sealed partial class CitizenArt3D : Node3D
         public float IdleRefresh;
         public float GroundHeight;
         public CitizenActivity Activity;
+        public int WoodCarried;
         public bool GroundDirty = true;
         public bool HasRendered;
         public bool Moving;
@@ -226,6 +227,7 @@ public sealed partial class CitizenArt3D : Node3D
             }
             // Render-only activity comes from the authoritative job state.
             state.Activity = citizen.Activity;
+            state.WoodCarried = citizen.WoodCarried;
             // A terrain brush can change the surface under a standing
             // citizen; authoritative updates invalidate the cached height.
             state.GroundDirty = true;
@@ -364,7 +366,8 @@ public sealed partial class CitizenArt3D : Node3D
                 float frameDelta=state.IdleRefresh;
                 state.IdleRefresh=0f;
                 pair.Value.Present(state.Position,state.Yaw,state.GroundHeight,
-                    state.WalkWeight,frameDelta,simulationSpeed,state.Activity);
+                    state.WalkWeight,frameDelta,simulationSpeed,state.Activity,
+                    state.WoodCarried);
                 state.HasRendered=true;
             }
         }
@@ -383,7 +386,7 @@ public sealed partial class CitizenArt3D : Node3D
             _riggedPreview.Visible = true;
             _riggedPreview.Present(selected.Position,selected.Yaw,
                 selected.GroundHeight,selected.WalkWeight,dt,simulationSpeed,
-                selected.Activity);
+                selected.Activity,selected.WoodCarried);
         }
     }
 
