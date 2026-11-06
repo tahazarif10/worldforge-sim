@@ -56,10 +56,16 @@ public sealed partial class WorldState
     private void AdvanceCitizenJobs()
     {
         CleanupResourceReservations();
+        if(AutonomousHousingEnabled)TryStartFirstHouse();
         int searches=0;
         foreach(Citizen person in People)
         {
             if(Tick%3==0 && person.Hunger<100)person.Hunger++;
+            if(AutonomousHousingEnabled)
+            {
+                if(Tick%6==0 && person.Energy>0)person.Energy--;
+                if(AdvanceHouseJob(person))continue;
+            }
             if(person.WorkTicks>0)
             {
                 person.WorkTicks--;
@@ -107,6 +113,21 @@ public sealed partial class WorldState
 
             person.Activity=CitizenActivity.Idle;
             if(searches>=SearchBudgetPerTick || Tick<person.NextPlanTick)continue;
+            if(AutonomousHousingEnabled && FirstHouse is WoodenHouse shelter)
+            {
+                bool needsHouseTrip=shelter.Stage==HouseStage.Complete
+                    ? person.HomeId==shelter.Id && person.Energy<=25
+                    : shelter.WoodDelivered <
+                        (shelter.Stage==HouseStage.Planned ? 3 :
+                         shelter.Stage==HouseStage.Foundation ? 8 : WoodenHouse.RequiredWood)
+                        ? person.WoodCarried>0 : true;
+                if(needsHouseTrip)
+                {
+                    searches++;
+                    if(TryAssignHouseJob(person))continue;
+                    if(searches>=SearchBudgetPerTick)continue;
+                }
+            }
             searches++;
             ResourceKind first=person.Hunger>=40 ? ResourceKind.Food : ResourceKind.Wood;
             ResourceKind second=first==ResourceKind.Food?ResourceKind.Wood:ResourceKind.Food;
