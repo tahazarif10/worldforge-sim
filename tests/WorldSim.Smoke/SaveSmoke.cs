@@ -46,7 +46,7 @@ internal static class SaveSmoke
         {
             AutonomousGatheringEnabled=true,
             AutonomousHousingEnabled=true,
-            PopulationLimit=4
+            PopulationLimit=8 // Let deterministic child births occur after restore.
         };
         a.Paint(48,48,20,Terrain.Grass);
         a.Paint(48,48,8,Terrain.Forest);
