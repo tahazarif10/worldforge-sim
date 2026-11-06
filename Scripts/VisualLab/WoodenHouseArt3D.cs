@@ -48,6 +48,8 @@ public sealed partial class WoodenHouseArt3D : Node3D
     private static readonly Color TimberLight=new("#95704F");
     private static readonly Color Plaster=new("#B5A17C");
     private static readonly Color PlasterDark=new("#9C8765");
+    private static readonly Color PlasterWear=new("#8F795B");
+    private static readonly Color PlasterLight=new("#C9B790");
     private static readonly Color Thatch=new("#AA8652");
     private static readonly Color ThatchDark=new("#836342");
     private static readonly Color ThatchLight=new("#C0A16B");
@@ -135,15 +137,18 @@ public sealed partial class WoodenHouseArt3D : Node3D
         {
             for(int i=0;i<10;i++)
             {
+                // Nonidentical stones, slightly staggered between courses.
                 float t=-.79f+i*.176f;
-                float w=.16f+(i%3)*.018f;
-                float h=.19f+(i%4)*.022f;
+                float w=.157f+(i%4)*.018f;
+                float h=.18f+(i%5)*.017f;
+                float offset=((i*7)%5-2)*.008f;
+                float tilt=((i%3)-1)*.028f;
                 Color color=i%3==0?StoneLight:i%3==1?Stone:StoneDark;
-                b.Box(new(w,h,.18f),new(t,h*.5f,-.82f),color);
-                b.Box(new(w,h,.18f),new(t,h*.5f,.82f),
-                    i%2==0?Stone:StoneLight);
-                b.Box(new(.18f,h,w),new(-.82f,h*.5f,t),color);
-                b.Box(new(.18f,h,w),new(.82f,h*.5f,t),
+                b.Box(new(w,h,.18f),new(t+offset,h*.5f,-.82f),color,tilt);
+                b.Box(new(w,h,.18f),new(t-offset,h*.5f,.82f),
+                    i%2==0?Stone:StoneLight,-tilt);
+                b.Box(new(.18f,h,w),new(-.82f,h*.5f,t+offset),color);
+                b.Box(new(.18f,h,w),new(.82f,h*.5f,t-offset),
                     i%2==0?StoneDark:Stone);
             }
         });
@@ -255,22 +260,33 @@ public sealed partial class WoodenHouseArt3D : Node3D
         Module("Roof_Weathered_Thatch_Courses",HouseStage.Roof,
             HouseStage.Complete,true,b=>
         {
+            // Gen1.1: overlapping, irregular tapered straw bundles replace
+            // a regular grid of identical rectangular roof tiles. Each
+            // textured-looking bundle is still just opaque colored geometry,
+            // baked into this ONE mesh (no shaders or per-bundle draw calls).
             for(int side=-1;side<=1;side+=2)
-            for(int row=0;row<4;row++)
-            for(int col=0;col<6;col++)
+            for(int row=0;row<5;row++)
+            for(int col=0;col<7;col++)
             {
-                float ax=.18f+row*.23f;
-                float x=side*ax;
-                float y=2.17f-ax*.625f+.057f;
-                float z=-.875f+col*.35f+(row%2==0?0f:.03f);
-                Color color=((col+row*3)%5) switch
+                int seed=17+row*37+col*19+(side+1)*23;
+                float wobble=((seed%11)-5)*.004f;
+                float ax=.13f+row*.21f;
+                float z=-.91f+col*.303f+
+                    (row%2==0?-.012f:.017f)+wobble;
+                float y=2.17f-ax*.625f+.056f+wobble*.4f;
+                int tone=(row*13+col*7+(side+1)*3)%9;
+                Color straw=tone switch
                 {
-                    0=>ThatchDark,
-                    1=>ThatchLight,
+                    0 or 7=>ThatchDark,
+                    2 or 6=>ThatchLight,
                     _=>Thatch
                 };
-                b.Box(new(.272f,.042f,.36f),
-                    new(x,y,z),color,Mathf.DegToRad(side==-1?32f:-32f));
+                float width=.29f+((seed%5)-2)*.011f;
+                float length=.34f+((seed%7)-3)*.008f;
+                float fringe=.022f+((seed%6)*.008f);
+                b.ThatchBundle(new(side*ax,y,z),
+                    Mathf.DegToRad(side<0?32f:-32f),
+                    width,length,fringe,side,straw);
             }
         });
         Module("Roof_Ridge_and_Eave_Timbers",HouseStage.Roof,
@@ -285,20 +301,26 @@ public sealed partial class WoodenHouseArt3D : Node3D
         Module("Roof_Loose_Straw_Edges",HouseStage.Roof,
             HouseStage.Complete,false,b=>
         {
-            for(int i=0;i<10;i++)
+            // A broken fringe prevents an unnaturally razor-straight
+            // roof silhouette at both isometric distance and close zoom.
+            for(int side=-1;side<=1;side+=2)
+            for(int i=0;i<15;i++)
             {
-                float z=-.96f+i*.211f;
-                float drop=.055f+(i%3)*.031f;
-                foreach(float x in new[]{-.99f,.99f})
-                    b.Box(new(.044f,.11f+drop,.068f),
-                        new(x,1.48f-drop*.5f,z),
-                        i%3==0?ThatchLight:Thatch);
+                float z=-.99f+i*.142f;
+                float fall=.075f+((i*7+side+3)%5)*.019f;
+                float x=side*(1.043f+((i*3+5)%4)*.006f);
+                b.Box(new(.025f,.07f+fall,.052f),
+                    new(x,1.505f-fall*.44f,z),
+                    i%4==0?ThatchLight:i%3==0?ThatchDark:Thatch);
             }
-            for(int i=0;i<7;i++)
+            // Irregular hand-bound straw tied around the ridge.
+            for(int i=0;i<12;i++)
             {
-                float z=-.90f+i*.30f;
-                b.Box(new(.085f,.05f,.13f),new(0,2.25f,z),
-                    i%2==0?Thatch:ThatchLight);
+                float z=-1.03f+i*.185f;
+                float h=.032f+(i%4)*.011f;
+                b.Box(new(.13f,.045f+h,.14f),
+                    new((i%3-1)*.008f,2.235f+h*.2f,z),
+                    i%3==0?ThatchLight:Thatch);
             }
         });
 
@@ -320,6 +342,34 @@ public sealed partial class WoodenHouseArt3D : Node3D
                 new(0,2.13f,-.72f),Plaster);
             b.Triangle(new(.72f,1.74f,.72f),new(-.72f,1.74f,.72f),
                 new(0,2.13f,.72f),PlasterDark);
+
+            // Thin irregular color patches break perfectly flat plaster
+            // without normal maps, transparency or additional draw calls.
+            b.Triangle(new(.31f,.76f,.78f),new(.56f,.81f,.78f),
+                new(.47f,1.00f,.78f),PlasterLight);
+            b.Triangle(new(.40f,1.42f,.783f),new(.56f,1.38f,.783f),
+                new(.51f,1.58f,.783f),PlasterWear);
+            b.Triangle(new(-.62f,.80f,-.777f),new(-.45f,.87f,-.777f),
+                new(-.54f,1.06f,-.777f),PlasterWear);
+            b.Triangle(new(.25f,1.20f,-.777f),new(.46f,1.18f,-.777f),
+                new(.32f,1.41f,-.777f),PlasterLight);
+        });
+        Module("Walls_Gable_Handhewn_Timbers",HouseStage.Complete,
+            HouseStage.Complete,false,b=>
+        {
+            // Exposed oak outlines the wattle-filled gables and makes the
+            // roof triangle visible at isometric game distance.
+            foreach(float z in new[]{-.815f,.815f})
+            {
+                b.Beam(new(-.72f,1.74f,z),new(0,2.14f,z),
+                    .083f,TimberDark);
+                b.Beam(new(.72f,1.74f,z),new(0,2.14f,z),
+                    .083f,Timber);
+                b.Box(new(.068f,.37f,.07f),
+                    new(0,1.905f,z),TimberLight);
+                b.Box(new(.21f,.065f,.07f),
+                    new(0,1.79f,z),TimberDark);
+            }
         });
         Module("Walls_Timber_Laths",HouseStage.Complete,
             HouseStage.Complete,false,b=>
@@ -334,6 +384,13 @@ public sealed partial class WoodenHouseArt3D : Node3D
             foreach(float x in new[]{-.78f,.78f})
                 b.Box(new(.075f,.08f,1.49f),new(x,1.12f,0),TimberDark);
             b.Box(new(.63f,.16f,.15f),new(-.39f,1.47f,.80f),TimberDark);
+            // A few uneven laths show how this early house was hand built.
+            for(int i=0;i<4;i++)
+            {
+                float z=-.53f+i*.34f;
+                b.Box(new(.052f,.47f+((i%3)*.05f),.07f),
+                    new(-.81f,.93f,z),i%2==0?TimberLight:Timber);
+            }
         });
         Module("Entrance_Handmade_Oak_Door",HouseStage.Complete,
             HouseStage.Complete,true,b=>
@@ -351,6 +408,16 @@ public sealed partial class WoodenHouseArt3D : Node3D
             for(float y=.65f;y<=1.24f;y+=.54f)
                 b.Box(new(.06f,.075f,.055f),new(-.59f,y,.871f),Iron);
             b.Box(new(.065f,.065f,.05f),new(-.21f,.97f,.875f),Iron);
+            // Rough lintel, two slightly uneven wooden door jambs, and
+            // pinned iron hinges: legible shapes without a bright UI marker.
+            foreach(float x in new[]{-.69f,-.09f})
+                b.Box(new(.095f,1.24f,.10f),
+                    new(x,1.07f,.854f),TimberDark);
+            b.Box(new(.76f,.12f,.12f),new(-.39f,1.72f,.84f),TimberLight);
+            foreach(float y in new[]{.68f,1.17f})
+                b.Box(new(.17f,.038f,.043f),
+                    new(-.57f,y,.904f),Iron);
+            b.Box(new(.12f,.04f,.05f),new(-.21f,.97f,.910f),TimberLight);
         });
         Module("Windows_Timber_Shutters",HouseStage.Complete,
             HouseStage.Complete,false,b=>
@@ -365,30 +432,62 @@ public sealed partial class WoodenHouseArt3D : Node3D
             b.Box(new(.035f,.34f,.056f),new(.39f,1.15f,.855f),TimberLight);
             b.Box(new(.31f,.035f,.056f),new(.39f,1.15f,.856f),TimberLight);
             b.Box(new(.105f,.44f,.06f),new(.67f,1.15f,.832f),TimberDark);
+            b.Box(new(.46f,.07f,.17f),new(.39f,.91f,.88f),StoneLight);
+            b.Box(new(.10f,.40f,.075f),new(.12f,1.15f,.86f),TimberDark);
+            // Small wooden pegs holding the shutters in place.
+            foreach(float y in new[]{1.03f,1.29f})
+                b.Box(new(.029f,.027f,.035f),new(.67f,y,.871f),Iron);
             // Matching side window.
             b.Box(new(.032f,.32f,.32f),new(.794f,1.20f,-.10f),Glass);
             foreach(float z in new[]{-.31f,.11f})
                 b.Box(new(.07f,.43f,.055f),new(.817f,1.20f,z),Timber);
             foreach(float y in new[]{1.0f,1.4f})
                 b.Box(new(.07f,.055f,.44f),new(.817f,y,-.10f),TimberDark);
+            b.Box(new(.19f,.07f,.52f),new(.83f,.98f,-.10f),Stone);
+            b.Box(new(.035f,.33f,.05f),new(.85f,1.20f,-.10f),TimberLight);
         });
         Module("Village_One_Quiet_Details",HouseStage.Complete,
             HouseStage.Complete,false,b=>
         {
-            // Short rough stone flue: an early hearth, not a developed chimney.
-            b.Box(new(.26f,.63f,.28f),new(.45f,2.12f,-.45f),StoneDark);
-            b.Box(new(.31f,.09f,.32f),new(.45f,2.47f,-.45f),StoneLight);
-            b.Box(new(.17f,.018f,.17f),new(.45f,2.525f,-.45f),Mortar);
-            // Firewood stored at the sheltered side of the threshold.
+            // Layered stone flue with uneven mortar lines and dark throat;
+            // modest enough for an early peasant hearth, not a manor.
+            b.Box(new(.28f,.61f,.29f),new(.45f,2.13f,-.45f),StoneDark);
+            for(int i=0;i<4;i++)
+            {
+                float y=1.91f+i*.16f;
+                b.Box(new(.30f,.037f,.32f),new(.45f,y,-.45f),
+                    i%2==0?Stone:StoneLight);
+                b.Box(new(.10f,.12f,.045f),
+                    new(.40f+(i%2)*.10f,y+.071f,-.29f),
+                    i%2==0?StoneLight:Stone);
+            }
+            b.Box(new(.36f,.095f,.36f),new(.45f,2.49f,-.45f),StoneLight);
+            b.Box(new(.18f,.024f,.18f),new(.45f,2.544f,-.45f),Mortar);
+
+            // Firewood moved from behind the walls to an exposed dry stack.
+            // Small, readable silhouettes, no individual loose physics props.
+            for(int i=0;i<5;i++)
+            {
+                float z=-.34f+(i%3)*.19f;
+                float y=.37f+(i/3)*.115f;
+                b.Box(new(.29f,.095f,.13f),
+                    new(.92f,y,z),i%3==0?TimberLight:TimberDark);
+                b.Box(new(.025f,.075f,.07f),
+                    new(1.078f,y,z),i%2==0?Timber:TimberLight);
+            }
+            // A low storage chest sits beside, not in front of, the door.
+            b.Box(new(.33f,.24f,.31f),new(.56f,.43f,.95f),TimberDark);
+            b.Box(new(.37f,.058f,.34f),new(.56f,.58f,.95f),TimberLight);
+            b.Box(new(.035f,.075f,.05f),new(.56f,.48f,1.13f),Iron);
+
+            // Rough stepping stones link the door to the entrance tile.
             for(int i=0;i<3;i++)
             {
-                float z=-.04f+i*.20f;
-                b.Box(new(.42f,.105f,.13f),new(.55f,.43f,z),
-                    i==1?TimberDark:TimberLight);
+                float z=1.03f+i*.12f;
+                b.Box(new(.27f+(i%2)*.05f,.045f,.11f),
+                    new(-.39f+(i%2)*.025f,.028f,z),
+                    i%2==0?StoneLight:StoneDark);
             }
-            // A humble dark wooden storage chest by the cottage wall.
-            b.Box(new(.33f,.24f,.32f),new(.54f,.50f,-.48f),TimberDark);
-            b.Box(new(.36f,.055f,.35f),new(.54f,.65f,-.48f),TimberLight);
         });
     }
 
@@ -445,6 +544,36 @@ public sealed partial class WoodenHouseArt3D : Node3D
             Quad(v[0],v[4],v[7],v[3],Shade(color,.75f));
             Quad(v[7],v[6],v[2],v[3],Shade(color,1.06f));
             Quad(v[0],v[1],v[5],v[4],Shade(color,.68f));
+        }
+
+        /// <summary>
+        /// Closed, slightly drooping straw patch. The far edge has its own
+        /// uneven silhouette; both the upper face and its shallow underside
+        /// use real normals. All patches share the parent module surface.
+        /// </summary>
+        internal void ThatchBundle(Vector3 center,float slope,float width,
+            float depth,float fringe,int side,Color color)
+        {
+            float c=MathF.Cos(slope),sn=MathF.Sin(slope);
+            Vector3 Point(float u,float v,float z)=>
+                new(center.X+u*c-v*sn,
+                    center.Y+u*sn+v*c,center.Z+z);
+            float w=width*.5f,d=depth*.5f;
+            bool outerLeft=side<0;
+            float droop=fringe;
+            Vector3 a=Point(-w,.024f-(outerLeft?droop:0f),-d);
+            Vector3 b=Point(w,.032f-(!outerLeft?droop:0f),-d+.006f);
+            Vector3 c1=Point(w,.033f-(!outerLeft?droop*.76f:0f),d-.009f);
+            Vector3 d1=Point(-w,.027f-(outerLeft?droop*.78f:0f),d);
+            Vector3 down=Vector3.Down*.047f;
+            // Winding follows the outward normal of a roof face. The
+            // underside is reversed, avoiding accidentally dark tops.
+            Quad(d1,c1,b,a,color);
+            Quad(a+down,b+down,c1+down,d1+down,Shade(color,.66f));
+            Quad(a,a+down,b+down,b,Shade(color,.82f));
+            Quad(b,b+down,c1+down,c1,Shade(color,.78f));
+            Quad(c1,c1+down,d1+down,d1,Shade(color,.76f));
+            Quad(d1,d1+down,a+down,a,Shade(color,.73f));
         }
 
         internal void Beam(Vector3 from,Vector3 to,float thickness,Color color)

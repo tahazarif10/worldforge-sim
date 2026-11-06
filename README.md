@@ -6,6 +6,8 @@
 
 ### Generation 1 wooden house art — rustic cottage (2026-11-06)
 
+**Gen 1.1 update:** the same original cottage has a warmer and more irregular layered straw roof, rougher fieldstone masonry, stronger gable timber silhouette, clearer hand-made door/shutters, subtle plaster wear and now-visible outdoor logs/chest/entry stones. All detail is statically batched into the same stage-aware mesh/material system (one extra complete-stage module). No new upgrade gameplay, population or logic changes; use your Windows VisualLab to evaluate the appearance. No CI result was checked for this iteration.
+
 The first-generation housing **appearance only** is now a compact old-world hand-built cottage: stone foundation, timber frame, clay infill, layered warm thatch roof, small wooden door/shutters and simple homestead props. All existing houses use **one architectural archetype**, with modular geometry ready for future visually distinct upgrades; there is no upgrade mechanism yet. Detailed features are baked into 22 shared low-poly vertex-colored native mesh modules once per scene; no new Kenney dependency, per-frame house regeneration, or dynamic lights. The original Planned → Foundation → Frame → Roof → Complete progression remains and no simulation, save, camera, brush or terrain functionality is changed. This candidate is intentionally **not CI-checked** per the user's request; please review on your Windows GPU before accepting the art. See [ADR 0020](docs/decisions/0020-modular-first-generation-rustic-house.md).
 
 ## Start the approved 3D game (Windows, H: drive)
