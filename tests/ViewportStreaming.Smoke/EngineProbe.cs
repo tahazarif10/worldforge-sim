@@ -227,8 +227,7 @@ public partial class EngineProbe : Node
         world.Paint(treeX,treeZ,0,Terrain.Forest);
         terrain.MarkChanged(treeX,treeZ,0,coastlineChanged:false);
         terrain.PresentLiveBrushPreview(3);
-        var liveRoot=terrain.GetNodeOrNull<Node3D>(
-            $"FoliageBatches/LiveNature_{treeKey.Item1}_{treeKey.Item2}") ??
+        var liveRoot=terrain.LiveNatureNodeAt(treeX,treeZ) ??
             throw new InvalidOperationException("Native live Kenney foliage node missing.");
         bool hasNativeBatch=liveRoot.GetChildren().OfType<MultiMeshInstance3D>()
             .Any(node=>node.Name.ToString().StartsWith("LiveCC0_") &&

@@ -359,6 +359,12 @@ public partial class VisualTerrain3D
     }
 
     // Small read-only diagnostics for native in-engine parity tests.
+    // Always return the CURRENT active root, not a same-named queued-for-
+    // deletion scene node from a previous stroke in this render frame.
+    internal Node3D? LiveNatureNodeAt(int x,int y) =>
+        _liveNature.TryGetValue((x/ChunkSize,y/ChunkSize),out var chunk)
+            ? chunk.Root : null;
+
     internal int LiveNatureSpeciesAt(int x,int y)
     {
         if(!_liveNature.TryGetValue((x/ChunkSize,y/ChunkSize),out var chunk))
