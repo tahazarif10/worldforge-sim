@@ -49,6 +49,11 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-06 — Shelter footprint collision and real slope validation (bugfix candidate)
+
+The one-house construction pilot now treats its 2×2 footprint as non-walkable to spawning and both resource/home pathfinders, while leaving the entrance tile traversable. Placement rejects plots under living citizens and any site exceeding 0.30 terrain-height variation across the nine shared 2×2 ground corners, or with an inaccessible step to the door. The VisualLab supplies a pure numeric callback to the authoritative WorldSim from the approved editable V2 terrain height; terrain Sculpt edits recheck an existing structure. The foundation is anchored to the highest sampled corner, avoiding soil clipping caused by the old averaged height. Existing camera, Kenney, rigged animation, brush behavior and world map stay unchanged. Dedicated HouseSmoke verifies footprint, entrance, occupied-site, steep-slope and after-sculpt invalidation. Visual Windows acceptance is pending.
+
+
 ## 2026-11-06 — Inventory ledger correctness (scoped bugfix; host validation pending)
 
 Lifetime `WorldResources.WoodCollected/FoodCollected` counters are **not** on-hand inventory. In the manual V2 HUD, current available wood/food now comes from living citizens' carried amounts plus explicitly tracked manual-Gather debug chest stock, with lifetime harvest shown separately. The WorldSim `WorldInventory` ledger also reconciles invested lumber, demolished-house lumber, food consumed by living/deceased citizens and food/wood dropped when a citizen dies (meteor, water paint or old age). Removed persons release reservations and completed-house occupancy is recalculated. Pure-core tests assert resource conservation through gathering, consumption, manual debug collection and death. No materials have been invented/refunded and no V2 camera, graphics or animation was changed. Remaining physical Windows acceptance follows the usual project gate.
