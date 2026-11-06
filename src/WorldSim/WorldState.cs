@@ -59,7 +59,15 @@ public sealed partial class WorldState
     public int PopulationLimit { get; set; } = 600;
     public bool Contains(int x, int y) => x >= 0 && x < Width && y >= 0 && y < Height;
     public Terrain Tile(int x, int y) => Contains(x, y) ? _tiles[y * Width + x] : throw new ArgumentOutOfRangeException(nameof(x));
-    public bool Walkable(int x, int y) => Contains(x, y) && _tiles[y * Width + x] is not (Terrain.DeepWater or Terrain.ShallowWater or Terrain.Mountain);
+    public bool Walkable(int x,int y)
+    {
+        if(!Contains(x,y) ||
+            _tiles[y*Width+x] is Terrain.DeepWater or Terrain.ShallowWater or Terrain.Mountain)
+            return false;
+        WoodenHouse? house=FirstHouse;
+        return house is null || x<house.X || x>=house.X+2 ||
+            y<house.Y || y>=house.Y+2;
+    }
 
     public void Paint(int cx, int cy, int radius, Terrain kind)
     {

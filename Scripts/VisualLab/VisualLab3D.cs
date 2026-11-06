@@ -174,6 +174,9 @@ public partial class VisualLab3D : Node3D
             ? new RegionMirrorTerrainSource(_world, maxResidentRegions: 8)
             : new DirectWorldTerrainSource(_world);
         _terrain.BindWorld(_world, _tileSource);
+        if(_world.AutonomousHousingEnabled)
+            _world.ConfigureHouseSurface(
+                (x,z,u,v)=>_terrain.SurfaceHeightAt(x,z,u,v));
         _citizens.Bind(_world, _terrain);
         _resourceArt.BindWorld(_world, _terrain, _camera);
         _houseArt.BindWorld(_world,_terrain,_camera);
@@ -617,6 +620,8 @@ public partial class VisualLab3D : Node3D
             float deltaHeight = Input.IsKeyPressed(Key.Shift) ? -0.10f : 0.10f;
             if (_terrain.SculptElevation(x, y, _radius, deltaHeight) > 0)
             {
+                if(_world.AutonomousHousingEnabled)
+                    _world.RecheckHouseSurface();
                 if (_paintStrokeActive) _paintStrokeActorsDirty = true;
                 else UpdateActors();
             }

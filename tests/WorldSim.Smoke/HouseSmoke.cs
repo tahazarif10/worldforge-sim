@@ -95,6 +95,38 @@ internal static class HouseSmoke
                     (p.Id,p.X,p.Y,p.Hunger,p.Energy,p.WoodCarried,p.HomeId,p.Activity))),
             "same-seed world replays placement, building, delivery and residents identically");
 
+        Require(!b.Walkable(replay.X,replay.Y) &&
+            !b.Walkable(replay.X+1,replay.Y+1) &&
+            b.Walkable(replay.EntranceX,replay.EntranceY),
+            "completed house blocks full 2x2 footprint while leaving door accessible");
+        b.ConfigureHouseSurface((x,y,u,v)=>.65f);
+        Require(b.FirstHouse is not null &&
+            Math.Abs(b.FirstHouse.GroundHeight-.65f)<.001f,
+            "safe level terrain places the foundation above ground");
+        // A sharp sculpt across the existing house must invalidate it.
+        b.ConfigureHouseSurface((x,y,u,v)=>
+            x>=replay.X+1 ? 1.65f : .65f);
+        Require(b.FirstHouse is null &&
+            b.HouseWoodLost==replay.WoodDelivered &&
+            b.People.All(p=>p.HomeId==0),
+            "sharp foundation grade destroys invalid structure without refunding logs");
+
+        var buildingZone=new WorldState(48,48,20261106);
+        buildingZone.Paint(24,24,14,Terrain.Grass);
+        buildingZone.ConfigureHouseSurface((x,y,u,v)=>.63f);
+        var valid=Enumerable.Range(1,buildingZone.Width-4)
+            .SelectMany(x=>Enumerable.Range(1,buildingZone.Height-4)
+                .Select(y=>(x,y)))
+            .First(p=>buildingZone.CanPlaceHouseAt(p.x,p.y));
+        Require(buildingZone.Spawn(valid.x,valid.y),
+            "fixture can spawn on clear ground before placing a house");
+        Require(!buildingZone.CanPlaceHouseAt(valid.x,valid.y),
+            "a first-house plot is rejected when a person occupies its floor");
+        buildingZone.ConfigureHouseSurface((x,y,u,v)=>
+            x>=valid.x+1 ? 1.65f : .63f);
+        Require(!buildingZone.CanPlaceHouseAt(valid.x,valid.y),
+            "steep 2x2 ground is rejected independently of camera or Godot");
+
         int invested=finished.WoodDelivered;
         a.Paint(finished.X,finished.Y,0,Terrain.DeepWater);
         Require(a.FirstHouse is null && a.CompletedHouseCount==0 &&
