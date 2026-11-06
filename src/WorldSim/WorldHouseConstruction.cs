@@ -19,6 +19,7 @@ public sealed class WoodenHouse(int id,int x,int y,long foundedAt)
     public int EntranceX => X;
     public int EntranceY => Y+2;
     public long FoundedAt { get; }=foundedAt;
+    public float GroundHeight { get; internal set; }
     public HouseStage Stage { get; internal set; }=HouseStage.Planned;
     public int WoodDelivered { get; internal set; }
     public int WorkDone { get; internal set; }
@@ -47,6 +48,21 @@ public sealed partial class WorldState
     private const int HouseJobDuration=4;
     private const int HomeRestTicks=12;
     private long _nextHousePlacementTick;
+    // A terrain-height sampler is supplied by the approved V2 renderer. The
+    // core only sees numeric surface samples and remains Godot-independent.
+    // Unconfigured simulation fixtures model flat terrain at height zero.
+    private Func<int,int,float,float,float>? _houseSurface;
+    private const float MaxHouseElevationDifference=.30f;
+    private const float MaxDoorElevationDifference=.52f;
+
+    public void ConfigureHouseSurface(Func<int,int,float,float,float> sampler)
+    {
+        _houseSurface=sampler??throw new ArgumentNullException(nameof(sampler));
+        InvalidateFirstHouseIfNecessary();
+    }
+
+    public void RecheckHouseSurface() => InvalidateFirstHouseIfNecessary();
+    public bool CanPlaceHouseAt(int x,int y) => IsValidHousePlot(x,y);
 
     private static int NextWoodThreshold(HouseStage stage) => stage switch
     {
@@ -95,6 +111,35 @@ public sealed partial class WorldState
             if(Tile(x+dx,y+dy)!=Terrain.Grass ||
                 Resources.At(x+dx,y+dy).Kind!=ResourceKind.None)
                 return false;
+        // Never place a new structure on top of an existing person.
+        // Once placed, WorldState.Walkable also blocks this footprint.
+        if(FirstHouse is null && People.Exists(p=>
+            p.X>=x && p.X<x+2 && p.Y>=y && p.Y<y+2))
+            return false;
+        return TryHouseElevation(x,y,out _);
+    }
+
+    private bool TryHouseElevation(int x,int y,out float top)
+    {
+        top=0f;
+        if(_houseSurface is null)return true;
+        float minimum=float.PositiveInfinity,maximum=float.NegativeInfinity;
+        // Four shared terrain corners per tile across the 2x2 foundation.
+        // Comparing nine unique physical corners rejects both cliffs and
+        // locally uneven ground without sampling a rendered mesh.
+        for(int dz=0;dz<=2;dz++)
+        for(int dx=0;dx<=2;dx++)
+        {
+            float height=_houseSurface(x+dx,y+dz,0f,0f);
+            if(!float.IsFinite(height))return false;
+            minimum=Math.Min(minimum,height);
+            maximum=Math.Max(maximum,height);
+        }
+        float door=_houseSurface(x,y+2,.5f,.5f);
+        if(!float.IsFinite(door) || maximum-minimum>MaxHouseElevationDifference ||
+            Math.Abs(door-maximum)>MaxDoorElevationDifference)
+            return false;
+        top=maximum;
         return true;
     }
 
@@ -113,7 +158,11 @@ public sealed partial class WorldState
             if(Math.Abs(dx)+Math.Abs(dy)!=radius)continue;
             int x=anchor.X+dx,y=anchor.Y+dy;
             if(!IsValidHousePlot(x,y))continue;
-            FirstHouse=new WoodenHouse(_nextHouseId++,x,y,Tick);
+            if(!TryHouseElevation(x,y,out float top))continue;
+            FirstHouse=new WoodenHouse(_nextHouseId++,x,y,Tick)
+            {
+                GroundHeight=top
+            };
             HouseRevision++;
             return;
         }
