@@ -17,7 +17,9 @@ public sealed partial class WorldState
         {
             int count=0;
             foreach(Citizen citizen in People)
-                if(citizen.Activity is CitizenActivity.Picking or CitizenActivity.Chopping)
+                if(citizen.Activity is CitizenActivity.Picking or
+                    CitizenActivity.Chopping or CitizenActivity.Delivering or
+                    CitizenActivity.Building)
                     count++;
             return count;
         }
@@ -28,6 +30,7 @@ public sealed partial class WorldState
     private const int MaxDistanceFromStart=22;
     private const int ChopDurationTicks=7;
     private const int PickDurationTicks=5;
+    private const int MaxWoodCarry=4;
     private readonly Dictionary<int,int> _reservedResources=new();
 
     private void CleanupResourceReservations()
@@ -51,6 +54,7 @@ public sealed partial class WorldState
         citizen.RouteIndex=0;
         citizen.WorkTicks=0;
         citizen.Activity=CitizenActivity.Idle;
+        citizen.Role=CitizenRole.None;
     }
 
     private void AdvanceCitizenJobs()
@@ -129,8 +133,20 @@ public sealed partial class WorldState
                 }
             }
             searches++;
-            ResourceKind first=person.Hunger>=40 ? ResourceKind.Food : ResourceKind.Wood;
-            ResourceKind second=first==ResourceKind.Food?ResourceKind.Wood:ResourceKind.Food;
+            // Shared house demand wins when reasonably fed. Citizens with
+            // enough carried logs stop indiscriminately cutting more forest.
+            // When no more wood is needed, a portion become foragers rather
+            // than all four searching the same tree/resource category.
+            bool needHouseWood=AutonomousHousingEnabled &&
+                FirstHouse is {Stage: not HouseStage.Complete} construction &&
+                construction.WoodDelivered<NextWoodThreshold(construction.Stage);
+            ResourceKind first=person.Hunger>=70 || person.WoodCarried>=MaxWoodCarry
+                ? ResourceKind.Food
+                : needHouseWood ? ResourceKind.Wood
+                : person.Hunger>=35 || person.Id%3!=0
+                    ? ResourceKind.Food : ResourceKind.Wood;
+            ResourceKind second=first==ResourceKind.Food
+                ? ResourceKind.Wood : ResourceKind.Food;
             if(!TryAssignNearestResource(person,first) &&
                 !TryAssignNearestResource(person,second))
                 person.NextPlanTick=Tick+12;
@@ -166,7 +182,7 @@ public sealed partial class WorldState
             // Continue chopping one reserved tree until it is exhausted,
             // unless hunger is urgent. Every hit consumes fixed ticks.
             if(gathered.Kind==ResourceKind.Wood && gathered.Remaining>0 &&
-                citizen.Hunger<82)
+                citizen.WoodCarried<MaxWoodCarry && citizen.Hunger<82)
             {
                 BeginWork(citizen);
                 return;
@@ -183,6 +199,8 @@ public sealed partial class WorldState
     /// </summary>
     private bool TryAssignNearestResource(Citizen person,ResourceKind kind)
     {
+        if(kind==ResourceKind.Wood && person.WoodCarried>=MaxWoodCarry)
+            return false;
         int origin=person.Y*Width+person.X;
         var queue=new Queue<int>(256);
         var previous=new Dictionary<int,int>(512){{origin,-1}};
@@ -230,6 +248,8 @@ public sealed partial class WorldState
         person.Route.AddRange(path);
         person.RouteIndex=0;
         person.Activity=CitizenActivity.Walking;
+        person.Role=kind==ResourceKind.Food
+            ? CitizenRole.Forager : CitizenRole.Woodcutter;
         return true;
     }
 }

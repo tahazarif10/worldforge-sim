@@ -49,6 +49,11 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-06 — Coordinated jobs and inventory-driven carrying visuals (bugfix candidate)
+
+The first-house AI now assigns explicit forager, woodcutter, hauler, builder and resident duties. Per-house active role quotas limit builders and haulers to two each, and they use separate door-side work tiles rather than overlapping a single exact location. Resource choices prefer necessary lumber during unfinished construction unless genuinely hungry, avoid over-harvesting when four logs are carried and do not send everybody to the same wood site once construction lumber requirements are met. The previously approved Idle/Walk/Chop/Pick/Build clips remain unchanged. Only the visibility trigger of the existing carried logs changes: logs remain visible while walking/queuing/handing off **when and only when** the citizen actually holds wood. Core house smoke bounds roles and carry quantities; native Godot probe checks visible logs throughout travel and disappearance on handoff. General village-wide management and interpersonal physics remain out of scope, pending later user approval. Windows screenshot acceptance is still pending.
+
+
 ## 2026-11-06 — Shelter footprint collision and real slope validation (bugfix candidate)
 
 The one-house construction pilot now treats its 2×2 footprint as non-walkable to spawning and both resource/home pathfinders, while leaving the entrance tile traversable. Placement rejects plots under living citizens and any site exceeding 0.30 terrain-height variation across the nine shared 2×2 ground corners, or with an inaccessible step to the door. The VisualLab supplies a pure numeric callback to the authoritative WorldSim from the approved editable V2 terrain height; terrain Sculpt edits recheck an existing structure. The foundation is anchored to the highest sampled corner, avoiding soil clipping caused by the old averaged height. Existing camera, Kenney, rigged animation, brush behavior and world map stay unchanged. Dedicated HouseSmoke verifies footprint, entrance, occupied-site, steep-slope and after-sculpt invalidation. Visual Windows acceptance is pending.

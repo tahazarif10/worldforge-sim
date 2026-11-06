@@ -6,6 +6,7 @@ namespace WorldSim;
 public enum Terrain : byte { DeepWater, ShallowWater, Sand, Grass, Forest, Mountain, Burned }
 
 public enum CitizenActivity : byte { Idle, Walking, Picking, Chopping, Delivering, Building, Resting }
+public enum CitizenRole : byte { None, Forager, Woodcutter, Hauler, Builder, Resident }
 
 public sealed class Citizen(int id, int x, int y, long bornAt)
 {
@@ -14,6 +15,7 @@ public sealed class Citizen(int id, int x, int y, long bornAt)
     public int Y { get; internal set; } = y;
     public long BornAt { get; } = bornAt;
     public CitizenActivity Activity { get; internal set; }
+    public CitizenRole Role { get; internal set; }
     public int Hunger { get; internal set; } = 60;
     public int FoodCarried { get; internal set; }
     public int FoodEaten { get; internal set; }
@@ -21,6 +23,7 @@ public sealed class Citizen(int id, int x, int y, long bornAt)
     public int HomeId { get; internal set; }
     public int Energy { get; internal set; } = 85;
     internal HouseJob HouseTask;
+    internal int HouseWorkX,HouseWorkY;
 
     // Small transient job plan, indexed by stable global resource site ID.
     internal readonly List<int> Route=new();

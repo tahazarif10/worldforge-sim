@@ -389,14 +389,22 @@ public partial class EngineProbe : Node
             var hammer=rig.GetNode<Node3D>(
                 "Skeleton3D/ConstructionToolMount/BuildHammer");
             rig.Present(new Vector2(3.5f,3.5f),0f,.61f,1f,.08f,1,
-                CitizenActivity.Delivering);
+                CitizenActivity.Walking,carriedWood:2);
             Require(logs.Visible && !hammer.Visible && !axe.Visible,
-                "carrying wood shows real rendered logs without switching walking clips");
+                "citizen visibly carries harvested logs throughout the walk");
+            rig.Present(new Vector2(3.5f,3.5f),0f,.61f,1f,.08f,1,
+                CitizenActivity.Delivering,carriedWood:2);
+            Require(logs.Visible && !hammer.Visible && !axe.Visible,
+                "logs remain visible at the delivery location until stock changes");
             rig.Present(new Vector2(3.5f,3.5f),0f,.61f,0f,.08f,1,
-                CitizenActivity.Building);
+                CitizenActivity.Building,carriedWood:0);
             Require(hammer.Visible && !logs.Visible && !axe.Visible &&
                 world.Tick==beforeActionTick,
-                "construction shows hammer and stays entirely render-only");
+                "building shows hammer after real wood handoff, never fabricating logs");
+            rig.Present(new Vector2(3.5f,3.5f),0f,.61f,1f,.08f,1,
+                CitizenActivity.Walking,carriedWood:0);
+            Require(!logs.Visible,
+                "citizen with empty personal inventory carries no visible logs");
             Require(tree.Active &&
                 tree.TreeRoot is AnimationNodeBlendSpace1D,
                 "Godot AnimationTree blends the two skeletal clips");
