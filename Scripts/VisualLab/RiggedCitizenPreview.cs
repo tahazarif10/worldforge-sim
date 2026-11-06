@@ -27,6 +27,8 @@ internal sealed partial class RiggedCitizenPreview : Node3D
     private float _previousYaw;
     private MeshInstance3D _visual = null!;
     private Node3D _axe = null!;
+    private Node3D _lumber = null!;
+    private Node3D _hammer = null!;
     private static AnimationLibrary? _sharedClips;
 
     // Set before AddChild: animation and clothing are deterministic by ID.
@@ -61,6 +63,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         };
         AddChild(_visual);
         BuildWoodcuttingAxe();
+        BuildConstructionProps();
 
         _player = new AnimationPlayer
         {
@@ -73,7 +76,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
 
         var blendSpace = new AnimationNodeBlendSpace1D
         {
-            MinSpace=0f,MaxSpace=3f
+            MinSpace=0f,MaxSpace=4f
         };
         blendSpace.AddBlendPoint(
             new AnimationNodeAnimation {Animation = new StringName("Idle")},0f,
@@ -87,6 +90,9 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         blendSpace.AddBlendPoint(
             new AnimationNodeAnimation {Animation=new StringName("Chop")},3f,
             -1,new StringName("Chop"));
+        blendSpace.AddBlendPoint(
+            new AnimationNodeAnimation {Animation=new StringName("Build")},4f,
+            -1,new StringName("Build"));
         // Default NONE freezes an inactive walk clip and repeatedly restarts
         // the first few poses during short grid steps. Keep both timelines
         // advancing through crossfades instead.
@@ -167,6 +173,8 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         _gaitPhase=0f;
         _blend=0f;
         _axe.Visible=false;
+        _lumber.Visible=false;
+        _hammer.Visible=false;
         _tree.Set("parameters/blend_position",0f);
         // Offset independent idle phases without extra character resources.
         _tree.Advance((id*2.399963f)%IdleLength);
@@ -215,6 +223,68 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         });
     }
 
+    private void BuildConstructionProps()
+    {
+        // A small log bundle is attached to the right forearm while carrying
+        // actual wood; the existing rig and meshes are never remodelled.
+        var mount=new BoneAttachment3D
+        {
+            Name="ConstructionToolMount",BoneName="forearm.R"
+        };
+        _skeleton.AddChild(mount);
+        _lumber=new Node3D
+        {
+            Name="CarriedWood",Position=new Vector3(0,-.24f,.11f),
+            Visible=false
+        };
+        mount.AddChild(_lumber);
+        var logMaterial=new StandardMaterial3D
+        {
+            AlbedoColor=new Color("#9b693f"),Roughness=1f
+        };
+        for(int i=0;i<2;i++)
+            _lumber.AddChild(new MeshInstance3D
+            {
+                Name="WoodLog",Mesh=new CylinderMesh
+                {
+                    Height=.35f,TopRadius=.055f,BottomRadius=.055f,
+                    RadialSegments=6
+                },
+                Position=new Vector3((i==0?-.065f:.065f),0,0),
+                Rotation=new Vector3(Mathf.Pi*.5f,0,0),
+                MaterialOverride=logMaterial,
+                CastShadow=GeometryInstance3D.ShadowCastingSetting.Off
+            });
+
+        _hammer=new Node3D
+        {
+            Name="BuildHammer",Position=new Vector3(0,-.24f,.07f),
+            Visible=false
+        };
+        mount.AddChild(_hammer);
+        _hammer.AddChild(new MeshInstance3D
+        {
+            Name="Handle",Mesh=new CylinderMesh
+            {
+                Height=.25f,TopRadius=.019f,BottomRadius=.021f,
+                RadialSegments=6
+            },
+            Position=new Vector3(0,.035f,0),
+            MaterialOverride=logMaterial,
+            CastShadow=GeometryInstance3D.ShadowCastingSetting.Off
+        });
+        _hammer.AddChild(new MeshInstance3D
+        {
+            Name="Head",Mesh=new BoxMesh {Size=new Vector3(.17f,.055f,.075f)},
+            Position=new Vector3(0,.15f,0),
+            MaterialOverride=new StandardMaterial3D
+            {
+                AlbedoColor=new Color("#8c9396"),Roughness=.89f
+            },
+            CastShadow=GeometryInstance3D.ShadowCastingSetting.Off
+        });
+    }
+
     public void SetEcoMode(bool eco)
     {
         _visual.CastShadow=eco
@@ -234,9 +304,12 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         {
             CitizenActivity.Picking=>2f,
             CitizenActivity.Chopping=>3f,
+            CitizenActivity.Building=>4f,
             _=>Mathf.Clamp(movementBlend,0f,1f)
         };
         _axe.Visible=simulationSpeed>0 && activity==CitizenActivity.Chopping;
+        _lumber.Visible=activity==CitizenActivity.Delivering;
+        _hammer.Visible=simulationSpeed>0 && activity==CitizenActivity.Building;
         // Exponential damping avoids a fixed-speed, hard-edged transition.
         // Starting a step responds faster than settling back to idle.
         float blendRate=desired>_blend?10f:5.5f;
@@ -280,6 +353,7 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         clips.AddAnimation("Walk",MakeWalkAnimation());
         clips.AddAnimation("Pick",MakePickAnimation());
         clips.AddAnimation("Chop",MakeChopAnimation());
+        clips.AddAnimation("Build",MakeBuildAnimation());
         return clips;
     }
 
@@ -391,6 +465,25 @@ internal sealed partial class RiggedCitizenPreview : Node3D
         HipsPositionKeys(clip,
             [0f,-.006f,-.01f,0f,.01f,.004f,0f],
             [.58f,.586f,.59f,.55f,.54f,.567f,.58f],.76f);
+        return clip;
+    }
+
+    private static Animation MakeBuildAnimation()
+    {
+        var clip=CreateClip(.79f);
+        RotationKeys(clip,"upper_arm.R",Vector3.Right,
+            [-32f,-65f,-88f,-28f,8f,-12f,-32f]);
+        RotationKeys(clip,"forearm.R",Vector3.Right,
+            [30f,44f,53f,22f,18f,25f,30f]);
+        RotationKeys(clip,"upper_arm.L",Vector3.Right,
+            [-9f,-14f,-12f,-7f,-5f,-8f,-9f]);
+        RotationKeys(clip,"spine",Vector3.Right,
+            [3f,0f,-5f,10f,13f,8f,3f]);
+        RotationKeys(clip,"neck",Vector3.Right,
+            [-5f,-4f,0f,-8f,-8f,-5f,-5f]);
+        HipsPositionKeys(clip,
+            [0f,-.004f,-.007f,0f,.008f,.004f,0f],
+            [.58f,.584f,.584f,.562f,.56f,.57f,.58f],.79f);
         return clip;
     }
 

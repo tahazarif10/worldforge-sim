@@ -39,6 +39,7 @@ public partial class EngineProbe : Node
             GetWindow().ContentScaleMode=Window.ContentScaleModeEnum.Disabled;
             await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
             ExerciseGatherResources(lab,terrain,camera);
+            ExerciseFirstHouseArt(lab,terrain,camera);
             ExerciseCitizenArt(lab);
             ExerciseRiggedCitizenPreview(lab,terrain);
             ExercisePicking(lab,terrain,camera);
@@ -56,6 +57,74 @@ public partial class EngineProbe : Node
             GD.PushError("WORKER ENGINE FAILED: "+ex);
             GetTree().Quit(1);
         }
+    }
+
+    private static void ExerciseFirstHouseArt(VisualLab3D lab,
+        VisualTerrain3D terrain,Godot.Camera3D camera)
+    {
+        var original=(WorldState)typeof(VisualLab3D)
+            .GetField("_world",Hidden)!.GetValue(lab)!;
+        var art=lab.GetNode<WoodenHouseArt3D>("FirstWoodenHouse");
+        Require(art.RenderedHouseId==0,
+            "raw VisualLab without --citizen-housing preserves original scene baseline");
+        var fixture=new WorldState(96,96,20261106)
+        {
+            AutonomousGatheringEnabled=true,AutonomousHousingEnabled=true,
+            PopulationLimit=4
+        };
+        fixture.Paint(48,48,20,Terrain.Grass);
+        fixture.Paint(48,48,8,Terrain.Forest);
+        Require(fixture.Spawn(48,48)&&fixture.Spawn(49,49),
+            "house art fixture has two real citizens");
+        var firstTree=Enumerable.Range(0,fixture.Width*fixture.Height)
+            .Select(i=>(X:i%fixture.Width,Y:i/fixture.Width,
+                Deposit:fixture.Resources.At(i%fixture.Width,i/fixture.Width)))
+            .First(p=>p.Deposit.Kind==ResourceKind.Wood);
+        Require(fixture.TryGather(firstTree.X,firstTree.Y,out _) &&
+            fixture.TryGather(firstTree.X,firstTree.Y,out _),
+            "two harvested logs allow villagers to locate their first house plot");
+        fixture.Advance();
+        WoodenHouse house=fixture.FirstHouse ??
+            throw new InvalidOperationException("A grass plot was not selected near villagers.");
+        var rig=(StrategyCameraRig)typeof(VisualLab3D)
+            .GetField("_cameraRig",Hidden)!.GetValue(lab)!;
+        var previousPose=rig.ReviewPose;
+        try
+        {
+            rig.RestoreReviewPose(new CameraReviewPose(house.X+1,house.Y+1,19f));
+            art.BindWorld(fixture,terrain,camera);
+            art.RefreshNow();
+            Require(art.RenderedHouseId==house.Id &&
+                art.RenderedStage==HouseStage.Planned &&
+                art.ActivePartCount>=4 &&
+                art.GetNode<Node3D>("HouseModel").Visible,
+                "planned hut draws only survey markers on the existing camera view");
+
+            var setter=typeof(WoodenHouse).GetProperty("Stage")!
+                .GetSetMethod(true)!;
+            int lastParts=art.ActivePartCount;
+            foreach(HouseStage stage in new[]{
+                HouseStage.Foundation,HouseStage.Frame,HouseStage.Roof,
+                HouseStage.Complete})
+            {
+                setter.Invoke(house,[stage]);
+                art.RefreshNow();
+                Require(art.RenderedStage==stage &&
+                    art.ActivePartCount>=5 &&
+                    (stage==HouseStage.Foundation || art.ActivePartCount>lastParts),
+                    "foundation replaces survey stakes, then frame, roof and walls add geometry");
+                lastParts=art.ActivePartCount;
+            }
+            Require(art.ActivePartCount>12,
+                "complete first hut uses visible low-poly wood/roof meshes, not one placeholder");
+        }
+        finally
+        {
+            art.BindWorld(original,terrain,camera);
+            rig.RestoreReviewPose(previousPose);
+        }
+        GD.Print("PASS HOUSE ENGINE: planned/foundation/frame/roof/complete geometry " +
+            "and unchanged original VisualLab housing default");
     }
 
     private static void ExerciseGatherResources(VisualLab3D lab,
@@ -302,6 +371,9 @@ public partial class EngineProbe : Node
                 player.GetAnimation("Pick").GetTrackCount()>=5 &&
                 player.GetAnimation("Chop").GetTrackCount()>=5,
                 "shared skeleton adds authored food-pick and tree-chopping clips");
+            Require(player.HasAnimation("Build") &&
+                player.GetAnimation("Build").GetTrackCount()>=5,
+                "builders have an independently authored hammering animation");
             var axe=rig.GetNode<Node3D>(
                 "Skeleton3D/WoodcuttingToolMount/WoodcuttingAxe");
             long beforeActionTick=world.Tick;
@@ -312,6 +384,19 @@ public partial class EngineProbe : Node
                 CitizenActivity.Picking);
             Require(!axe.Visible && world.Tick==beforeActionTick,
                 "berry picking hides axe and all action clips are visual-only");
+            var logs=rig.GetNode<Node3D>(
+                "Skeleton3D/ConstructionToolMount/CarriedWood");
+            var hammer=rig.GetNode<Node3D>(
+                "Skeleton3D/ConstructionToolMount/BuildHammer");
+            rig.Present(new Vector2(3.5f,3.5f),0f,.61f,1f,.08f,1,
+                CitizenActivity.Delivering);
+            Require(logs.Visible && !hammer.Visible && !axe.Visible,
+                "carrying wood shows real rendered logs without switching walking clips");
+            rig.Present(new Vector2(3.5f,3.5f),0f,.61f,0f,.08f,1,
+                CitizenActivity.Building);
+            Require(hammer.Visible && !logs.Visible && !axe.Visible &&
+                world.Tick==beforeActionTick,
+                "construction shows hammer and stays entirely render-only");
             Require(tree.Active &&
                 tree.TreeRoot is AnimationNodeBlendSpace1D,
                 "Godot AnimationTree blends the two skeletal clips");
