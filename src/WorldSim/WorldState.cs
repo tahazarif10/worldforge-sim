@@ -37,6 +37,9 @@ public sealed partial class WorldState
 {
     private readonly Terrain[] _tiles;
     private readonly Random _rng;
+    // Legacy raw-scene random behavior stays on System.Random. The opt-in
+    // living-world AI uses an explicit replayable PRNG for save/load parity.
+    private uint _aiPopulationRandomState;
     private int _nextId = 1;
 
     public WorldState(int width, int height, int seed)
@@ -48,6 +51,8 @@ public sealed partial class WorldState
         Seed = seed;
         _tiles = new Terrain[width * height];
         _rng = new Random(seed);
+        _aiPopulationRandomState=unchecked((uint)seed ^ 0x9E3779B9u);
+        if(_aiPopulationRandomState==0)_aiPopulationRandomState=0x6D2B79F5u;
         People = new List<Citizen>();
         Generate();
         Resources = new WorldResources(width, height, seed, Tile);
@@ -139,9 +144,16 @@ public sealed partial class WorldState
             int count = Math.Min(People.Count, 60);
             for (int i = 0; i < count && People.Count < PopulationLimit; i++)
             {
-                if (_rng.NextDouble() > 0.06) continue;
-                Citizen p = People[_rng.Next(count)];
-                Spawn(p.X + _rng.Next(-2, 3), p.Y + _rng.Next(-2, 3));
+                bool spawn=AutonomousGatheringEnabled
+                    ? NextAiFraction()<=.06 : _rng.NextDouble()<=.06;
+                if(!spawn)continue;
+                Citizen p=People[AutonomousGatheringEnabled
+                    ? NextAiInt(count) : _rng.Next(count)];
+                int dx=AutonomousGatheringEnabled
+                    ? NextAiInt(5)-2 : _rng.Next(-2,3);
+                int dy=AutonomousGatheringEnabled
+                    ? NextAiInt(5)-2 : _rng.Next(-2,3);
+                Spawn(p.X+dx,p.Y+dy);
             }
         }
         if (Tick % 60 == 0) RemoveCitizens(p=>Tick-p.BornAt>3500);
