@@ -263,7 +263,7 @@ public sealed partial class WoodenHouseArt3D : Node3D
                 float x=side*ax;
                 float y=2.17f-ax*.625f+.057f;
                 float z=-.875f+col*.35f+(row%2==0?0f:.03f);
-                Color color=(col+row*3)%5 switch
+                Color color=((col+row*3)%5) switch
                 {
                     0=>ThatchDark,
                     1=>ThatchLight,
