@@ -24,6 +24,7 @@ public partial class VisualLab3D : Node3D
     private VisualTerrain3D _terrain = null!;
     private CitizenArt3D _citizens = null!;
     private ResourceArt3D _resourceArt = null!;
+    private WoodenHouseArt3D _houseArt = null!;
     private Godot.Camera3D _camera = null!;
     private DirectionalLight3D _sun = null!;
     private GameHud _hud = null!;
@@ -61,6 +62,8 @@ public partial class VisualLab3D : Node3D
         AddChild(_citizens);
         _resourceArt = new ResourceArt3D { Name = "BerryResources" };
         AddChild(_resourceArt);
+        _houseArt = new WoodenHouseArt3D { Name = "FirstWoodenHouse" };
+        AddChild(_houseArt);
 
         _camera = new Godot.Camera3D
         {
@@ -164,6 +167,8 @@ public partial class VisualLab3D : Node3D
         // byte-for-byte deterministic in their original movement mode.
         _world.AutonomousGatheringEnabled=Array.Exists(OS.GetCmdlineUserArgs(),
             arg=>arg=="--citizen-ai");
+        _world.AutonomousHousingEnabled=_world.AutonomousGatheringEnabled &&
+            Array.Exists(OS.GetCmdlineUserArgs(),arg=>arg=="--citizen-housing");
         _world.PopulationLimit = 450;
         _tileSource = _regionMirrorPreview
             ? new RegionMirrorTerrainSource(_world, maxResidentRegions: 8)
@@ -171,6 +176,7 @@ public partial class VisualLab3D : Node3D
         _terrain.BindWorld(_world, _tileSource);
         _citizens.Bind(_world, _terrain);
         _resourceArt.BindWorld(_world, _terrain, _camera);
+        _houseArt.BindWorld(_world,_terrain,_camera);
         GD.Print("V2 approved renderer and camera: terrain source = " +
             _terrain.TerrainBackendName);
         if (_cameraRig is not null)
@@ -228,6 +234,7 @@ public partial class VisualLab3D : Node3D
             _terrain.FellResourceTree(felled.X,felled.Y);
         _terrain.AdvanceResourceTreeFalls((float)delta);
         _resourceArt.Tick(delta);
+        _houseArt.Tick(delta);
 
         // Coverage follows camera motion every rendered frame in opt-in mode.
         // Synchronous modes keep their 50ms cadence; workers use per-frame publication budgets.
@@ -292,6 +299,12 @@ public partial class VisualLab3D : Node3D
             _radius, _speed, _world.Seed, _world.People.Count, _world.Tick);
         _hud?.UpdateResourceStock(_world.Resources.WoodCollected,
             _world.Resources.FoodCollected,_world.WorkingCitizenCount);
+        WoodenHouse? house=_world.FirstHouse;
+        _hud?.UpdateShelterStatus(!_world.AutonomousHousingEnabled
+            ? "Off"
+            : house is null ? "Site pending"
+            : $"{house.Stage} {house.WoodDelivered}/{WoodenHouse.RequiredWood} wood, " +
+              $"{house.ContributorCount} builders, {house.Residents}/{WoodenHouse.Capacity} residents");
     }
 
     private void SetupHud()
