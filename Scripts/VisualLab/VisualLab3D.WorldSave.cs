@@ -13,6 +13,7 @@ public partial class VisualLab3D
 {
     private bool _resumeWorldEnabled;
     private bool _restoringWorld;
+    private bool _worldResumeBlocked;
 
     private string? CurrentWorldSaveFile()
     {
@@ -28,8 +29,11 @@ public partial class VisualLab3D
             $"seed_{_world.Seed}_{_world.Width}x{_world.Height}.wfs");
     }
 
-    private void SaveWorldNow()
+    private void SaveWorldNow(bool explicitUserRequest=false)
     {
+        // A corrupt or mismatched checkpoint must never be overwritten
+        // automatically by a fresh session that failed to resume it.
+        if(_worldResumeBlocked && !explicitUserRequest)return;
         string? file=CurrentWorldSaveFile();
         if(file is null)return;
         if(_restoringWorld || _paintStrokeActive)return;
@@ -41,6 +45,7 @@ public partial class VisualLab3D
                 Elevation=_terrain.CaptureWorldElevation()
             };
             WorldSaveFiles.Write(file,snapshot);
+            _worldResumeBlocked=false;
             GD.Print($"WORLD SAVED tick={_world.Tick}, citizens={_world.People.Count}, "+
                 $"house={_world.FirstHouse?.Stage.ToString()??"None"}, "+
                 $"sculpt regions={snapshot.Elevation.Count}: {file}");
@@ -95,6 +100,7 @@ public partial class VisualLab3D
             }
             finally {_restoringWorld=false;}
 
+            _worldResumeBlocked=false;
             GD.Print($"WORLD RESTORED from {(backup?"BACKUP":"PRIMARY")}: "+
                 $"tick {_world.Tick}; citizens {_world.People.Count}; "+
                 $"house {_world.FirstHouse?.Stage.ToString()??"None"}; "+
@@ -103,8 +109,9 @@ public partial class VisualLab3D
         }
         catch(Exception ex)
         {
-            GD.PushError("WORLD LOAD REFUSED (running world unchanged): "+
-                ex.Message);
+            _worldResumeBlocked=true;
+            GD.PushError("WORLD LOAD REFUSED: "+ex.Message+
+                " (automatic overwriting disabled; original save preserved)");
             return false;
         }
     }
