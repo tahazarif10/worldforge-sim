@@ -65,7 +65,22 @@ public static class WorldSaveFiles
         }
         // Never truncate the previous successful save before a new one is
         // durably written. The .bak is retained for corruption recovery.
-        if(File.Exists(full))File.Copy(full,full+".bak",overwrite:true);
+        if(File.Exists(full))
+        {
+            // Never replace a healthy backup with an already-corrupt primary.
+            // A fresh, verified successful save will become the new primary.
+            try
+            {
+                _=ReadAndVerify(full,snapshot.World.Seed,
+                    snapshot.World.Width,snapshot.World.Height);
+                File.Copy(full,full+".bak",overwrite:true);
+            }
+            catch(Exception e) when(e is IOException or JsonException or
+                FormatException or ArgumentException)
+            {
+                // Preserve the previously verified backup.
+            }
+        }
         File.Move(temp,full,overwrite:true);
     }
 
@@ -79,8 +94,8 @@ public static class WorldSaveFiles
         {
             return ReadAndVerify(full,seed,width,height);
         }
-        catch(Exception e) when(e is InvalidDataException or
-            IOException or UnauthorizedAccessException or JsonException or
+        catch(Exception e) when(e is IOException or
+            UnauthorizedAccessException or JsonException or
             FormatException or ArgumentException)
         {
             if(!File.Exists(full+".bak"))throw;
