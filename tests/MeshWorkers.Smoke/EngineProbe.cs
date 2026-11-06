@@ -110,8 +110,9 @@ public partial class EngineProbe : Node
                 setter.Invoke(house,[stage]);
                 art.RefreshNow();
                 Require(art.RenderedStage==stage &&
-                    art.ActivePartCount>=lastParts,
-                    "foundation, frame, pitched roof and final wooden walls unlock in order");
+                    art.ActivePartCount>=5 &&
+                    (stage==HouseStage.Foundation || art.ActivePartCount>lastParts),
+                    "foundation replaces survey stakes, then frame, roof and walls add geometry");
                 lastParts=art.ActivePartCount;
             }
             Require(art.ActivePartCount>12,
