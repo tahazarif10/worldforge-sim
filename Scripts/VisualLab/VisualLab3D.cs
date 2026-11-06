@@ -53,6 +53,10 @@ public partial class VisualLab3D : Node3D
         Name = "WorldForge3D — Visual Lab";
         _resumeWorldEnabled=Array.Exists(OS.GetCmdlineUserArgs(),
             arg=>arg=="--resume-world");
+        // The H: manual launcher opts into a real start menu. Direct scenes
+        // and acceptance probes keep their established initial behavior.
+        _menuRequestedOnLaunch=Array.Exists(OS.GetCmdlineUserArgs(),
+            arg=>arg=="--game-menu");
         // Internal migration proof only; the default V2 world is unchanged.
         _regionMirrorPreview = Array.Exists(OS.GetCmdlineUserArgs(),
             arg => arg == "--terrain-backend=region-mirror");
@@ -82,7 +86,9 @@ public partial class VisualLab3D : Node3D
         _citizens.SetViewCamera(_camera);
 
         CreateWorld(InitialSeed());
-        if(_resumeWorldEnabled)TryResumeWorld();
+        // Never auto-resume behind the player's back when the start menu is on.
+        // A fresh WorldState starts with exactly ZERO people.
+        if(_resumeWorldEnabled && !_menuRequestedOnLaunch)TryResumeWorld();
         GD.Print("V2 reference world seed: " + _world.Seed);
         _cameraRig = new WorldForge.Camera3D.StrategyCameraRig(_camera,
             (x, y) => _terrain.HeightAt(x, y), _world.Width, _world.Height,
@@ -210,12 +216,13 @@ public partial class VisualLab3D : Node3D
         if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right)) keys.X += 1f;
         if (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up)) keys.Y += 1f;
         if (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down)) keys.Y -= 1f;
-        if (_acceptanceOptions is null && keys.LengthSquared() > 0.01f)
+        if (_acceptanceOptions is null && _gameMenu?.Visible!=true &&
+            keys.LengthSquared() > 0.01f)
         {
             _cameraRig.PanByKeyboard(keys, delta);
         }
 
-        if (_speed > 0)
+        if (_speed > 0 && _gameMenu?.Visible!=true)
         {
             _tickAccumulator += delta * _speed;
             int steps = 0;
@@ -235,7 +242,7 @@ public partial class VisualLab3D : Node3D
 
         // Citizen animation is presentation-only: authoritative WorldState
         // positions, movement probabilities and tick ordering remain unchanged.
-        _citizens.Render(delta, _speed);
+        _citizens.Render(delta, _gameMenu?.Visible==true?0:_speed);
         while (_world.Resources.TryTakeFelled(out ResourceSite felled))
             _terrain.FellResourceTree(felled.X,felled.Y);
         _terrain.AdvanceResourceTreeFalls((float)delta);
@@ -322,7 +329,7 @@ public partial class VisualLab3D : Node3D
     {
         var layer = new CanvasLayer { Name = "HudOverlay" };
         AddChild(layer);
-        _hud = new GameHud();
+        _hud = new GameHud(showGameMenu:_menuRequestedOnLaunch);
         layer.AddChild(_hud);
         _hud.SetAnchorsPreset(Control.LayoutPreset.TopWide);
         _hud.OffsetLeft = 12;
@@ -344,20 +351,24 @@ public partial class VisualLab3D : Node3D
             RefreshHud();
         };
         _hud.SpeedRequested += speed => { _speed = speed; RefreshHud(); };
-        _hud.NewWorldRequested += () =>
-        {
-            EndPaintStroke();
-            if(_resumeWorldEnabled)SaveWorldNow();
-            CreateWorld(Random.Shared.Next());
-            RefreshHud();
-        };
+        _hud.NewWorldRequested += RequestNewWorld;
+        if(_menuRequestedOnLaunch)
+            _hud.MenuRequested += ShowPauseMenu;
         _hud.SetSelectedTool((int)_brush);
         RefreshHud();
+        if(_menuRequestedOnLaunch)
+            SetupGameMenu(layer);
     }
 
     public override void _UnhandledInput(InputEvent input)
     {
         if (_acceptanceOptions is not null) return;
+        if(_gameMenu?.Visible==true)
+        {
+            if(input is InputEventKey { Pressed:true, Echo:false, Keycode:Key.Escape })
+                _gameMenu.HandleEscape();
+            return;
+        }
         if (input is InputEventMouseButton mb)
         {
             if (mb.ButtonIndex == MouseButton.WheelUp && mb.Pressed)
@@ -389,13 +400,14 @@ public partial class VisualLab3D : Node3D
             if(k.CtrlPressed && k.Keycode==Key.S)
             {
                 EndPaintStroke();
-                SaveWorldNow(explicitUserRequest:true);
+                if(_gameMenu is not null)RequestMenuSave();
+                else SaveWorldNow(explicitUserRequest:true);
                 return;
             }
             if(k.CtrlPressed && k.Keycode==Key.L)
             {
                 EndPaintStroke();
-                TryResumeWorld();
+                RequestMenuLoad();
                 return;
             }
             if (k.Keycode == Key.Space) _speed = _speed == 0 ? 1 : 0;
@@ -438,7 +450,11 @@ public partial class VisualLab3D : Node3D
                     $"terrain builds since launch: {_terrain.TotalTerrainChunkBuilds}, " +
                     $"tile source: {_terrain.TerrainBackendName}; " +
                     $"streaming: {_terrain.StreamingDiagnostics}");
-            if (k.Keycode == Key.Escape) GetTree().Quit();
+            if (k.Keycode == Key.Escape)
+            {
+                if(_gameMenu is not null)ShowPauseMenu();
+                else GetTree().Quit();
+            }
             RefreshHud();
         }
     }

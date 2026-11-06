@@ -49,6 +49,15 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-06 — Explicit empty-world start and complete launcher menu (player test pending)
+
+The user reported apparently pre-populated citizens and explicitly requested a **zero-citizen start**, manual initial placement, and a complete usable game menu. Source review found that `new WorldState` already starts with zero citizens; it was the H: launcher invoking `--resume-world` combined with `VisualLab3D._Ready` automatic restoration that replayed previous humans. The manual H: launcher now adds `--game-menu`, preserving the raw Godot/CI baseline. The start overlay shows **START NEW WORLD** (zero humans; player uses PERSON brush) and opt-in **CONTINUE SAVED WORLD**, plus Help/Settings/Quit. No saved people appear unless the user explicitly selects Continue.
+
+A MENU button and Esc open an actual pause menu (simulation and keyboard camera motion stop while it is open). Resume, Save, confirmation-protected Load, confirmation-protected New World, graphics quality, speed, fullscreen, controls Help and Quit are wired to existing systems. Ctrl+S/Ctrl+L use safe menu confirmation when relevant. A fresh world using the same seed as a prior save locks automatic writes until the player explicitly approves replacing that slot; normal exit from the start screen does not save an empty preview. Existing H: save path, verified backup format, render/camera, raw scene, project.godot and `-FreshWorld` protection remain unchanged. See [ADR 0017](decisions/0017-explicit-empty-new-game-and-game-menu.md).
+
+**Verification:** source candidate is prepared for the user's hands-on Windows playtest; no actual Windows startup, visual, or FPS PASS is claimed.
+
+
 ## 2026-11-06 — Opt-in village expands to three independent wooden homes (host test pending)
 
 The user explicitly requested fast hands-on delivery of housing beyond the first hut, prioritizing their own Windows playtest over repeated CI/performance rounds. Autonomous housing now builds **one new site at a time** when population exceeds completed available beds: first house after two workers, house two beyond four citizens, and house three beyond eight citizens (hard cap three, four beds each). Sites search deterministically around the existing village, avoid all other footprints and entrances, and respect the existing resource/slope/grass rules. Residents, deliveries, work positions and build progress are per-house, not global. Each additional home consumes twelve newly carried real logs through the same construction stages; existing homes retain their spent timber. A destroyed house loses only its own invested lumber and clears only its own assigned occupants/jobs.

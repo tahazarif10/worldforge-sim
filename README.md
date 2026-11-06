@@ -35,9 +35,11 @@ if ($LASTEXITCODE -ne 0) { throw 'Download failed. Stop and inspect the Git outp
 git merge --ff-only --no-autostash FETCH_HEAD
 if ($LASTEXITCODE -ne 0) { throw 'Update stopped. Preserve local changes and inspect the Git output.' }
 
-# Start the same mountain world as the user screenshot:
-.\scripts\verify-v2-art.ps1 -WorldSeed 1315511732
+# Play the interactive game with its complete start/pause menu:
+.\scripts\run-visual-lab.ps1 -WorldSeed 1315511732
 ```
+
+**Manual launcher menu (November 2026):** The `run-visual-lab.ps1` game opens a new **empty world, with zero citizens**, behind a start menu. Choose **START NEW WORLD**, then **PERSON** and click suitable land to place the initial people. **CONTINUE SAVED WORLD** is the only way that menu loads older citizens; the prior auto-resume behavior is disabled specifically for this manual menu. Esc/MENU pauses and opens Save, Load (with confirmation), New Empty World (with confirmation), Settings (graphics, speed, fullscreen), How to Play and Quit. Ctrl+S/Ctrl+L remain. When starting afresh on the same seed as a previous save, automatic saving cannot replace that save without an explicit confirmation. Legacy/direct Godot scene and automated acceptance stay unchanged; `-FreshWorld` still disables save/load. The user will check visuals and behavior on their physical Windows machine; this is not a passed host acceptance claim. See [ADR 0017](docs/decisions/0017-explicit-empty-new-game-and-game-menu.md).
 
 **Do not `git reset --hard`, `git clean`, force a branch switch or overwrite locally modified `project.godot`** if Git stops. The default old `Scenes/Main.tscn` remains in the repo but the **preferred** approved 3D scene is `Scenes/VisualLab3D.tscn`, launched without changing project.godot.
 
