@@ -198,6 +198,68 @@ public partial class EngineProbe : Node
         Require(overlay.IsQueuedForDeletion() && old.Visible &&
             world.Tile(x,z)==target,
             "authoritative terrain/foliage publication retires the live overlay");
+
+        // A second, forest-specific exercise proves REAL Kenney foliage is
+        // instanced while the mouse remains held, not merely the land color.
+        int treeX=-1,treeZ=-1;
+        foreach(var chunkKey in Details(terrain).Keys)
+        {
+            for(int iy=chunkKey.Item2*16;iy<Math.Min(world.Height,(chunkKey.Item2+1)*16) && treeX<0;iy++)
+            for(int ix=chunkKey.Item1*16;ix<Math.Min(world.Width,(chunkKey.Item1+1)*16);ix++)
+            {
+                if(world.Tile(ix,iy)!=Terrain.Grass)continue;
+                uint hash=EnvironmentArtMath.Hash(ix,iy,world.Seed+119);
+                if(NatureScatter.Pick(Terrain.Forest,hash)<0)continue;
+                treeX=ix;treeZ=iy;
+                break;
+            }
+            if(treeX>=0)break;
+        }
+        Require(treeX>=0,"resident land provides a deterministic visible tree placement");
+        var treeKey=(treeX/16,treeZ/16);
+        var initialFoliage=Private<Dictionary<(int,int),Node3D>>(
+            terrain,"_foliageChunks")[treeKey];
+        long built=terrain.FoliageChunksRebuilt;
+        uint treeHash=EnvironmentArtMath.Hash(treeX,treeZ,world.Seed+119);
+        int expectedForest=NatureScatter.Pick(Terrain.Forest,treeHash);
+        int expectedGrass=NatureScatter.Pick(Terrain.Grass,treeHash);
+        terrain.BeginInteractiveEditBatch();
+        world.Paint(treeX,treeZ,0,Terrain.Forest);
+        terrain.MarkChanged(treeX,treeZ,0,coastlineChanged:false);
+        terrain.PresentLiveBrushPreview(3);
+        var liveRoot=terrain.GetNodeOrNull<Node3D>(
+            $"FoliageBatches/LiveNature_{treeKey.Item1}_{treeKey.Item2}") ??
+            throw new InvalidOperationException("Native live Kenney foliage node missing.");
+        Require(liveRoot.Visible && !initialFoliage.Visible &&
+            terrain.LiveNatureSpeciesAt(treeX,treeZ)==expectedForest &&
+            liveRoot.GetChildren().OfType<MultiMeshInstance3D>()
+                .Any(node=>node.Name.ToString().StartsWith("LiveCC0_") &&
+                    node.Multimesh.VisibleInstanceCount>0) &&
+            terrain.FoliageChunksRebuilt==built,
+            "new Kenney tree is GPU-instanced BEFORE release, without rebuilding a full foliage chunk");
+
+        world.Paint(treeX,treeZ,0,Terrain.Grass);
+        terrain.MarkChanged(treeX,treeZ,0,coastlineChanged:false);
+        terrain.PresentLiveBrushPreview(3);
+        Require(liveRoot.Visible && !initialFoliage.Visible &&
+            terrain.LiveNatureSpeciesAt(treeX,treeZ)==expectedGrass &&
+            terrain.FoliageChunksRebuilt==built,
+            "painting over a forest immediately removes the old tree instance");
+
+        world.Paint(treeX,treeZ,0,Terrain.Forest);
+        terrain.MarkChanged(treeX,treeZ,0,coastlineChanged:false);
+        terrain.PresentLiveBrushPreview(3);
+        Require(terrain.LiveNatureSpeciesAt(treeX,treeZ)==expectedForest &&
+            terrain.FoliageChunksRebuilt==built,
+            "repeated live forest edits reuse the same native batches");
+        terrain.CommitInteractiveEditBatch();
+        Require(liveRoot.Visible && !liveRoot.IsQueuedForDeletion(),
+            "live foliage remains through mouse-up while the original tree rebuilds");
+        terrain.FlushChanges();
+        Require(liveRoot.IsQueuedForDeletion() &&
+            Private<Dictionary<(int,int),Node3D>>(
+                terrain,"_foliageChunks")[treeKey].Visible,
+            "the full original Kenney foliage replaces preview with no stale overlay");
     }
 
     private static void Require(bool condition,string message)

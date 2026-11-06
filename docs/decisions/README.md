@@ -31,6 +31,7 @@ ADRs explain **why** technical choices were made, how they are verified and whic
 | [0016](0016-bounded-three-house-village.md) | Implemented candidate; host test pending | Three-demand-driven homes, independent jobs and materials, ordered save-v2 migration while preserving V2 art and camera |
 | [0017](0017-explicit-empty-new-game-and-game-menu.md) | Implemented candidate; host test pending | Empty manual new-game startup, explicit Continue, functional start/pause/settings/help menus and protected saved-game replacement |
 | [0018](0018-independent-live-terrain-paint-preview.md) | Implemented candidate; physical brush acceptance pending | Immediate terrain-only held-brush preview, bounded mouse-event coalescing and deferred atomic foliage handoff |
+| [0019](0019-live-native-nature-instancing.md) | Implemented candidate; physical GPU validation pending | Edit CC0 tree/rock/grass/flower MultiMesh instances live in the same frame as the ground; no per-mouse GLB recreation |
 
 Add an ADR when changing: visual backend, camera interaction contract, Godot render mode, data authority, region boundaries, thread/queue/cancellation semantics, save format, world generator or accepted milestone order.
 

@@ -205,6 +205,7 @@ public partial class VisualTerrain3D : Node3D
             water.SetShaderParameter("water_detail", eco ? 0f : 1f);
         foreach (Node3D foliage in _foliageChunks.Values)
             ApplyShadowTier(foliage);
+        UpdateLiveNatureQuality();
     }
 
     // Negative value preserves the ordinary engine TIME animation.

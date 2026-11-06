@@ -7,10 +7,11 @@ namespace WorldForge.VisualLab;
 
 /// <summary>
 /// Immediate visual painting for the ordinary V2-compatible H: launcher.
-/// A short-lived terrain-only overlay follows authoritative WorldState edits.
-/// It is deliberately separate from expensive Kenney foliage and the
-/// full terrain/foliage publication queue. All native calls run on Godot's
-/// main thread; no tasks, threads or added frame-time allocations per cell.
+/// A short-lived exact terrain overlay follows authoritative WorldState
+/// edits, with the same-frame, GPU-instanced nature cache beside it. Full
+/// foliage publication still happens separately, with the live pair retained
+/// until the authoritative terrain+foliage handoff. All Godot calls run on
+/// the main thread; there is no GLB reimport per mouse event.
 /// </summary>
 public partial class VisualTerrain3D
 {
@@ -25,10 +26,9 @@ public partial class VisualTerrain3D
     }
 
     /// <summary>
-    /// Run once per rendered frame. At most a few simple terrain meshes are
-    /// published here; foliage remains untouched until separately admitted.
-    /// The closest edited chunk is published first, so the cursor never
-    /// waits for previous work from the far end of a long stroke.
+    /// Run once per rendered frame. Terrain and original-art nature previews
+    /// are published together; only edited cells of subsequent nature passes
+    /// touch instance transforms. The cursor's nearest chunks win.
     /// </summary>
     public void PresentLiveBrushPreview(int maxChunks=3)
     {
@@ -54,16 +54,18 @@ public partial class VisualTerrain3D
             if(!found)break;
             _liveBrushToRefresh.Remove(selected);
             if(_chunks.ContainsKey(selected))
+            {
                 BuildLiveBrushMesh(selected);
+                RefreshLiveNature(selected);
+            }
             published++;
         }
     }
 
     /// <summary>
-    /// Reuse the exact approved V2 terrain top-fan geometry and vertex colors.
-    /// An old terrain chunk is hidden only after its replacement is complete,
-    /// so even a newly painted water tile shows through immediately.
-    /// Foliage remains on its ordinary bounded publication path.
+    /// Reuse the exact approved V2 terrain fan/color/coast geometry.
+    /// Updated authored Kenney nature is materialized in the same frame by
+    /// RefreshLiveNature, not by rebuilding GLBs after mouse-up.
     /// </summary>
     private void BuildLiveBrushMesh((int X,int Y) key)
     {
@@ -142,13 +144,13 @@ public partial class VisualTerrain3D
     }
 
     /// <summary>
-    /// Called *after* the authoritative terrain AND vegetation chunk have
-    /// been rebuilt. The overlay never disappears while the world still
-    /// shows stale pre-stroke geometry; no release-frame flash or holes.
+    /// Called *after* authoritative terrain AND vegetation are built.
+    /// Both transient overlays retire in the same publication frame.
     /// </summary>
     private void CompleteLiveBrushChunk((int X,int Y) key)
     {
         _liveBrushToRefresh.Remove(key);
+        RemoveLiveNature(key);
         if(_liveBrushMeshes.Remove(key,out MeshInstance3D? overlay))
         {
             overlay.Visible=false;
@@ -158,6 +160,7 @@ public partial class VisualTerrain3D
 
     private void ResetLiveBrushPreviews()
     {
+        ResetLiveNature();
         foreach(MeshInstance3D overlay in _liveBrushMeshes.Values)
         {
             overlay.Visible=false;
