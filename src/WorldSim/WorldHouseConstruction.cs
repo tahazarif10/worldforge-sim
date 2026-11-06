@@ -113,7 +113,8 @@ public sealed partial class WorldState
     private bool IsValidHousePlot(int x,int y)
     {
         if(x<1 || y<1 || x+2>=Width || y+3>=Height ||
-            !Walkable(x,y+2) || Tile(x,y+2)!=Terrain.Grass)
+            !Walkable(x,y+2) || !Walkable(x+1,y+2) ||
+            Tile(x,y+2)!=Terrain.Grass || Tile(x+1,y+2)!=Terrain.Grass)
             return false;
         for(int dy=0;dy<2;dy++)
         for(int dx=0;dx<2;dx++)
@@ -205,6 +206,9 @@ public sealed partial class WorldState
     private void CancelHouseJob(Citizen citizen)
     {
         citizen.HouseTask=HouseJob.None;
+        citizen.HouseWorkX=0;
+        citizen.HouseWorkY=0;
+        citizen.Role=CitizenRole.None;
         citizen.Route.Clear();
         citizen.RouteIndex=0;
         citizen.WorkTicks=0;
@@ -229,9 +233,28 @@ public sealed partial class WorldState
         else
             task=HouseJob.Build;
 
-        if(!TryPlanHousePath(citizen,house.EntranceX,house.EntranceY))
+        int maxWorkers=task switch
+        {
+            HouseJob.Build or HouseJob.DeliverWood=>2,
+            _=>WoodenHouse.Capacity
+        };
+        if(People.Count(person=>person.HouseTask==task)>=maxWorkers)
             return false;
+        // Each concurrent builder/hauler gets a separate door-side work spot
+        // rather than stacking multiple skinned citizens in one exact tile.
+        int first=People.Count(person=>person.HouseTask==task &&
+            person.HouseWorkX==house.EntranceX) == 0 ? 0 : 1;
+        int tx=house.EntranceX+first,ty=house.EntranceY;
+        if(!TryPlanHousePath(citizen,tx,ty))return false;
+        citizen.HouseWorkX=tx;
+        citizen.HouseWorkY=ty;
         citizen.HouseTask=task;
+        citizen.Role=task switch
+        {
+            HouseJob.Build=>CitizenRole.Builder,
+            HouseJob.DeliverWood=>CitizenRole.Hauler,
+            _=>CitizenRole.Resident
+        };
         citizen.Activity=CitizenActivity.Walking;
         return true;
     }
@@ -313,7 +336,7 @@ public sealed partial class WorldState
             return true;
         }
 
-        if(citizen.X!=house.EntranceX || citizen.Y!=house.EntranceY)
+        if(citizen.X!=citizen.HouseWorkX || citizen.Y!=citizen.HouseWorkY)
         {
             if(citizen.RouteIndex<citizen.Route.Count)
             {
