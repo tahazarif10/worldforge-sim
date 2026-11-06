@@ -183,11 +183,11 @@ public sealed partial class WoodenHouseArt3D : Node3D
         _shownStage=site.Stage;
         SetStage(site.Stage);
 
-        float y=0f;
-        for(int dz=0;dz<2;dz++)
-        for(int dx=0;dx<2;dx++)
-            y+=_terrain.SurfaceHeightAt(site.X+dx,site.Y+dz,.5f,.5f)*.25f;
-        _house.Position=new Vector3(site.X+1f,y-.04f,site.Y+1f);
+        // Build on the highest measured footprint corner, not the average:
+        // averaging clipped a raised hillside through the timber floor.
+        // WorldSim already rejected plots with excessive corner variation.
+        float y=site.GroundHeight;
+        _house.Position=new Vector3(site.X+1f,y,site.Y+1f);
 
         Vector3 center=new(site.X+1f,y+1.1f,site.Y+1f);
         if(_camera.IsPositionBehind(center))
