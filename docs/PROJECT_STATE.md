@@ -49,6 +49,13 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-06 — Compact categorized in-game toolbar (user visual test pending)
+
+The previous four-row dark HUD covered approximately 180–220 screen pixels at the top and its right-hand buttons/statistics overflowed the window. Only **menu presentation** changes in this iteration. `GameHud` now uses a bounded two-row toolbar (roughly 96–100 px including margins): native drop-down menus for **TERRAIN** (Land/Ocean/Sand/Mountain), **NATURE** (Forest/Gather), **LIFE** (Person) and **POWERS** (Meteor), one active-brush label, compact radius +/- and time-speed menu, FPS indicator, a clipped single-line resource/population/home summary and a DETAILS popup for full figures. The old 2D scene retains New World and excludes its unsupported Gather brush. The manual VisualLab keeps MENU for the functional start/pause overlay. HUD layout bounds were shortened in both game scenes.
+
+No changes to `WorldState`, citizen births, housing, resource accounting, saves, visual terrain, meshes, camera, brush actions or Godot project settings. Target: no button cut-off at 1280x800 and 1600x900. The user's physical Windows/GPU visual playtest is still required; no new CI/performance PASS is claimed.
+
+
 ## 2026-11-06 — Explicit empty-world start and complete launcher menu (player test pending)
 
 The user reported apparently pre-populated citizens and explicitly requested a **zero-citizen start**, manual initial placement, and a complete usable game menu. Source review found that `new WorldState` already starts with zero citizens; it was the H: launcher invoking `--resume-world` combined with `VisualLab3D._Ready` automatic restoration that replayed previous humans. The manual H: launcher now adds `--game-menu`, preserving the raw Godot/CI baseline. The start overlay shows **START NEW WORLD** (zero humans; player uses PERSON brush) and opt-in **CONTINUE SAVED WORLD**, plus Help/Settings/Quit. No saved people appear unless the user explicitly selects Continue.

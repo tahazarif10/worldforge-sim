@@ -5,18 +5,40 @@ using Godot;
 namespace WorldForge.UI;
 
 /// <summary>
-/// Scalable native-size HUD; owns Godot Controls, but not world state.
-/// All world editing stays in GameRoot / WorldSim. The panel consumes GUI input
-/// so clicking a tool never paints the terrain behind the UI.
+/// Compact two-row in-game HUD. Long tool lists live in native MenuButton
+/// popups instead of widening the viewport or covering the island.
+/// The HUD only emits actions; world, simulation and saves remain elsewhere.
 /// </summary>
 public partial class GameHud : PanelContainer
 {
-    private readonly List<Button> _toolButtons = new();
-    private Label _readout = null!;
-    private Label _selection = null!;
-    private Label _speedLabel = null!;
-    private Label _performance = null!;
-    private int _woodAvailable, _foodAvailable, _workers, _woodHarvested, _foodHarvested;
+    private static readonly string[] ToolNames =
+    {
+        "Land", "Ocean", "Sand", "Forest", "Mountain", "Person", "Meteor", "Gather"
+    };
+    private static readonly int[][] ToolGroups =
+    {
+        new[] { 0, 1, 2, 4 }, // Terrain
+        new[] { 3, 7 },       // Nature
+        new[] { 5 },          // Life
+        new[] { 6 }           // Powers
+    };
+    private static readonly string[] GroupNames =
+    {
+        "TERRAIN", "NATURE", "LIFE", "POWERS"
+    };
+
+    private readonly List<MenuButton> _groups=new();
+    private readonly MenuButton _speedButton;
+    private readonly MenuButton _detailsButton;
+    private readonly Label _toolLabel;
+    private readonly Label _radiusLabel;
+    private readonly Label _status;
+    private readonly Label _timing;
+    private readonly Label _fps;
+    private int _selectedTool=5;
+    private int _population,_woodAvailable,_foodAvailable,_workers;
+    private int _woodHarvested,_foodHarvested,_seed;
+    private long _tick;
     private string _shelterStatus="Off";
     private int _lastFps;
     private double _lastWorstFrame;
@@ -28,120 +50,206 @@ public partial class GameHud : PanelContainer
     public event Action? NewWorldRequested;
     public event Action? MenuRequested;
 
-    private static readonly Color Background = new("#142130F2");
-    private static readonly Color Surface = new("#283C4D");
-    private static readonly Color Hover = new("#3A5264");
-    private static readonly Color Active = new("#338F83");
-    private static readonly Color Foreground = new("#F6F4E9");
-    private static readonly Color Muted = new("#B6C9D4");
+    private static readonly Color Background=new("#142330F2");
+    private static readonly Color Surface=new("#29404F");
+    private static readonly Color Hover=new("#3B586A");
+    private static readonly Color Active=new("#2E9184");
+    private static readonly Color Foreground=new("#F7F4E9");
+    private static readonly Color Muted=new("#B7CDD3");
 
-    // Godot node registration and the original 2D scene require an
-    // actual parameterless constructor, not only an optional argument.
+    // An actual no-argument constructor is needed by the old 2D scene and Godot.
     public GameHud():this(false) {}
 
     public GameHud(bool showGameMenu)
     {
-        Name = "GameHud";
-        MouseFilter = Control.MouseFilterEnum.Stop;
-        AddThemeStyleboxOverride("panel", Box(Background, 12));
+        Name="GameHud";
+        MouseFilter=MouseFilterEnum.Stop;
+        AddThemeStyleboxOverride("panel",Style(Background,12));
 
-        var padding = new MarginContainer();
-        padding.AddThemeConstantOverride("margin_left", 16);
-        padding.AddThemeConstantOverride("margin_right", 16);
-        padding.AddThemeConstantOverride("margin_top", 12);
-        padding.AddThemeConstantOverride("margin_bottom", 12);
+        var padding=new MarginContainer();
+        padding.AddThemeConstantOverride("margin_left",12);
+        padding.AddThemeConstantOverride("margin_right",12);
+        padding.AddThemeConstantOverride("margin_top",7);
+        padding.AddThemeConstantOverride("margin_bottom",7);
         AddChild(padding);
 
-        var rows = new VBoxContainer();
-        rows.AddThemeConstantOverride("separation", 10);
+        var rows=new VBoxContainer();
+        rows.AddThemeConstantOverride("separation",4);
         padding.AddChild(rows);
 
-        var tools = new HBoxContainer();
-        tools.AddThemeConstantOverride("separation", 8);
-        rows.AddChild(tools);
+        var top=new HBoxContainer();
+        top.AddThemeConstantOverride("separation",6);
+        rows.AddChild(top);
 
-        Label heading = MakeLabel("WORLD FORGE", 21, Foreground);
-        heading.CustomMinimumSize = new Vector2(158, 43);
-        tools.AddChild(heading);
+        var title=MakeLabel("WORLD FORGE",18,Foreground);
+        title.CustomMinimumSize=new Vector2(139,40);
+        top.AddChild(title);
+
         if(showGameMenu)
         {
-            var menu=MakeButton("MENU",()=>MenuRequested?.Invoke(),88,43);
-            menu.TooltipText="Pause, save, load, help and game settings (Esc).";
-            tools.AddChild(menu);
+            Button menu=MakeButton("MENU",()=>MenuRequested?.Invoke(),65,39);
+            menu.TooltipText="Pause, save, load, help, settings and quit (Esc).";
+            top.AddChild(menu);
         }
-
-        var terrainNames = new[] { "Land", "Ocean", "Sand", "Forest", "Mountain", "Person", "Meteor", "Gather" };
-        for (int index = 0; index < terrainNames.Length; index++)
+        else
         {
-            int selected = index;
-            Button button = MakeButton(terrainNames[index], () =>
-            {
-                SetSelectedTool(selected);
-                ToolSelected?.Invoke(selected);
-            }, 100, 43);
-            button.TooltipText = selected == 7
-                ? "Click a forest tree for wood or a red berry bush for food."
-                : $"Choose {terrainNames[index]} brush";
-            tools.AddChild(button);
-            _toolButtons.Add(button);
+            Button newer=MakeButton("NEW",()=>NewWorldRequested?.Invoke(),59,39);
+            newer.TooltipText="Create a new empty world.";
+            top.AddChild(newer);
         }
+
+        for(int group=0;group<ToolGroups.Length;group++)
+        {
+            int category=group;
+            var button=new MenuButton
+            {
+                Text=GroupNames[group]+"  ▾",
+                CustomMinimumSize=new Vector2(group==0?94:group==1?93:group==2?73:90,39),
+                FocusMode=FocusModeEnum.None,
+                MouseFilter=MouseFilterEnum.Stop,
+                Flat=false
+            };
+            StyleButton(button,Surface);
+            button.TooltipText="Choose a "+GroupNames[group].ToLowerInvariant()+" tool.";
+            PopupMenu popup=button.GetPopup();
+            popup.AddThemeFontSizeOverride("font_size",16);
+            foreach(int index in ToolGroups[category])
+            {
+                // The original 2D scene has no Gather brush.
+                if(!showGameMenu && index==7)continue;
+                popup.AddItem(ToolNames[index],index);
+            }
+            popup.IdPressed+=id=>
+            {
+                int index=checked((int)id);
+                SetSelectedTool(index);
+                ToolSelected?.Invoke(index);
+            };
+            top.AddChild(button);
+            _groups.Add(button);
+        }
+
+        _toolLabel=MakeLabel("PERSON",15,Foreground);
+        _toolLabel.CustomMinimumSize=new Vector2(91,39);
+        _toolLabel.ClipText=true;
+        _toolLabel.HorizontalAlignment=HorizontalAlignment.Center;
+        _toolLabel.TooltipText="Currently selected tool; choose a different one from the categories.";
+        top.AddChild(_toolLabel);
+
+        var minus=MakeButton("−",()=>RadiusChangeRequested?.Invoke(-1),29,39);
+        minus.TooltipText="Decrease brush radius.";
+        top.AddChild(minus);
+
+        _radiusLabel=MakeLabel("R 2",15,Muted);
+        _radiusLabel.HorizontalAlignment=HorizontalAlignment.Center;
+        _radiusLabel.CustomMinimumSize=new Vector2(42,39);
+        top.AddChild(_radiusLabel);
+
+        var plus=MakeButton("+",()=>RadiusChangeRequested?.Invoke(1),29,39);
+        plus.TooltipText="Increase brush radius.";
+        top.AddChild(plus);
+
+        var spacer=new Control
+        {
+            SizeFlagsHorizontal=SizeFlags.ExpandFill,
+            MouseFilter=MouseFilterEnum.Ignore
+        };
+        top.AddChild(spacer);
+
+        _speedButton=new MenuButton
+        {
+            Text="1x  ▾",
+            CustomMinimumSize=new Vector2(76,39),
+            FocusMode=FocusModeEnum.None,
+            MouseFilter=MouseFilterEnum.Stop,
+            Flat=false
+        };
+        StyleButton(_speedButton,Surface);
+        _speedButton.TooltipText="Simulation speed (Space toggles pause).";
+        PopupMenu speedOptions=_speedButton.GetPopup();
+        speedOptions.AddThemeFontSizeOverride("font_size",16);
+        speedOptions.AddItem("Pause",0);
+        speedOptions.AddItem("1x",1);
+        speedOptions.AddItem("2x",2);
+        speedOptions.AddItem("4x",4);
+        speedOptions.IdPressed+=id=>SpeedRequested?.Invoke(checked((int)id));
+        top.AddChild(_speedButton);
+
+        _fps=MakeLabel("FPS --",14,Muted);
+        _fps.HorizontalAlignment=HorizontalAlignment.Center;
+        _fps.CustomMinimumSize=new Vector2(64,39);
+        _fps.TooltipText="Measured frame rate over the last second.";
+        top.AddChild(_fps);
+
+        var separator=new HSeparator();
+        rows.AddChild(separator);
+
+        var bottom=new HBoxContainer();
+        bottom.AddThemeConstantOverride("separation",8);
+        rows.AddChild(bottom);
+
+        _status=MakeLabel("0 people  ·  Place citizens using LIFE > Person",14,Muted);
+        _status.SizeFlagsHorizontal=SizeFlags.ExpandFill;
+        _status.ClipText=true;
+        _status.CustomMinimumSize=new Vector2(0,23);
+        bottom.AddChild(_status);
+
+        _timing=MakeLabel("Tick 0",13,Muted);
+        _timing.CustomMinimumSize=new Vector2(158,23);
+        _timing.HorizontalAlignment=HorizontalAlignment.Right;
+        bottom.AddChild(_timing);
+
+        _detailsButton=new MenuButton
+        {
+            Text="DETAILS  ▾",
+            CustomMinimumSize=new Vector2(100,27),
+            FocusMode=FocusModeEnum.None,
+            MouseFilter=MouseFilterEnum.Stop,
+            Flat=false
+        };
+        StyleButton(_detailsButton,Surface);
+        _detailsButton.AddThemeFontSizeOverride("font_size",12);
+        _detailsButton.TooltipText="Full world, housing and performance figures.";
+        PopupMenu details=_detailsButton.GetPopup();
+        details.AddThemeFontSizeOverride("font_size",15);
+        for(int i=0;i<8;i++)
+        {
+            details.AddItem("Loading...",i);
+            details.SetItemDisabled(i,true);
+        }
+        bottom.AddChild(_detailsButton);
+
         SetSelectedTool(5);
-
-        var options = new HBoxContainer();
-        options.AddThemeConstantOverride("separation", 8);
-        rows.AddChild(options);
-
-        _selection = MakeLabel("Brush: Person  |  Radius: 3", 17, Foreground);
-        _selection.CustomMinimumSize = new Vector2(245, 43);
-        options.AddChild(_selection);
-
-        options.AddChild(MakeButton("Size -", () => RadiusChangeRequested?.Invoke(-1), 96, 43));
-        options.AddChild(MakeButton("Size +", () => RadiusChangeRequested?.Invoke(+1), 96, 43));
-
-        var spacer = new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MouseFilter = Control.MouseFilterEnum.Ignore };
-        options.AddChild(spacer);
-
-        _speedLabel = MakeLabel("Time  1x", 17, Muted);
-        _speedLabel.CustomMinimumSize = new Vector2(89, 43);
-        options.AddChild(_speedLabel);
-
-        options.AddChild(MakeButton("Pause", () => SpeedRequested?.Invoke(0), 90, 43));
-        options.AddChild(MakeButton("1x", () => SpeedRequested?.Invoke(1), 57, 43));
-        options.AddChild(MakeButton("2x", () => SpeedRequested?.Invoke(2), 57, 43));
-        options.AddChild(MakeButton("4x", () => SpeedRequested?.Invoke(4), 57, 43));
-        options.AddChild(MakeButton("New World", () => NewWorldRequested?.Invoke(), 121, 43));
-
-        _readout = MakeLabel("", 16, Muted);
-        rows.AddChild(_readout);
-
-        _performance = MakeLabel("FPS: measuring...    Worst frame: measuring...", 16, Muted);
-        rows.AddChild(_performance);
+        RefreshSummary();
     }
 
     public void SetSelectedTool(int index)
     {
-        for (int i = 0; i < _toolButtons.Count; i++)
+        if(index<0 || index>=ToolNames.Length)return;
+        _selectedTool=index;
+        SetTextIfChanged(_toolLabel,ToolNames[index].ToUpperInvariant());
+        for(int group=0;group<_groups.Count;group++)
         {
-            bool active = i == index;
-            _toolButtons[i].AddThemeStyleboxOverride("normal", Box(active ? Active : Surface, 7));
-            _toolButtons[i].AddThemeStyleboxOverride("hover", Box(active ? Active : Hover, 7));
-            _toolButtons[i].AddThemeColorOverride("font_color", Foreground);
+            bool active=Array.IndexOf(ToolGroups[group],_selectedTool)>=0;
+            StyleButton(_groups[group],active?Active:Surface);
         }
     }
 
-    public void UpdateState(string toolName, int radius, int speed, int seed, int population, long tick)
+    public void UpdateState(string toolName,int radius,int speed,int seed,int population,long tick)
     {
-        SetTextIfChanged(_selection, $"Brush: {toolName}  |  Radius: {radius}");
-        SetTextIfChanged(_speedLabel, $"Time  {speed}x");
-        string action = population==0
-            ? "EMPTY WORLD — choose PERSON and left-click land to add citizens"
-            : toolName == "Gather"
-                ? "Left-click trees / berries to gather"
-                : "Left-click paint / spawn";
-        SetTextIfChanged(_readout, $"Seed {seed}    People {population}    Tick {tick}     {action}   |   Right-drag pan   |   Wheel zoom   |   Space pause");
+        _population=population;
+        _tick=tick;
+        _seed=seed;
+        SetTextIfChanged(_toolLabel,
+            toolName.StartsWith("Sculpt",StringComparison.OrdinalIgnoreCase)
+                ? "SCULPT" : toolName.ToUpperInvariant());
+        _toolLabel.TooltipText=toolName;
+        SetTextIfChanged(_radiusLabel,$"R {radius}");
+        SetTextIfChanged(_speedButton,speed==0?"PAUSE ▾":$"{speed}x  ▾");
+        RefreshSummary();
     }
 
-    public void UpdateResourceStock(int wood, int food, int workers=0,
+    public void UpdateResourceStock(int wood,int food,int workers=0,
         int woodHarvested=0,int foodHarvested=0)
     {
         if(wood<0 || food<0 || workers<0 || woodHarvested<wood ||
@@ -152,74 +260,101 @@ public partial class GameHud : PanelContainer
         _workers=workers;
         _woodHarvested=woodHarvested;
         _foodHarvested=foodHarvested;
-        RefreshPerformance();
+        RefreshSummary();
     }
 
     public void UpdateShelterStatus(string status)
     {
         _shelterStatus=status;
-        RefreshPerformance();
+        RefreshSummary();
     }
 
-    /// <summary>Updates once per second; worst-frame time uses _Process, not a GPU profiler.</summary>
-    public void UpdatePerformance(int fps, double worstFrameMilliseconds)
+    /// <summary>Actual one-second frame summary, not a GPU profiler.</summary>
+    public void UpdatePerformance(int fps,double worstFrameMilliseconds)
     {
-        _hasFps = true;
-        _lastFps = fps;
-        _lastWorstFrame = worstFrameMilliseconds;
-        RefreshPerformance();
+        _hasFps=true;
+        _lastFps=fps;
+        _lastWorstFrame=worstFrameMilliseconds;
+        RefreshSummary();
     }
 
-    private void RefreshPerformance()
+    private void RefreshSummary()
     {
-        string frame = _hasFps
-            ? $"FPS: {_lastFps}    Worst frame: {_lastWorstFrame:F1} ms (1s interval)"
-            : "FPS: measuring...";
-        SetTextIfChanged(_performance,
-            $"{frame}     Available: Wood {_woodAvailable} / Food {_foodAvailable} | Harvested {_woodHarvested}/{_foodHarvested} | Working {_workers} | House {_shelterStatus}");
+        string housing=_shelterStatus.Split(';')[0].Trim();
+        string overview=_population==0
+            ? "0 people  ·  Choose LIFE > Person to place your first citizens"
+            : $"People {_population:N0}  ·  {housing}  ·  Wood {_woodAvailable:N0}" +
+              $"  ·  Food {_foodAvailable:N0}  ·  Working {_workers:N0}";
+        SetTextIfChanged(_status,overview);
+        SetTextIfChanged(_fps,_hasFps?$"{_lastFps} FPS":"FPS --");
+        SetTextIfChanged(_timing,_hasFps
+            ? $"Tick {_tick:N0}  ·  {_lastWorstFrame:F1} ms"
+            : $"Tick {_tick:N0}");
+        _status.TooltipText=$"{overview}\n{_shelterStatus}";
+        PopupMenu details=_detailsButton.GetPopup();
+        string[] lines=
+        {
+            $"Seed: {_seed} | Tick: {_tick:N0}",
+            $"Population: {_population:N0} | Working: {_workers:N0}",
+            $"Housing: {_shelterStatus}",
+            $"Wood available: {_woodAvailable:N0}",
+            $"Wood harvested (historical): {_woodHarvested:N0}",
+            $"Food available: {_foodAvailable:N0}",
+            $"Food harvested (historical): {_foodHarvested:N0}",
+            _hasFps?$"FPS: {_lastFps} | Worst frame: {_lastWorstFrame:F1} ms":"FPS: measuring..."
+        };
+        for(int i=0;i<lines.Length;i++)
+            if(details.GetItemText(i)!=lines[i])
+                details.SetItemText(i,lines[i]);
     }
 
-    private static void SetTextIfChanged(Label label, string value)
+    private static void SetTextIfChanged(Label label,string text)
     {
-        if (label.Text != value) label.Text = value;
+        if(label.Text!=text)label.Text=text;
     }
 
-    private static Label MakeLabel(string text, int size, Color color)
+    private static void SetTextIfChanged(MenuButton button,string text)
     {
-        var label = new Label { Text = text, VerticalAlignment = VerticalAlignment.Center };
-        label.AddThemeFontSizeOverride("font_size", size);
-        label.AddThemeColorOverride("font_color", color);
-        label.MouseFilter = Control.MouseFilterEnum.Ignore;
+        if(button.Text!=text)button.Text=text;
+    }
+
+    private static Label MakeLabel(string text,int size,Color color)
+    {
+        var label=new Label { Text=text,VerticalAlignment=VerticalAlignment.Center };
+        label.AddThemeFontSizeOverride("font_size",size);
+        label.AddThemeColorOverride("font_color",color);
+        label.MouseFilter=MouseFilterEnum.Ignore;
         return label;
     }
 
-    private static Button MakeButton(string text, Action clicked, float width, float height)
+    private static Button MakeButton(string text,Action action,float width,float height)
     {
-        var button = new Button
+        var button=new Button
         {
-            Text = text,
-            CustomMinimumSize = new Vector2(width, height),
-            FocusMode = Control.FocusModeEnum.None,
-            MouseFilter = Control.MouseFilterEnum.Stop
+            Text=text,CustomMinimumSize=new Vector2(width,height),
+            FocusMode=FocusModeEnum.None,MouseFilter=MouseFilterEnum.Stop
         };
-        button.AddThemeFontSizeOverride("font_size", 17);
-        button.AddThemeColorOverride("font_color", Foreground);
-        button.AddThemeColorOverride("font_hover_color", Foreground);
-        button.AddThemeColorOverride("font_pressed_color", Foreground);
-        button.AddThemeStyleboxOverride("normal", Box(Surface, 7));
-        button.AddThemeStyleboxOverride("hover", Box(Hover, 7));
-        button.AddThemeStyleboxOverride("pressed", Box(Active, 7));
-        button.AddThemeStyleboxOverride("focus", new StyleBoxEmpty());
-        button.Pressed += clicked;
+        StyleButton(button,Surface);
+        button.Pressed+=action;
         return button;
     }
 
-    private static StyleBoxFlat Box(Color color, int radius) => new()
+    private static void StyleButton(Button button,Color baseColor)
     {
-        BgColor = color,
-        CornerRadiusTopLeft = radius,
-        CornerRadiusTopRight = radius,
-        CornerRadiusBottomLeft = radius,
-        CornerRadiusBottomRight = radius
+        button.AddThemeFontSizeOverride("font_size",14);
+        button.AddThemeColorOverride("font_color",Foreground);
+        button.AddThemeColorOverride("font_hover_color",Foreground);
+        button.AddThemeColorOverride("font_pressed_color",Foreground);
+        button.AddThemeStyleboxOverride("normal",Style(baseColor,7));
+        button.AddThemeStyleboxOverride("hover",Style(Hover,7));
+        button.AddThemeStyleboxOverride("pressed",Style(Active,7));
+        button.AddThemeStyleboxOverride("focus",new StyleBoxEmpty());
+    }
+
+    private static StyleBoxFlat Style(Color color,int radius)=>new()
+    {
+        BgColor=color,CornerRadiusTopLeft=radius,
+        CornerRadiusTopRight=radius,CornerRadiusBottomLeft=radius,
+        CornerRadiusBottomRight=radius
     };
 }
