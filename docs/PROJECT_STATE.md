@@ -49,6 +49,13 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-06 — Whole living-world save/resume candidate (host verification pending)
+
+Opt-in V4.0 VisualLab sessions now have a single versioned world snapshot containing the biome grid, exact fixed tick and AI birth RNG, citizens/roles/jobs/navigation, resources and regrowth deadlines, tree stumps, manually gathered stock, current house stage/materials/residents, losses and all modified V2 sculpt elevation regions. Checkpoint writes are checksummed, temp-file/rename protected, with last-good backup fallback. The manual launcher enables auto-resume for the same world seed and size, saves on normal exit and allows Ctrl+S/Ctrl+L; `-FreshWorld` never loads or overwrites a saved world, and raw Godot scenes remain unchanged. Existing F11/F12 height-only shortcuts still work. Core save/reload/replay, conservation and corrupt-backup tests are added. [ADR 0015](decisions/0015-atomic-living-world-save-and-resume.md).
+
+**Gate:** official Godot CI alone cannot confirm Windows H: permission, camera/brush fidelity or actual frame-rate under saving. Abrupt termination before a checkpoint can lose recent actions; do not describe this as a crash-safe multi-region production save.
+
+
 ## 2026-11-06 — Coordinated jobs and inventory-driven carrying visuals (bugfix candidate)
 
 The first-house AI now assigns explicit forager, woodcutter, hauler, builder and resident duties. Per-house active role quotas limit builders and haulers to two each, and they use separate door-side work tiles rather than overlapping a single exact location. Resource choices prefer necessary lumber during unfinished construction unless genuinely hungry, avoid over-harvesting when four logs are carried and do not send everybody to the same wood site once construction lumber requirements are met. The previously approved Idle/Walk/Chop/Pick/Build clips remain unchanged. Only the visibility trigger of the existing carried logs changes: logs remain visible while walking/queuing/handing off **when and only when** the citizen actually holds wood. Core house smoke bounds roles and carry quantities; native Godot probe checks visible logs throughout travel and disappearance on handoff. General village-wide management and interpersonal physics remain out of scope, pending later user approval. Windows screenshot acceptance is still pending.
