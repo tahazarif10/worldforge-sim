@@ -40,7 +40,8 @@ internal static class InventorySmoke
         for(int i=0;i<600;i++)
         {
             living.Advance();
-            Check(living.Inventory.IsConserved,"all gathering and consumption stays balanced");
+            if(!living.Inventory.IsConserved)throw new InvalidOperationException(
+                $"INVENTORY FAIL: conservation on tick {living.Tick}");
             woodCarried|=living.People.Any(p=>p.WoodCarried>0);
             foodEaten|=living.People.Any(p=>p.FoodEaten>0);
             if(woodCarried && foodEaten)break;
