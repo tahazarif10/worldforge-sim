@@ -49,6 +49,11 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-06 — Inventory ledger correctness (scoped bugfix; host validation pending)
+
+Lifetime `WorldResources.WoodCollected/FoodCollected` counters are **not** on-hand inventory. In the manual V2 HUD, current available wood/food now comes from living citizens' carried amounts plus explicitly tracked manual-Gather debug chest stock, with lifetime harvest shown separately. The WorldSim `WorldInventory` ledger also reconciles invested lumber, demolished-house lumber, food consumed by living/deceased citizens and food/wood dropped when a citizen dies (meteor, water paint or old age). Removed persons release reservations and completed-house occupancy is recalculated. Pure-core tests assert resource conservation through gathering, consumption, manual debug collection and death. No materials have been invented/refunded and no V2 camera, graphics or animation was changed. Remaining physical Windows acceptance follows the usual project gate.
+
+
 ## 2026-11-06 — First cooperative wooden house (PR #101 candidate; host review pending)
 
 This candidate extends the user-approved wood/food AI with a single autonomous wooden shelter. Pure `WorldSim` owns a 2×2 grass construction plot, fixed-stage construction work, 12 units of **delivered** wood taken from actual citizens' holdings, unique contributors and up to four assigned residents. Residents eventually return to rest. A house destroyed by changing the site biome or meteor loses its invested wood (tracked, never refunded). A separate compatibility-safe Godot hut displays foundation, frame, pitched roof, walls and door in stages and citizens display carried logs or a hammer while using their preserved skinned rigs. The map, camera, Kenney foliage materials, brush, streaming and simulation backend remain untouched; housing is off in raw `Scenes/VisualLab3D.tscn`, on in the H: manual launcher with `--citizen-ai --citizen-housing`, and off with `-NoCitizenAI`. [ADR 0014](decisions/0014-first-autonomous-wooden-shelter.md).
