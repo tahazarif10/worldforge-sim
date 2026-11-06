@@ -35,7 +35,11 @@ public partial class GameHud : PanelContainer
     private static readonly Color Foreground = new("#F6F4E9");
     private static readonly Color Muted = new("#B6C9D4");
 
-    public GameHud(bool showGameMenu=false)
+    // Godot node registration and the original 2D scene require an
+    // actual parameterless constructor, not only an optional argument.
+    public GameHud():this(false) {}
+
+    public GameHud(bool showGameMenu)
     {
         Name = "GameHud";
         MouseFilter = Control.MouseFilterEnum.Stop;
