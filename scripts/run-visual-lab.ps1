@@ -2,7 +2,7 @@
 # Uses existing portable Godot/.NET on H: and writes its diagnostic log to H:.
 param([Nullable[int]]$WorldSeed = $null, [switch]$ViewportStreaming, [switch]$MeshWorkers, [switch]$RiggedCitizenDemo,
     [ValidateSet('Compact', 'Expanded')][string]$WorldSize = 'Expanded',
-    [switch]$NoCitizenAI)
+    [switch]$NoCitizenAI, [switch]$FreshWorld)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $root.StartsWith('H:\', [StringComparison]::OrdinalIgnoreCase)) {
@@ -41,6 +41,13 @@ Write-Host "World preview size: $dimensions (use -WorldSize Compact to compare).
 if (-not $NoCitizenAI) {
     $godotArgs += '--citizen-ai'
     $godotArgs += '--citizen-housing'
+    if (-not $FreshWorld) {
+        $godotArgs += '--resume-world'
+        Write-Host 'Save/resume ON: continue the same seed and world size automatically; Ctrl+S saves, Ctrl+L reloads.'
+    }
+    else {
+        Write-Host 'Fresh world mode: existing save will not be loaded or overwritten during this run.'
+    }
     Write-Host 'Autonomous gathering and first wooden shelter ON: citizens deliver, build and rest even offscreen.'
 }
 if ($null -ne $WorldSeed) {
