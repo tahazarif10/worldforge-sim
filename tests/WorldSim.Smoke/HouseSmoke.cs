@@ -43,11 +43,11 @@ internal static class HouseSmoke
                 sawFoundation|=house.Stage==HouseStage.Foundation;
                 sawFrame|=house.Stage==HouseStage.Frame;
                 sawRoof|=house.Stage==HouseStage.Roof;
-                Require(house.WoodDelivered>=0 &&
-                    house.WoodDelivered<=WoodenHouse.RequiredWood &&
-                    house.WorkDone>=0 &&
-                    house.Residents<=WoodenHouse.Capacity,
-                    "construction stays within bounded material and occupancy limits");
+                if(house.WoodDelivered<0 ||
+                    house.WoodDelivered>WoodenHouse.RequiredWood ||
+                    house.WorkDone<0 || house.Residents>WoodenHouse.Capacity)
+                    throw new InvalidOperationException(
+                        "HOUSE SMOKE FAILED: construction exceeded material or occupancy limits");
             }
             sawDelivery|=a.People.Any(p=>p.Activity==CitizenActivity.Delivering);
             sawConstruction|=a.People.Any(p=>p.Activity==CitizenActivity.Building);
@@ -56,10 +56,12 @@ internal static class HouseSmoke
             // Material flows only from previously harvested logs in hands.
             int stored=a.FirstHouse?.WoodDelivered ?? 0;
             int carried=a.People.Sum(p=>p.WoodCarried);
-            Require(a.Resources.WoodCollected==carried+stored+a.HouseWoodLost,
-                "world lumber is conserved across carried, invested and destroyed stock");
-            Require(a.People.All(p=>a.Walkable(p.X,p.Y)),
-                "builders and gatherers never walk onto impassable terrain");
+            if(a.Resources.WoodCollected!=carried+stored+a.HouseWoodLost)
+                throw new InvalidOperationException(
+                    $"HOUSE SMOKE FAILED: lumber conservation on tick {a.Tick}, gathered {a.Resources.WoodCollected}, held {carried}, delivered {stored}, lost {a.HouseWoodLost}");
+            if(a.People.Any(p=>!a.Walkable(p.X,p.Y)))
+                throw new InvalidOperationException(
+                    "HOUSE SMOKE FAILED: a citizen entered impassable terrain");
 
             if(a.CompletedHouseCount>0 && sawRest)break;
         }
