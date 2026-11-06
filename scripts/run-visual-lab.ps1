@@ -40,7 +40,8 @@ $godotArgs += "--world-size=$dimensions"
 Write-Host "World preview size: $dimensions (use -WorldSize Compact to compare)."
 if (-not $NoCitizenAI) {
     $godotArgs += '--citizen-ai'
-    Write-Host 'Autonomous gathering ON: citizens harvest wood and food even offscreen.'
+    $godotArgs += '--citizen-housing'
+    Write-Host 'Autonomous gathering and first wooden shelter ON: citizens deliver, build and rest even offscreen.'
 }
 if ($null -ne $WorldSeed) {
     Write-Host "Replaying approved 3D world seed $WorldSeed for mountain QA."
