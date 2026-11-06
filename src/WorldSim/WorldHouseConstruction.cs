@@ -86,7 +86,16 @@ public sealed partial class WorldState
     {
         WoodenHouse? house=FirstHouse;
         if(house is null)return;
-        if(IsValidHousePlot(house.X,house.Y))return;
+        if(IsValidHousePlot(house.X,house.Y))
+        {
+            if(TryHouseElevation(house.X,house.Y,out float top) &&
+                house.GroundHeight!=top)
+            {
+                house.GroundHeight=top;
+                HouseRevision++;
+            }
+            return;
+        }
 
         // The structure is destroyed by terrain edits/disasters, never
         // silently refunded. This tracks where invested lumber went.
