@@ -28,6 +28,7 @@ ADRs explain **why** technical choices were made, how they are verified and whic
 | [0013](0013-bounded-fixed-tick-citizen-resource-jobs.md) | Accepted for opt-in AI pilot; host approval pending | Bounded fixed-tick citizen routing, resource reservations and independent Chop/Pick visuals |
 | [0014](0014-first-autonomous-wooden-shelter.md) | Accepted for first-hut pilot; host approval pending | Autonomous real-lumber deliveries, staged cooperative construction, four residents and safe rollback |
 | [0015](0015-atomic-living-world-save-and-resume.md) | Candidate; host acceptance pending | Verified whole-world saves including workers, house, resource regrowth and height sculpt under H:, with last-good backup |
+| [0016](0016-bounded-three-house-village.md) | Implemented candidate; host test pending | Three-demand-driven homes, independent jobs and materials, ordered save-v2 migration while preserving V2 art and camera |
 
 Add an ADR when changing: visual backend, camera interaction contract, Godot render mode, data authority, region boundaries, thread/queue/cancellation semantics, save format, world generator or accepted milestone order.
 

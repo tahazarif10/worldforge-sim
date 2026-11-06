@@ -23,7 +23,7 @@ public sealed class Citizen(int id, int x, int y, long bornAt)
     public int HomeId { get; internal set; }
     public int Energy { get; internal set; } = 85;
     internal HouseJob HouseTask;
-    internal int HouseWorkX,HouseWorkY;
+    internal int HouseTargetId,HouseWorkX,HouseWorkY;
 
     // Small transient job plan, indexed by stable global resource site ID.
     internal readonly List<int> Route=new();
@@ -72,9 +72,10 @@ public sealed partial class WorldState
         if(!Contains(x,y) ||
             _tiles[y*Width+x] is Terrain.DeepWater or Terrain.ShallowWater or Terrain.Mountain)
             return false;
-        WoodenHouse? house=FirstHouse;
-        return house is null || x<house.X || x>=house.X+2 ||
-            y<house.Y || y>=house.Y+2;
+        foreach(WoodenHouse house in _houses)
+            if(x>=house.X && x<house.X+2 &&
+                y>=house.Y && y<house.Y+2)return false;
+        return true;
     }
 
     public void Paint(int cx, int cy, int radius, Terrain kind)

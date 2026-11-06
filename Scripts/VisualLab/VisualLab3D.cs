@@ -306,12 +306,16 @@ public partial class VisualLab3D : Node3D
         WorldInventory stock=_world.Inventory;
         _hud?.UpdateResourceStock(stock.WoodAvailable,stock.FoodAvailable,
             _world.WorkingCitizenCount,stock.WoodHarvested,stock.FoodHarvested);
-        WoodenHouse? house=_world.FirstHouse;
+        WoodenHouse? building=_world.ActiveConstructionHouse;
+        int housed=0;
+        foreach(WoodenHouse home in _world.Houses)housed+=home.Residents;
         _hud?.UpdateShelterStatus(!_world.AutonomousHousingEnabled
             ? "Off"
-            : house is null ? "Site pending"
-            : $"{house.Stage} {house.WoodDelivered}/{WoodenHouse.RequiredWood} wood, " +
-              $"{house.ContributorCount} builders, {house.Residents}/{WoodenHouse.Capacity} residents");
+            : $"{_world.CompletedHouseCount}/{WorldState.MaxHouseCount} homes, " +
+              $"{housed}/{_world.People.Count} housed" +
+              (building is null ? "; next house when needed"
+                  : $"; building #{building.Id}: {building.Stage} " +
+                    $"{building.WoodDelivered}/{WoodenHouse.RequiredWood} wood"));
     }
 
     private void SetupHud()

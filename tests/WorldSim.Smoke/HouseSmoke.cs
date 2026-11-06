@@ -134,6 +134,33 @@ internal static class HouseSmoke
         Require(!buildingZone.CanPlaceHouseAt(valid.x,valid.y),
             "steep 2x2 ground is rejected independently of camera or Godot");
 
+        // A new family causes another real construction site without
+        // repurposing the first house or borrowing its invested lumber.
+        WorldState village=WorldState.RestoreSave(a.CaptureSave());
+        village.PopulationLimit=12;
+        for(int i=0;i<5;i++)
+            Require(village.Spawn(finished.EntranceX,finished.EntranceY),
+                "extra population can move into the growing village");
+        for(int step=0;step<120 && village.Houses.Count<2;step++)
+            village.Advance();
+        Require(village.Houses.Count==2 && village.CompletedHouseCount==1 &&
+            village.Houses[0].Id==finished.Id &&
+            village.Houses[1].Id!=finished.Id &&
+            village.Houses[1].WoodDelivered==0 &&
+            village.Houses[1].Stage==HouseStage.Planned,
+            "more than four residents trigger a distinct second house, without free lumber");
+        WoodenHouse second=village.Houses[1];
+        Require(village.Walkable(second.EntranceX,second.EntranceY) &&
+            !village.Walkable(second.X,second.Y) &&
+            village.Inventory.IsConserved,
+            "second door remains walkable and both footprints block movement");
+        WorldState villageReload=WorldState.RestoreSave(village.CaptureSave());
+        Require(villageReload.Houses.Count==2 &&
+            villageReload.Houses[1].Id==second.Id &&
+            villageReload.Houses[0].Residents==WoodenHouse.Capacity &&
+            villageReload.Inventory.IsConserved,
+            "both houses and occupants survive a saved-world roundtrip");
+
         int invested=finished.WoodDelivered;
         a.Paint(finished.X,finished.Y,0,Terrain.DeepWater);
         Require(a.FirstHouse is null && a.CompletedHouseCount==0 &&

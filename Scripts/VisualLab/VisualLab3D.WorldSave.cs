@@ -47,7 +47,7 @@ public partial class VisualLab3D
             WorldSaveFiles.Write(file,snapshot);
             _worldResumeBlocked=false;
             GD.Print($"WORLD SAVED tick={_world.Tick}, citizens={_world.People.Count}, "+
-                $"house={_world.FirstHouse?.Stage.ToString()??"None"}, "+
+                $"houses={_world.Houses.Count}, completed={_world.CompletedHouseCount}, "+
                 $"sculpt regions={snapshot.Elevation.Count}: {file}");
         }
         catch(Exception ex)
@@ -103,7 +103,7 @@ public partial class VisualLab3D
             _worldResumeBlocked=false;
             GD.Print($"WORLD RESTORED from {(backup?"BACKUP":"PRIMARY")}: "+
                 $"tick {_world.Tick}; citizens {_world.People.Count}; "+
-                $"house {_world.FirstHouse?.Stage.ToString()??"None"}; "+
+                $"houses {_world.Houses.Count}, completed {_world.CompletedHouseCount}; "+
                 $"sculpt regions {checkpoint.Elevation.Count}");
             return true;
         }
