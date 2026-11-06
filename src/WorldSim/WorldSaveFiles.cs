@@ -75,8 +75,8 @@ public static class WorldSaveFiles
                     snapshot.World.Width,snapshot.World.Height);
                 File.Copy(full,full+".bak",overwrite:true);
             }
-            catch(Exception e) when(e is IOException or JsonException or
-                FormatException or ArgumentException)
+            catch(Exception e) when(e is InvalidDataException or IOException or
+                JsonException or FormatException or ArgumentException)
             {
                 // Preserve the previously verified backup.
             }
@@ -94,7 +94,7 @@ public static class WorldSaveFiles
         {
             return ReadAndVerify(full,seed,width,height);
         }
-        catch(Exception e) when(e is IOException or
+        catch(Exception e) when(e is InvalidDataException or IOException or
             UnauthorizedAccessException or JsonException or
             FormatException or ArgumentException)
         {
