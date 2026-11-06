@@ -39,6 +39,7 @@ public partial class EngineProbe : Node
             GetWindow().ContentScaleMode=Window.ContentScaleModeEnum.Disabled;
             await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
             ExerciseGatherResources(lab,terrain,camera);
+            ExerciseFirstHouseArt(lab,terrain,camera);
             ExerciseCitizenArt(lab);
             ExerciseRiggedCitizenPreview(lab,terrain);
             ExercisePicking(lab,terrain,camera);
@@ -302,6 +303,9 @@ public partial class EngineProbe : Node
                 player.GetAnimation("Pick").GetTrackCount()>=5 &&
                 player.GetAnimation("Chop").GetTrackCount()>=5,
                 "shared skeleton adds authored food-pick and tree-chopping clips");
+            Require(player.HasAnimation("Build") &&
+                player.GetAnimation("Build").GetTrackCount()>=5,
+                "builders have an independently authored hammering animation");
             var axe=rig.GetNode<Node3D>(
                 "Skeleton3D/WoodcuttingToolMount/WoodcuttingAxe");
             long beforeActionTick=world.Tick;
@@ -312,6 +316,19 @@ public partial class EngineProbe : Node
                 CitizenActivity.Picking);
             Require(!axe.Visible && world.Tick==beforeActionTick,
                 "berry picking hides axe and all action clips are visual-only");
+            var logs=rig.GetNode<Node3D>(
+                "Skeleton3D/ConstructionToolMount/CarriedWood");
+            var hammer=rig.GetNode<Node3D>(
+                "Skeleton3D/ConstructionToolMount/BuildHammer");
+            rig.Present(new Vector2(3.5f,3.5f),0f,.61f,1f,.08f,1,
+                CitizenActivity.Delivering);
+            Require(logs.Visible && !hammer.Visible && !axe.Visible,
+                "carrying wood shows real rendered logs without switching walking clips");
+            rig.Present(new Vector2(3.5f,3.5f),0f,.61f,0f,.08f,1,
+                CitizenActivity.Building);
+            Require(hammer.Visible && !logs.Visible && !axe.Visible &&
+                world.Tick==beforeActionTick,
+                "construction shows hammer and stays entirely render-only");
             Require(tree.Active &&
                 tree.TreeRoot is AnimationNodeBlendSpace1D,
                 "Godot AnimationTree blends the two skeletal clips");
