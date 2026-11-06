@@ -107,5 +107,32 @@ internal static class HouseSmoke
         Require(fresh.FirstHouse is null && fresh.HouseWoodLost==0 &&
             fresh.People.All(p=>p.HomeId==0),
             "New World has no inherited home or building inventory");
+
+        // Replay the user's accepted expanded screenshot seed near a known
+        // real tree and food patch (118,96 / 118,99). This protects against a
+        // house that works only on the synthetic cleared-island fixture.
+        var reference=new WorldState(192,144,1315511732)
+        {
+            AutonomousGatheringEnabled=true,
+            AutonomousHousingEnabled=true,
+            PopulationLimit=4
+        };
+        Require(reference.Resources.At(118,96).Kind==ResourceKind.Wood &&
+            reference.Resources.At(118,99).Kind==ResourceKind.Food,
+            "approved 192x144 seed retains the referenced wood and berry patch");
+        for(int radius=0;radius<=3 && reference.People.Count<4;radius++)
+        for(int y=96-radius;y<=96+radius && reference.People.Count<4;y++)
+        for(int x=118-radius;x<=118+radius && reference.People.Count<4;x++)
+        {
+            if(Math.Abs(x-118)+Math.Abs(y-96)!=radius)continue;
+            reference.Spawn(x,y);
+        }
+        Require(reference.People.Count==4,
+            "four villagers can be spawned near the real reference forest");
+        for(int step=0;step<1600 && reference.CompletedHouseCount==0;step++)
+            reference.Advance();
+        Require(reference.CompletedHouseCount==1 &&
+            reference.FirstHouse!.WoodDelivered==WoodenHouse.RequiredWood,
+            "villagers construct a real 12-log hut on the accepted 192x144 screenshot seed");
     }
 }
