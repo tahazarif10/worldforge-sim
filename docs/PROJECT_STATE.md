@@ -49,6 +49,13 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-06 — First cooperative wooden house (PR #101 candidate; host review pending)
+
+This candidate extends the user-approved wood/food AI with a single autonomous wooden shelter. Pure `WorldSim` owns a 2×2 grass construction plot, fixed-stage construction work, 12 units of **delivered** wood taken from actual citizens' holdings, unique contributors and up to four assigned residents. Residents eventually return to rest. A house destroyed by changing the site biome or meteor loses its invested wood (tracked, never refunded). A separate compatibility-safe Godot hut displays foundation, frame, pitched roof, walls and door in stages and citizens display carried logs or a hammer while using their preserved skinned rigs. The map, camera, Kenney foliage materials, brush, streaming and simulation backend remain untouched; housing is off in raw `Scenes/VisualLab3D.tscn`, on in the H: manual launcher with `--citizen-ai --citizen-housing`, and off with `-NoCitizenAI`. [ADR 0014](decisions/0014-first-autonomous-wooden-shelter.md).
+
+This is a session-local first-house prototype, **not** general settlement simulation, production saving, or host-approved graphics/performance. The user must review same-seed Windows screenshots, 4x construction timing, house materials, resident behavior and F9 frame performance; record the local executable SHA separately from CI evidence.
+
+
 ## 2026-11-05 — Resource jobs and autonomous citizens (pilot; host review pending)
 
 PR #99 introduced tree resource identity, a short one-tree fall, permanent stumps and authoritative visibility when worker chunks reload; it changes neither forest biomes nor the approved Kenney materials. The next candidate introduces opt-in pure-C# citizen gathering: deterministic bounded pathfinding (1,200-cell/22-tile search, at most six new jobs per tick), resource reservations, hunger, fixed work durations and accounting for carried/eaten food. Original Idle/Walk animations are retained; only the user-requested Pick/Chop animation clips and an optional small axe are added to visible rigs. The H:-only manual launcher enables citizen AI by default; -NoCitizenAI restores the original random movement for comparison. World state, resource stocks and offscreen action remain independent of camera view. See [ADR 0013](decisions/0013-bounded-fixed-tick-citizen-resource-jobs.md).
