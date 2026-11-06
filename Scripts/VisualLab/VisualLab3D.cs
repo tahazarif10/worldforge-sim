@@ -46,6 +46,11 @@ public partial class VisualLab3D : Node3D
     private bool _paintStrokeActorsDirty;
     private float _paintStrokePlaneY;
     private int _lastPaintX = int.MinValue, _lastPaintY = int.MinValue;
+    // OS mice may produce many events per rendered frame. Store only the last
+    // in-bounds drag point; rasterize once in _Process instead of mutating
+    // hundreds of world tiles separately for every high-Hz mouse event.
+    private bool _paintMotionPending;
+    private int _pendingPaintX,_pendingPaintY;
     private readonly WorldForge.Instrumentation.FrameCapture _frameProbe = new(7200);
 
     public override void _Ready()
@@ -238,10 +243,17 @@ public partial class VisualLab3D : Node3D
             if (_tickAccumulator > TickSeconds * 12) _tickAccumulator = TickSeconds;
         }
 
+        // Coalesce high-rate mouse input into one connected brush segment per
+        // rendered frame, before preparing native live preview geometry.
+        if (_paintStrokeActive && _paintMotionPending)
+            ApplyPendingPaintMotion();
         // Publish held-brush edits at a bounded cadence in BOTH the ordinary
         // synchronous launcher and opt-in worker mode, not only on mouse up.
         if (_paintStrokeActive && _paintStrokeTerrainBatch)
             _terrain.PreviewInteractiveEditBatch(delta);
+        // Immediate surface-only feedback is independent of costly foliage
+        // regeneration and stays visible after mouse-up until handoff.
+        _terrain.PresentLiveBrushPreview(maxChunks:3);
 
         // Citizen animation is presentation-only: authoritative WorldState
         // positions, movement probabilities and tick ordering remain unchanged.
@@ -270,7 +282,9 @@ public partial class VisualLab3D : Node3D
         {
             _terrainRefresh = 0;
             ulong flushStart = recordWork ? Time.GetTicksUsec() : 0;
-            _terrain.FlushChanges(maxSynchronousChunks:2);
+            // Deferred final terrain+foliage publication; one chunk per
+            // admission avoids rebuilding a forest in a single drag frame.
+            _terrain.FlushChanges(maxSynchronousChunks:1);
             if (recordWork) flushMs = (Time.GetTicksUsec()-flushStart)/1000d;
         }
 
@@ -607,6 +621,7 @@ public partial class VisualLab3D : Node3D
         _paintStrokeTerrainBatch = _heightSculptMode ||
             _brush is not (Brush.Person or Brush.Gather);
         _paintStrokeActorsDirty = false;
+        _paintMotionPending=false;
         if (_paintStrokeTerrainBatch)
             _terrain.BeginInteractiveEditBatch();
         ApplyAtCell(hit.X, hit.Y);
@@ -628,17 +643,64 @@ public partial class VisualLab3D : Node3D
         Vector3 point = origin + direction * t;
         int x = (int)MathF.Floor(point.X);
         int y = (int)MathF.Floor(point.Z);
-        if (_world.Contains(x, y)) ApplyAtCell(x, y);
+        if(!_world.Contains(x,y))return;
+        if(_paintStrokeTerrainBatch && _brush!=Brush.Meteor)
+        {
+            // No expensive WorldState.Paint, biome resource rebuild or
+            // MeshInstance3D creation here in the event dispatch.
+            _pendingPaintX=x;
+            _pendingPaintY=y;
+            _paintMotionPending=true;
+        }
+        else
+            ApplyAtCell(x,y);
+    }
+
+    private void ApplyPendingPaintMotion()
+    {
+        if(!_paintMotionPending)return;
+        _paintMotionPending=false;
+        if(_lastPaintX!=int.MinValue && _lastPaintY!=int.MinValue)
+            PaintConnectedSegment(_lastPaintX,_lastPaintY,
+                _pendingPaintX,_pendingPaintY);
+        else
+            ApplyAtCell(_pendingPaintX,_pendingPaintY);
+    }
+
+    private void PaintConnectedSegment(int x0,int y0,int x1,int y1)
+    {
+        int dx=Math.Abs(x1-x0),dy=Math.Abs(y1-y0);
+        // Huge discontinuities arise when dragging outside the world and
+        // returning; cap work instead of painting an accidental long diagonal.
+        if(Math.Max(dx,dy)>48)
+        {
+            ApplyAtCell(x1,y1);
+            return;
+        }
+        int sx=x0<x1?1:-1,sy=y0<y1?1:-1;
+        int error=dx-dy;
+        for(int steps=0;steps<=48;steps++)
+        {
+            if(_world.Contains(x0,y0))ApplyAtCell(x0,y0);
+            if(x0==x1 && y0==y1)break;
+            int twice=2*error;
+            if(twice>-dy){error-=dy;x0+=sx;}
+            if(twice<dx){error+=dx;y0+=sy;}
+        }
     }
 
     private void EndPaintStroke()
     {
         if (!_paintStrokeActive) return;
+        // The last mouse position might arrive after the final _Process.
+        // Publish it before releasing the authoritative stroke batch.
+        ApplyPendingPaintMotion();
         bool commitTerrain = _paintStrokeTerrainBatch;
         bool updateActors = _paintStrokeActorsDirty;
         _paintStrokeActive = false;
         _paintStrokeTerrainBatch = false;
         _paintStrokeActorsDirty = false;
+        _paintMotionPending=false;
         _lastPaintX = int.MinValue;
         _lastPaintY = int.MinValue;
         if (commitTerrain)

@@ -32,6 +32,11 @@ public partial class EngineProbe : Node
                 Require(terrain.StreamingPlannerName == "legacy-v2" && terrain.ActiveTerrainChunks > 0 &&
                     terrain.ActiveFallbackChunks == 0,
                     "normal scene retains legacy planner and geometry");
+                // Focused native check for the user's actual ordinary H:
+                // gameplay path (NO viewport workers): painted terrain must
+                // be visible BEFORE mouse release, without building foliage.
+                lab.SetProcess(false);
+                ExerciseLivePaintPreview(lab,terrain);
                 GD.Print("PASS VIEWPORT DEFAULT OFF / " + terrain.TerrainBackendName);
                 GetTree().Quit();
                 return;
@@ -152,6 +157,47 @@ public partial class EngineProbe : Node
             GD.PushError("VIEWPORT ENGINE FAILED: " + ex);
             GetTree().Quit(1);
         }
+    }
+
+    private static void ExerciseLivePaintPreview(VisualLab3D lab,VisualTerrain3D terrain)
+    {
+        var world=(WorldState)typeof(VisualLab3D).GetField("_world",
+            System.Reflection.BindingFlags.Instance|
+            System.Reflection.BindingFlags.NonPublic)!.GetValue(lab)!;
+        int x=-1,z=-1;
+        // Choose a real, already resident land cell, not a synthetic flat mock.
+        foreach(var key in Details(terrain).Keys)
+        {
+            for(int iy=key.Item2*16;iy<Math.Min(world.Height,(key.Item2+1)*16) && x<0;iy++)
+            for(int ix=key.Item1*16;ix<Math.Min(world.Width,(key.Item1+1)*16);ix++)
+                if(world.Tile(ix,iy) is Terrain.Grass or Terrain.Forest)
+                {
+                    x=ix;z=iy;break;
+                }
+            if(x>=0)break;
+        }
+        Require(x>=0,"live brush fixture finds a visible terrestrial tile");
+        var key2=(x/16,z/16);
+        MeshInstance3D old=Details(terrain)[key2];
+        Terrain target=world.Tile(x,z)==Terrain.Grass?Terrain.Forest:Terrain.Grass;
+        terrain.BeginInteractiveEditBatch();
+        world.Paint(x,z,0,target);
+        terrain.MarkChanged(x,z,0,coastlineChanged:false);
+        terrain.PresentLiveBrushPreview(3);
+        MeshInstance3D overlay=terrain.GetNodeOrNull<MeshInstance3D>(
+            $"LiveBrush_{key2.Item1}_{key2.Item2}") ??
+            throw new InvalidOperationException("Live terrain overlay is missing.");
+        Require(overlay.Visible &&
+            overlay.Mesh is not null && !old.Visible &&
+            world.Tile(x,z)==target,
+            "native new-biome surface is visible while button is held");
+        terrain.CommitInteractiveEditBatch();
+        Require(overlay.Visible && !overlay.IsQueuedForDeletion(),
+            "mouse release does not expose stale underlying terrain");
+        terrain.FlushChanges();
+        Require(overlay.IsQueuedForDeletion() && old.Visible &&
+            world.Tile(x,z)==target,
+            "authoritative terrain/foliage publication retires the live overlay");
     }
 
     private static void Require(bool condition,string message)
