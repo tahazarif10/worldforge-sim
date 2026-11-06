@@ -14,7 +14,7 @@ public readonly record struct ResourceDeposit(ResourceKind Kind, int Remaining, 
 public readonly record struct GatherResult(ResourceKind Kind, int Collected, int Remaining);
 public readonly record struct ResourceSite(int X, int Y, int Remaining, int Capacity);
 
-public sealed class WorldResources
+public sealed partial class WorldResources
 {
     public const long FoodRegrowthTicks = 40;
 

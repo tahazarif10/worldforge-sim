@@ -27,6 +27,12 @@ public sealed class WoodenHouse(int id,int x,int y,long foundedAt)
     private readonly HashSet<int> _contributors=new();
     public int ContributorCount => _contributors.Count;
     internal void CreditBuilder(int citizenId) => _contributors.Add(citizenId);
+    internal int[] ContributorIds() => _contributors.OrderBy(id=>id).ToArray();
+    internal void RestoreContributors(IEnumerable<int> ids)
+    {
+        _contributors.Clear();
+        foreach(int id in ids)_contributors.Add(id);
+    }
 }
 
 /// <summary>

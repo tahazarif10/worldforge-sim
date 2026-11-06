@@ -51,6 +51,8 @@ public partial class VisualLab3D : Node3D
     public override void _Ready()
     {
         Name = "WorldForge3D — Visual Lab";
+        _resumeWorldEnabled=Array.Exists(OS.GetCmdlineUserArgs(),
+            arg=>arg=="--resume-world");
         // Internal migration proof only; the default V2 world is unchanged.
         _regionMirrorPreview = Array.Exists(OS.GetCmdlineUserArgs(),
             arg => arg == "--terrain-backend=region-mirror");
@@ -80,6 +82,7 @@ public partial class VisualLab3D : Node3D
         _citizens.SetViewCamera(_camera);
 
         CreateWorld(InitialSeed());
+        if(_resumeWorldEnabled)TryResumeWorld();
         GD.Print("V2 reference world seed: " + _world.Seed);
         _cameraRig = new WorldForge.Camera3D.StrategyCameraRig(_camera,
             (x, y) => _terrain.HeightAt(x, y), _world.Width, _world.Height,
@@ -340,6 +343,7 @@ public partial class VisualLab3D : Node3D
         _hud.NewWorldRequested += () =>
         {
             EndPaintStroke();
+            if(_resumeWorldEnabled)SaveWorldNow();
             CreateWorld(Random.Shared.Next());
             RefreshHud();
         };
@@ -378,6 +382,18 @@ public partial class VisualLab3D : Node3D
         }
         else if (input is InputEventKey k && k.Pressed && !k.Echo)
         {
+            if(k.CtrlPressed && k.Keycode==Key.S)
+            {
+                EndPaintStroke();
+                SaveWorldNow(explicitUserRequest:true);
+                return;
+            }
+            if(k.CtrlPressed && k.Keycode==Key.L)
+            {
+                EndPaintStroke();
+                TryResumeWorld();
+                return;
+            }
             if (k.Keycode == Key.Space) _speed = _speed == 0 ? 1 : 0;
             if (k.Keycode == Key.Key1) _speed = 1;
             if (k.Keycode == Key.Key2) _speed = 2;
@@ -455,6 +471,8 @@ public partial class VisualLab3D : Node3D
         try
         {
             int count = _terrain.LoadElevation(path);
+            if(count>0 && _world.AutonomousHousingEnabled)
+                _world.RecheckHouseSurface();
             if (count > 0) UpdateActors();
             GD.Print($"Loaded {count} checked height regions from {path}");
         }
