@@ -49,6 +49,17 @@ open_blockers: ["#46 V3 visual+camera regression", "#34 production terrain/LOD/a
 
 # WorldForge Sim — factual project state
 
+## 2026-11-07 — Local Gen1.1 cottage yard and entrance ground (Windows player test pending)
+
+The user approved upgrading **ground only around existing cottages** following the improved close-up Gen1.1 model: worn soil at the fieldstone footing, a narrow rustic approach from the south-side door, sparse pebbles and subtle local grass color transition. The feature is deliberately **presentation only**, so house footprints, walking paths, biomes, berry/wood inventory, saved world snapshots, building materials, AI, camera, brush painting and the island outside the immediate cottage are unaffected.
+
+`HouseYardArt3D.cs` is a bounded visual child of the current `WoodenHouseArt3D`, with up to three camera-culled per-home opaque vertex-colored meshes matching the existing 2×2 foundations. The worn earth is built from small, irregular deterministic soil and moss-colored quads with terrain-height sampling of the existing V2 editable surface. A tapered, slightly meandering compacted-soil path follows the existing `WoodenHouse.EntranceX/Y`, with sparse stone chips batched into the same single material/mesh (no dynamic shader, texture download, physics collider or new simulation asset). It appears from Foundation stage and disappears on demolition. Meshes rebuild only when nearby display chunk edit revisions or the actual house ID/plot change; edits elsewhere do not trigger a yard rebuild. The path never visualizes over ocean/forest/mountain tiles or another house footprint.
+
+`VisualTerrain3D.HouseYards.cs` tracks very small render-only per-chunk stamps and excludes *only decorative* Kenney grass/flowers from the cottage's footprint and immediate entry. The authoritative biome and its real food/wood resources remain untouched. A one-time nearby visual foliage refresh is enqueued on house creation/removal so the native V2 art and live brush path agree. `VisualTerrain3D.LiveNature.cs` uses the identical decorative suppression during held painting. No changes to `project.godot`, WorldSim, world saves, or current physical rendering backend. See [ADR 0021](decisions/0021-local-house-ground-dressing.md).
+
+**Delivery/acceptance:** this is a code candidate for immediate user Windows H: preview, not an assertion of CI, actual GPU frame time or visual approval. User explicitly prefers direct testing without extended CI. Check a completed house and adjacent low ground at 5.5 camera zoom, compare entry, wall-contact and material transitions, and report bad clipping/vegetation remnants.
+
+
 ## 2026-11-06 — Manual launcher close-up camera zoom for Gen1.1 house inspection
 
 The user approved Gen1.1 and wants to zoom closer to inspect roof, timber, door and window details. The previous 3D camera rig clamped orthographic Size at 19, preventing usable close-ups. The existing `StrategyCameraRig` constructor now accepts a **validated optional minimum zoom size**, defaulting to the original 19 for all raw V2 scenes, reference poses and automated fixtures. Only the H: manual launcher with `--game-menu` passes 5.5 as the minimum, allowing about 3.45x closer views using the same cursor-anchored mouse-wheel zoom. All other camera parameters, pitch, mouse pan, camera-picking, max zoom (160), streaming and population/house logic stay unchanged.

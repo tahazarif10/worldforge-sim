@@ -255,6 +255,7 @@ public partial class VisualTerrain3D : Node3D
             throw new ArgumentOutOfRangeException(nameof(world),
                 $"Mesh-worker preview supports at most {CoastBuildSnapshot.MaximumCells} coast cells.");
         ResetLiveBrushPreviews();
+        ResetSurfaceEditStamps();
         _world = world;
         // Keep the original direct WorldState path as the default. Region
         // parity mode uses the same shader, water, foliage and camera code.
@@ -498,6 +499,7 @@ public partial class VisualTerrain3D : Node3D
         for (int cy = top / ChunkSize; cy <= bottom / ChunkSize; cy++)
         for (int cx = left / ChunkSize; cx <= right / ChunkSize; cx++)
         {
+            StampSurfaceEditChunk(cx,cy);
             _changedChunks.Add((cx, cy));
             if (_interactiveEditBatch)
             {
@@ -972,7 +974,8 @@ public partial class VisualTerrain3D : Node3D
                     ((h >> 6) & 1) == 0 ? new Color("#a5b1b8") : new Color("#637582")));
                 count++;
             }
-            else if (kind == Terrain.Grass && species is 8 or 9)
+            else if (kind == Terrain.Grass && species is 8 or 9 &&
+                !SuppressHouseDecorativeGroundCover(x,y))
             {
                 if (_natureArt is not null && _natureArt.Has((NatureArtLibrary.Species)species))
                 {

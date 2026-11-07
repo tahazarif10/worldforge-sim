@@ -21,6 +21,7 @@ public sealed partial class WoodenHouseArt3D : Node3D
     private readonly List<Node3D> _extraModels=new();
     private readonly List<MeshInstance3D[]> _extraParts=new();
     private readonly List<HouseStage> _extraShownStages=new();
+    private HouseYardArt3D _yards=null!;
 
     private readonly StandardMaterial3D _houseMaterial=new()
     {
@@ -92,6 +93,9 @@ public sealed partial class WoodenHouseArt3D : Node3D
             _extraParts.Add(parts);
             _extraShownStages.Add(HouseStage.Planned);
         }
+
+        _yards=new HouseYardArt3D{Name="GenerationOneYards"};
+        AddChild(_yards);
     }
 
     private void BuildGenerationOne()
@@ -627,6 +631,7 @@ public sealed partial class WoodenHouseArt3D : Node3D
         _elapsed=0;
         _house.Visible=false;
         foreach(Node3D extra in _extraModels)extra.Visible=false;
+        _yards.BindWorld(world,terrain,camera);
         RefreshNow();
     }
 
@@ -647,6 +652,7 @@ public sealed partial class WoodenHouseArt3D : Node3D
         {
             _house.Visible=false;
             _shownHouseId=0;
+            _yards.RefreshNow();
             return;
         }
 
@@ -663,6 +669,7 @@ public sealed partial class WoodenHouseArt3D : Node3D
         }
         _house.Position=new Vector3(site.X+1f,site.GroundHeight,site.Y+1f);
         _house.Visible=IsHouseVisible(site);
+        _yards.RefreshNow();
     }
 
     private void RefreshExtraHouses()
