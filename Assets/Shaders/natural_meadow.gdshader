@@ -1,86 +1,105 @@
 shader_type spatial;
 render_mode diffuse_burley, specular_disabled, cull_disabled;
 
-// Continuous world-space meadow shading: no UV tile/checker pattern.
-// This material is installed only by the manual V2 landscape adapter.
+// Mip-filtered world-space meadow layers, not simulation-cell colors.
 uniform sampler2D biome_map : filter_linear, repeat_disable;
+uniform sampler2D surface_heights : filter_linear, repeat_disable;
+uniform sampler2D meadow_detail : filter_linear_mipmap_anisotropic, repeat_enable;
 uniform vec2 map_size = vec2(192.0, 144.0);
 uniform float seed_offset = 0.0;
+uniform vec4 meadow_shade : source_color = vec4(0.285, 0.420, 0.195, 1.0);
+uniform vec4 meadow_body : source_color = vec4(0.405, 0.550, 0.255, 1.0);
+uniform vec4 meadow_sun : source_color = vec4(0.525, 0.630, 0.310, 1.0);
+uniform vec4 woodland : source_color = vec4(0.270, 0.385, 0.205, 1.0);
+uniform vec4 dry_grass : source_color = vec4(0.560, 0.555, 0.345, 1.0);
+uniform vec4 earth_dark : source_color = vec4(0.395, 0.315, 0.215, 1.0);
+uniform vec4 earth_light : source_color = vec4(0.575, 0.475, 0.320, 1.0);
+uniform vec4 sand_color : source_color = vec4(0.745, 0.675, 0.465, 1.0);
 uniform vec4 house_a = vec4(0.0);
 uniform vec4 house_b = vec4(0.0);
 uniform vec4 house_c = vec4(0.0);
 varying vec3 ground_world;
+varying float ground_top;
 
-float hash21(vec2 p) {
-    vec3 q = fract(vec3(p.xyx) * 0.1031);
-    q += dot(q, q.yzx + 33.33);
-    return fract((q.x + q.y) * q.z);
-}
-
-float noise2(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), u.x),
-               mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0)), u.x), u.y);
+vec2 turn(vec2 p) {
+    return vec2(p.x * 0.800 - p.y * 0.600, p.x * 0.600 + p.y * 0.800);
 }
 
 float yard_weight(vec2 p, vec4 house) {
-    if (house.z < 0.5) return 0.0;
-    vec2 local = p - (house.xy + vec2(1.0));
-    vec2 outside = max(abs(local) - vec2(0.78, 0.76), vec2(0.0));
-    float irregular = (noise2(p * 2.4 + house.w) - 0.5) * 0.22;
-    float apron = 1.0 - smoothstep(0.15, 0.72, length(outside) + irregular);
-    float along = p.y - (house.y + 1.83);
-    float bend = sin(along * 1.45 + house.w * 0.13) * 0.10;
-    float center = house.x + 0.60 + bend;
-    float width = abs(p.x - center) + (noise2(p * 3.1) - 0.5) * 0.10;
-    float path = (1.0 - smoothstep(0.20, 0.45, width)) *
-                 smoothstep(-0.18, 0.20, along) *
-                 (1.0 - smoothstep(1.50, 2.65, along));
-    return max(apron * 0.88, path);
+    if (house.z < 0.5) { return 0.0; }
+    vec2 local = p - house.xy - vec2(1.0);
+    vec2 outside = max(abs(local) - vec2(0.79, 0.78), vec2(0.0));
+    float edge = (texture(meadow_detail, p * 0.19 + house.w * 0.071).g - 0.5) * 0.24;
+    float apron = 1.0 - smoothstep(0.11, 0.67, length(outside) + edge);
+    float along = p.y - house.y - 1.82;
+    float center = house.x + 0.60 + sin(along * 1.37 + house.w * 0.17) * 0.12;
+    float path = (1.0 - smoothstep(0.19, 0.46, abs(p.x - center) + edge * 0.36)) *
+        smoothstep(-0.18, 0.22, along) * (1.0 - smoothstep(1.65, 2.75, along));
+    return max(apron * 0.94, path);
+}
+
+float terrain_height(vec2 p) {
+    // Height texels are at terrain corners, not independently shaded cells.
+    vec2 uv = (clamp(p, vec2(0.0), map_size) + vec2(0.5)) / (map_size + vec2(1.0));
+    return texture(surface_heights, uv).r;
 }
 
 void vertex() {
     ground_world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+    vec3 authored_normal = normalize(MODEL_NORMAL_MATRIX * NORMAL);
+    // Two-sided terrain must not accidentally classify its top as a cliff
+    // because the fragment normal was flipped by face orientation.
+    ground_top = smoothstep(0.48, 0.82, abs(authored_normal.y));
 }
 
 void fragment() {
     vec2 p = ground_world.xz;
-    vec4 biomes = texture(biome_map, p / map_size);
+    vec2 seed = vec2(seed_offset * 0.00317, seed_offset * 0.00193);
+    vec4 broad = texture(meadow_detail, p * 0.024 + seed);
+    vec2 warped = p + vec2(broad.g - 0.5, broad.r - 0.5) * 2.4;
+    vec4 middle = texture(meadow_detail, turn(warped) * 0.083 + seed.yx + vec2(0.31, 0.73));
+    vec4 small = texture(meadow_detail, turn(p) * 0.43 + seed + vec2(0.17, 0.61));
+    vec4 blades = texture(meadow_detail, p * 0.61 + seed.yx + vec2(0.53, 0.29));
+    vec2 biome_warp = (middle.gb - vec2(0.5)) * 0.18;
+    vec3 biomes = texture(biome_map, (p + biome_warp) / map_size).rgb;
     float green = clamp(biomes.r + biomes.g, 0.0, 1.0);
-    float woods = biomes.g / max(0.001, green);
-    vec2 seed = vec2(seed_offset * 0.031, seed_offset * 0.017);
-    vec2 warp = vec2(noise2(p * 0.13 + seed), noise2(p.yx * 0.16 + seed + 19.4));
-    vec2 q = p + (warp - 0.5) * 2.5;
-    float broad = noise2(q * 0.24 + seed);
-    float middle = noise2(q * 0.91 + seed + 7.1);
-    float grass_mix = clamp(broad * 0.74 + middle * 0.26, 0.0, 1.0);
-    vec3 grass = mix(vec3(0.245, 0.355, 0.150), vec3(0.410, 0.510, 0.255), grass_mix);
-    vec3 forest = mix(vec3(0.205, 0.295, 0.170), vec3(0.315, 0.400, 0.220), grass_mix);
-    vec3 meadow = mix(grass, forest, woods * 0.85);
-    float dry = smoothstep(0.64, 0.84, broad) * 0.20;
-    meadow = mix(meadow, vec3(0.48, 0.43, 0.28), dry);
+    float woods = biomes.g / max(green, 0.001);
+    float ground_weight = clamp(green + biomes.b, 0.0, 1.0) * ground_top;
 
-    // Fine, antialiased variation fades at distant zoom, not square speckle.
-    float pixel_span = max(length(dFdx(p)), length(dFdy(p)));
-    float detail = 1.0 - smoothstep(0.025, 0.15, pixel_span);
-    float grain = noise2(p * 6.3 + seed) - 0.5;
-    meadow *= 1.0 + grain * 0.045 * detail;
+    float coverage = smoothstep(0.23, 0.77, broad.r * 0.68 + middle.g * 0.32);
+    vec3 grass = mix(meadow_shade.rgb, meadow_body.rgb, coverage);
+    grass = mix(grass, meadow_sun.rgb, smoothstep(0.54, 0.85, middle.r) * 0.64);
+    float dry = smoothstep(0.64, 0.88, broad.g) * smoothstep(0.32, 0.72, middle.b);
+    grass = mix(grass, dry_grass.rgb, dry * 0.38);
+    grass = mix(grass, woodland.rgb * (0.91 + middle.g * 0.18), woods * 0.56);
 
-    vec3 view_up = normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
-    float top_face = smoothstep(0.65, 0.93, dot(normalize(NORMAL), view_up));
-    float meadow_weight = green * top_face;
-    ALBEDO = mix(COLOR.rgb, meadow, meadow_weight);
+    // Curved, antialiased blade strokes supply a low carpet beneath real
+    // instanced grass. Mipmaps integrate this detail at distant zoom.
+    float span = max(length(dFdx(p)), length(dFdy(p)));
+    float near_detail = 1.0 - smoothstep(0.06, 0.32, span);
+    float tuft = clamp(small.a * 0.72 + blades.a * 0.48, 0.0, 1.0);
+    grass *= 0.96 + (small.b - 0.5) * 0.15 * near_detail;
+    grass = mix(grass, meadow_shade.rgb * 0.84, tuft * 0.32 * near_detail);
+    grass += meadow_sun.rgb * blades.a * 0.055 * near_detail;
 
-    // Meadow center-fan normals used to reveal the square simulation cells.
-    // Keep height/picking intact and soften ONLY gently sloping green tops.
-    NORMAL = normalize(mix(NORMAL, view_up, meadow_weight * 0.94));
+    vec3 sand = sand_color.rgb * (0.92 + middle.b * 0.13 + (small.b - 0.5) * 0.07 * near_detail);
+    vec3 ground_color = mix(sand, grass, green / max(green + biomes.b, 0.001));
     float yard = max(yard_weight(p, house_a), max(yard_weight(p, house_b), yard_weight(p, house_c)));
-    float yard_allowed = clamp(biomes.r + biomes.b, 0.0, 1.0) * top_face;
-    vec3 earth = mix(vec3(0.32, 0.255, 0.17), vec3(0.49, 0.405, 0.275), middle);
-    ALBEDO = mix(ALBEDO, earth, yard * yard_allowed * 0.87);
-    ROUGHNESS = 0.96;
+    float yard_allowed = clamp(biomes.r + biomes.b, 0.0, 1.0);
+    vec3 earth = mix(earth_dark.rgb, earth_light.rgb, middle.b * 0.63 + small.b * 0.37);
+    ground_color = mix(ground_color, earth, yard * yard_allowed * 0.93);
+    ALBEDO = mix(COLOR.rgb, ground_color, ground_weight);
+
+    // Continuous lighting follows actual editable corner heights. Disabling
+    // synthetic per-cell center relief also removes its repeated self-shadow.
+    float d = 0.70;
+    float dx = terrain_height(p - vec2(d, 0.0)) - terrain_height(p + vec2(d, 0.0));
+    float dz = terrain_height(p - vec2(0.0, d)) - terrain_height(p + vec2(0.0, d));
+    vec3 world_normal = normalize(vec3(dx, 2.0 * d, dz));
+    vec3 view_normal = normalize((VIEW_MATRIX * vec4(world_normal, 0.0)).xyz);
+    NORMAL = normalize(mix(NORMAL, view_normal, ground_weight));
+    ROUGHNESS = 0.98;
     METALLIC = 0.0;
     SPECULAR = 0.0;
+    AO = 1.0 - yard * yard_allowed * 0.08;
 }
