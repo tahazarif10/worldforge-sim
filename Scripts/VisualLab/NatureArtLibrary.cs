@@ -116,11 +116,12 @@ public sealed class NatureArtLibrary
         Vector2 anchor=NaturalGroundCover.Anchor(x,z,seed);
         uint hash=EnvironmentArtMath.Hash(x,z,unchecked(seed+551));
         float variation=((hash>>16)&255u)/255f;
-        // Previous 0.10m ground plants became isolated specks at ordinary
-        // zoom. Slender blades now supply readable volume above the textured
-        // low carpet, without increasing their radial collision footprint.
+        // Slightly taller, fuller groundcover and clearly readable
+        // wildflowers. The authored anchor and tile-center walking lanes
+        // remain unchanged; only Grass/Flower visuals change.
         float height=source.Species==Species.Grass
-            ?.155f+variation*.060f:.235f+variation*.085f;
+            ? .235f+variation*.085f
+            : .380f+variation*.110f;
         float ground=_naturalTerrain is null?source.Position.Y:
             _naturalTerrain.SurfaceHeightAt(x,z,anchor.X-x,anchor.Y-z);
         result=new Placement(source.Species,new Vector3(anchor.X,ground,anchor.Y),

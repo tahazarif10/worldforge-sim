@@ -30,12 +30,12 @@ float yard_weight(vec2 p, vec4 house) {
     vec2 local = p - house.xy - vec2(1.0);
     vec2 outside = max(abs(local) - vec2(0.79, 0.78), vec2(0.0));
     float edge = (texture(meadow_detail, p * 0.19 + house.w * 0.071).g - 0.5) * 0.24;
-    float apron = 1.0 - smoothstep(0.11, 0.67, length(outside) + edge);
+    float apron = 1.0 - smoothstep(0.10, 0.78, length(outside) + edge);
     float along = p.y - house.y - 1.82;
     float center = house.x + 0.60 + sin(along * 1.37 + house.w * 0.17) * 0.12;
-    float path = (1.0 - smoothstep(0.19, 0.46, abs(p.x - center) + edge * 0.36)) *
-        smoothstep(-0.18, 0.22, along) * (1.0 - smoothstep(1.65, 2.75, along));
-    return max(apron * 0.94, path);
+    float path = (1.0 - smoothstep(0.18, 0.53, abs(p.x - center) + edge * 0.36)) *
+        smoothstep(-0.18, 0.24, along) * (1.0 - smoothstep(1.55, 2.88, along));
+    return max(apron * 0.90, path);
 }
 
 float terrain_height(vec2 p) {
@@ -86,8 +86,14 @@ void fragment() {
     vec3 ground_color = mix(sand, grass, green / max(green + biomes.b, 0.001));
     float yard = max(yard_weight(p, house_a), max(yard_weight(p, house_b), yard_weight(p, house_c)));
     float yard_allowed = clamp(biomes.r + biomes.b, 0.0, 1.0);
-    vec3 earth = mix(earth_dark.rgb, earth_light.rgb, middle.b * 0.63 + small.b * 0.37);
-    ground_color = mix(ground_color, earth, yard * yard_allowed * 0.93);
+    // Soft hand-worn earth: mixed broad/middle/fine soil tones with no
+    // new texture fetches or geometric squares along the cottage path.
+    float soil_tone = clamp(middle.b * 0.55 + small.b * 0.28 +
+        broad.b * 0.17, 0.0, 1.0);
+    vec3 earth = mix(earth_dark.rgb, earth_light.rgb, soil_tone);
+    earth *= 0.975 + (small.r - 0.5) * 0.085 * near_detail;
+    float soft_yard = smoothstep(0.06, 0.95, yard);
+    ground_color = mix(ground_color, earth, soft_yard * yard_allowed * 0.84);
     ALBEDO = mix(COLOR.rgb, ground_color, ground_weight);
 
     // Continuous lighting follows actual editable corner heights. Disabling
