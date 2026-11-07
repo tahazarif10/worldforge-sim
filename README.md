@@ -6,6 +6,8 @@
 
 **Closer house inspection (2026-11-06):** The manual H: 3D launcher now allows mouse-wheel zoom to an orthographic size of **5.5** (previously 19), roughly **3.45× closer**, still anchored under the cursor. The raw V2 reference scene and acceptance tests retain their 19-unit minimum. Camera angle/pan and all game simulation/save mechanics are unchanged; test visually on Windows.
 
+**House approach and worn soil (2026-11-07):** A separate small, purely visual Gen1.1 courtyard now gives every built house a faint rough-earth apron, a tapering pedestrian track out of the existing south door and embedded pebbles, all sampled against the original V2 terrain height (including sculpt edits). Decorative little grass/flowers inside the footprint/approach are locally thinned without deleting any actual terrain, citizens, wood, berries or paths. This is bounded to the existing up-to-three houses; models/path are created only on nearby visual changes, not simulation ticks. See [ADR 0021](docs/decisions/0021-local-house-ground-dressing.md). The player's Windows visuals remain the acceptance gate.
+
 ### Generation 1 wooden house art — rustic cottage (2026-11-06)
 
 **Gen 1.1 update:** the same original cottage has a warmer and more irregular layered straw roof, rougher fieldstone masonry, stronger gable timber silhouette, clearer hand-made door/shutters, subtle plaster wear and now-visible outdoor logs/chest/entry stones. All detail is statically batched into the same stage-aware mesh/material system (one extra complete-stage module). No new upgrade gameplay, population or logic changes; use your Windows VisualLab to evaluate the appearance. No CI result was checked for this iteration.

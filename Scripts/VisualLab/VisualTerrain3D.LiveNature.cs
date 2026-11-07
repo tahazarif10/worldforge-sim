@@ -184,6 +184,8 @@ public partial class VisualTerrain3D
     {
         if(_natureArt is null || !_world.Contains(x,y))return null;
         Terrain kind=_tiles.Tile(x,y);
+        if(kind==Terrain.Grass && SuppressHouseDecorativeGroundCover(x,y))
+            return null;
         uint hash=Hash(x,y,_world.Seed+119);
         int species=NatureScatter.Pick(kind,hash);
         if(species<0)return null;
