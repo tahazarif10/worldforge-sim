@@ -65,16 +65,37 @@ public static class NaturalGroundCover
             b.Blade(origin,angle,height,.009f+(i%3)*.002f,
                 i%3==0?root:i%3==1?leaf:tip);
         }
-        if(flowering)
+        if(!flowering)
         {
-            Flower(b,new(0,0,0),.32f,.02f,new Color("#DDD4AB"),leaf);
-            Flower(b,new(.031f,0,-.022f),.235f,.011f,new Color("#C6BE87"),root);
-            for(int i=0;i<3;i++)
+            // Fuller rounded leaves, still inside the off-center walking-lane
+            // clearance. These are baked into one shared low-poly MultiMesh
+            // source, not separate nodes or per-frame geometry.
+            for(int i=0;i<5;i++)
+            {
+                float angle=i*Mathf.Tau/5f+.32f;
+                Vector3 center=new(MathF.Sin(angle)*.046f,
+                    .075f+(i%3)*.015f,MathF.Cos(angle)*.046f);
+                b.Ellipsoid(center,new(.038f,.046f,.054f),
+                    i%3==0?tip:i%2==0?root:leaf,
+                    new Basis(Vector3.Up,angle));
+            }
+            b.Ellipsoid(new(0,.125f,0),new(.036f,.046f,.043f),
+                tip,Basis.Identity);
+        }
+        else
+        {
+            // Two raised blossoms and a little more broad-leaf volume make
+            // wildflowers readable at the regular game camera distance.
+            Flower(b,new(0,0,0),.34f,.025f,new Color("#DDD4AB"),leaf);
+            Flower(b,new(.037f,0,-.022f),.255f,.017f,
+                new Color("#C6BE87"),root);
+            for(int i=0;i<4;i++)
             {
                 float angle=i*2.11f+.2f;
                 Basis turn=new Basis(Vector3.Up,angle)*new Basis(Vector3.Right,-.43f);
-                b.Ellipsoid(new(MathF.Sin(angle)*.018f,.09f+i*.034f,
-                    MathF.Cos(angle)*.018f),new(.013f,.006f,.043f),leaf,turn);
+                b.Ellipsoid(new(MathF.Sin(angle)*.025f,.09f+i*.034f,
+                    MathF.Cos(angle)*.025f),new(.021f,.010f,.052f),
+                    i%3==0?tip:leaf,turn);
             }
         }
         return (b.Finish(),material);
@@ -87,14 +108,14 @@ public static class NaturalGroundCover
             new(.0045f,height*.5f,.0045f),stem,
             new Basis(Vector3.Forward,-MathF.Atan2(bend,height)));
         Vector3 head=basePoint+new Vector3(bend,height,0);
-        for(int i=0;i<5;i++)
+        for(int i=0;i<6;i++)
         {
-            float angle=i*Mathf.Tau/5f;
-            b.Ellipsoid(head+new Vector3(MathF.Sin(angle)*.022f,0,
-                MathF.Cos(angle)*.022f),new(.013f,.008f,.023f),petal,
+            float angle=i*Mathf.Tau/6f;
+            b.Ellipsoid(head+new Vector3(MathF.Sin(angle)*.028f,0,
+                MathF.Cos(angle)*.028f),new(.018f,.010f,.030f),petal,
                 new Basis(Vector3.Up,angle));
         }
-        b.Ellipsoid(head+Vector3.Up*.009f,new(.014f,.011f,.014f),
+        b.Ellipsoid(head+Vector3.Up*.010f,new(.018f,.013f,.018f),
             new Color("#AC934C"),Basis.Identity);
     }
 
