@@ -5,9 +5,8 @@ using WorldSim;
 namespace WorldForge.VisualLab;
 
 /// <summary>
-/// Yard lifetime coordinator. The rejected tessellated overlay is removed:
-/// soil and entry paths are now continuous colors on the real terrain material.
-/// Only decorative foliage is invalidated on construction/demolition.
+/// Synchronizes the cottage's soil/entrance with the continuous ground
+/// material. No lifted square mesh and no mutation of the saved biome.
 /// </summary>
 public sealed partial class HouseYardArt3D : Node3D
 {
@@ -40,6 +39,8 @@ public sealed partial class HouseYardArt3D : Node3D
             if(active)_terrain.InvalidateHouseYardFoliage(x,z);
             _ids[i]=id;_xs[i]=x;_zs[i]=z;
         }
-        _terrain.UpdateNaturalHouseUniforms();
+        // Also run explicitly from the existing house-view cadence: scene
+        // processing changes cannot leave new terrain with the old material.
+        _terrain.RefreshNaturalLandscape();
     }
 }

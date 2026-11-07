@@ -4,9 +4,9 @@ using Godot;
 namespace WorldForge.VisualLab;
 
 /// <summary>
-/// Small closed-volume meadow plants, built once and instanced by the existing
-/// MultiMesh pipeline. No crossed cards, transparent planes or per-plant nodes.
-/// Placement leaves the existing cardinal center-to-center foot lanes clear.
+/// Shared closed-volume meadow tufts. The fine grass carpet lives in the
+/// ground material; these taller blades and herbs provide parallax near the
+/// camera without one node or transparent card per blade.
 /// </summary>
 public static class NaturalGroundCover
 {
@@ -16,87 +16,88 @@ public static class NaturalGroundCover
     public static Vector2 Anchor(int x,int z,int seed)
     {
         uint h=EnvironmentArtMath.Hash(x,z,unchecked(seed+281));
-        float jx=((h>>4)&31u)/31f*.04f-.02f;
-        float jz=((h>>10)&31u)/31f*.04f-.02f;
-        return new Vector2(x+((h&1u)==0u?.11f:.89f)+jx,
-            z+((h&2u)==0u?.11f:.89f)+jz);
+        // Keep a clear corridor between the logical tile centers. Independent
+        // continuous jitter breaks the old four-identical-corners placement.
+        float edgeX=.065f+((h>>4)&255u)/255f*.065f;
+        float edgeZ=.065f+((h>>12)&255u)/255f*.065f;
+        return new Vector2(x+((h&1u)==0u?edgeX:1f-edgeX),
+            z+((h&2u)==0u?edgeZ:1f-edgeZ));
     }
 
     public static bool IsClusterSite(int x,int z,int seed)
     {
-        float patch=Value(x*.23f,z*.23f,seed)*.72f+
-            Value(x*.71f+13.2f,z*.71f-8.4f,unchecked(seed+93))*.28f;
+        float warp=Value(x*.085f,z*.085f,unchecked(seed+41))-.5f;
+        float patch=Value(x*.16f+warp,z*.16f-warp,seed)*.68f+
+            Value(x*.47f+13.2f,z*.47f-8.4f,unchecked(seed+93))*.32f;
         uint h=EnvironmentArtMath.Hash(x,z,unchecked(seed+773));
-        float pick=(h&65535u)/65535f;
-        // Organic sparse/dense groups, not one identical plant every cell.
-        float chance=Math.Clamp((patch-.28f)*1.85f,0f,.91f);
-        return pick<chance;
+        float chance=Math.Clamp(.18f+(patch-.25f)*1.85f,.15f,.96f);
+        return (h&65535u)/65535f<chance;
     }
 
     private static float Value(float x,float z,int seed)
     {
         int ix=(int)MathF.Floor(x),iz=(int)MathF.Floor(z);
         float fx=x-ix,fz=z-iz;
-        fx=fx*fx*(3f-2f*fx);fz=fz*fz*(3f-2f*fz);
+        fx=fx*fx*fx*(fx*(fx*6f-15f)+10f);
+        fz=fz*fz*fz*(fz*(fz*6f-15f)+10f);
         float Sample(int a,int b)=>(EnvironmentArtMath.Hash(a,b,seed)&65535u)/65535f;
-        float a=Sample(ix,iz)+(Sample(ix+1,iz)-Sample(ix,iz))*fx;
-        float b=Sample(ix,iz+1)+(Sample(ix+1,iz+1)-Sample(ix,iz+1))*fx;
-        return a+(b-a)*fz;
+        float low=Sample(ix,iz)*(1f-fx)+Sample(ix+1,iz)*fx;
+        float high=Sample(ix,iz+1)*(1f-fx)+Sample(ix+1,iz+1)*fx;
+        return low*(1f-fz)+high*fz;
     }
 
     public static (Mesh Mesh,Material Material) CreateModel(bool flowering)
     {
         var material=new StandardMaterial3D
         {
-            VertexColorUseAsAlbedo=true,
-            AlbedoColor=Colors.White,
-            Roughness=.96f,
-            Metallic=0f
+            VertexColorUseAsAlbedo=true,AlbedoColor=Colors.White,
+            Roughness=.98f,Metallic=0f
         };
-        using var builder=new SolidPlantBuilder(material);
-        Color dark=new("#355B32"),leaf=new("#527941"),light=new("#789755");
-        if(!flowering)
+        using var b=new SolidPlantBuilder(material);
+        Color root=new("#3C5D2D"),leaf=new("#638344"),tip=new("#8CA45A");
+        int blades=flowering?5:11;
+        for(int i=0;i<blades;i++)
         {
-            // Low rounded foliage volumes plus curved-looking fleshy leaves.
-            builder.Ellipsoid(new(-.029f,.052f,.012f),new(.057f,.055f,.050f),dark,Basis.Identity);
-            builder.Ellipsoid(new(.027f,.063f,-.018f),new(.053f,.062f,.052f),leaf,Basis.Identity);
-            builder.Ellipsoid(new(.006f,.083f,.028f),new(.043f,.059f,.044f),light,Basis.Identity);
-            for(int i=0;i<5;i++)
-            {
-                float angle=i*2.399963f;
-                Vector3 center=new(MathF.Sin(angle)*.040f,.085f+(i%3)*.012f,
-                    MathF.Cos(angle)*.040f);
-                Basis turn=new Basis(Vector3.Up,angle)*new Basis(Vector3.Right,-.52f);
-                builder.Ellipsoid(center,new(.023f,.012f,.082f),i%2==0?leaf:light,turn);
-            }
+            float angle=i*2.399963f+.31f;
+            float offset=.007f+(i%3)*.009f;
+            float height=(flowering?.065f:.11f)+(i%4)*.027f;
+            Vector3 origin=new(MathF.Sin(angle)*offset,0f,MathF.Cos(angle)*offset);
+            b.Blade(origin,angle,height,.009f+(i%3)*.002f,
+                i%3==0?root:i%3==1?leaf:tip);
         }
-        else
+        if(flowering)
         {
-            builder.Ellipsoid(new(0,.17f,0),new(.007f,.17f,.007f),dark,Basis.Identity);
-            builder.Ellipsoid(new(.046f,.134f,-.025f),new(.006f,.126f,.006f),leaf,
-                new Basis(Vector3.Forward,-.20f));
+            Flower(b,new(0,0,0),.32f,.02f,new Color("#DDD4AB"),leaf);
+            Flower(b,new(.031f,0,-.022f),.235f,.011f,new Color("#C6BE87"),root);
             for(int i=0;i<3;i++)
             {
-                float angle=i*2.25f+.3f;
-                Basis turn=new Basis(Vector3.Up,angle)*new Basis(Vector3.Right,-.48f);
-                builder.Ellipsoid(new(MathF.Sin(angle)*.025f,.08f+i*.032f,
-                    MathF.Cos(angle)*.025f),new(.020f,.009f,.055f),leaf,turn);
+                float angle=i*2.11f+.2f;
+                Basis turn=new Basis(Vector3.Up,angle)*new Basis(Vector3.Right,-.43f);
+                b.Ellipsoid(new(MathF.Sin(angle)*.018f,.09f+i*.034f,
+                    MathF.Cos(angle)*.018f),new(.013f,.006f,.043f),leaf,turn);
             }
-            Color petal=new("#D3C394"),petalLight=new("#E1D6B4");
-            for(int i=0;i<5;i++)
-            {
-                float angle=i*Mathf.Tau/5f;
-                builder.Ellipsoid(new(MathF.Sin(angle)*.030f,.334f,
-                    MathF.Cos(angle)*.030f),new(.018f,.011f,.032f),
-                    i%2==0?petal:petalLight,new Basis(Vector3.Up,angle));
-            }
-            builder.Ellipsoid(new(0,.347f,0),new(.021f,.014f,.021f),new Color("#B59546"),Basis.Identity);
-            builder.Ellipsoid(new(.070f,.265f,-.025f),new(.018f,.023f,.018f),petal,Basis.Identity);
         }
-        return (builder.Finish(),material);
+        return (b.Finish(),material);
     }
 
-    /// <summary>Closed ellipsoids with outward analytic normals, not black backfaces.</summary>
+    private static void Flower(SolidPlantBuilder b,Vector3 basePoint,float height,
+        float bend,Color petal,Color stem)
+    {
+        b.Ellipsoid(basePoint+new Vector3(bend*.5f,height*.5f,0),
+            new(.0045f,height*.5f,.0045f),stem,
+            new Basis(Vector3.Forward,-MathF.Atan2(bend,height)));
+        Vector3 head=basePoint+new Vector3(bend,height,0);
+        for(int i=0;i<5;i++)
+        {
+            float angle=i*Mathf.Tau/5f;
+            b.Ellipsoid(head+new Vector3(MathF.Sin(angle)*.022f,0,
+                MathF.Cos(angle)*.022f),new(.013f,.008f,.023f),petal,
+                new Basis(Vector3.Up,angle));
+        }
+        b.Ellipsoid(head+Vector3.Up*.009f,new(.014f,.011f,.014f),
+            new Color("#AC934C"),Basis.Identity);
+    }
+
     private sealed class SolidPlantBuilder : IDisposable
     {
         private readonly SurfaceTool _surface=new();
@@ -106,45 +107,72 @@ public static class NaturalGroundCover
             _surface.SetMaterial(material);
         }
 
+        internal void Blade(Vector3 origin,float yaw,float height,float width,Color color)
+        {
+            const int rings=4;
+            Vector3 lean=new(MathF.Sin(yaw),0,MathF.Cos(yaw));
+            Vector3 side=new(lean.Z,0,-lean.X);
+            (Vector3 P,Vector3 N) Point(int ring,int corner)
+            {
+                float t=ring/(float)rings;
+                float half=.0008f+width*MathF.Sin(Mathf.Pi*t);
+                Vector3 center=origin+Vector3.Up*(height*t)+lean*(height*.31f*t*t);
+                float angle=corner*Mathf.Pi*.5f;
+                Vector3 radial=side*MathF.Cos(angle)+lean*MathF.Sin(angle);
+                Vector3 offset=side*(MathF.Cos(angle)*half)+
+                    lean*(MathF.Sin(angle)*half*.23f);
+                Vector3 normal=(radial+Vector3.Up*.15f).Normalized();
+                return (center+offset,normal);
+            }
+            for(int ring=0;ring<rings;ring++)
+            for(int sideIndex=0;sideIndex<4;sideIndex++)
+            {
+                var a=Point(ring,sideIndex);var c=Point(ring+1,sideIndex);
+                var d=Point(ring+1,sideIndex+1);var e=Point(ring,sideIndex+1);
+                Face(a,e,d,color);Face(a,d,c,color);
+            }
+            var a0=Point(0,0);var a1=Point(0,1);var a2=Point(0,2);var a3=Point(0,3);
+            Face((a0.P,Vector3.Down),(a1.P,Vector3.Down),(a2.P,Vector3.Down),color);
+            Face((a0.P,Vector3.Down),(a2.P,Vector3.Down),(a3.P,Vector3.Down),color);
+            var t0=Point(rings,0);var t1=Point(rings,1);
+            var t2=Point(rings,2);var t3=Point(rings,3);
+            Face((t0.P,Vector3.Up),(t2.P,Vector3.Up),(t1.P,Vector3.Up),color);
+            Face((t0.P,Vector3.Up),(t3.P,Vector3.Up),(t2.P,Vector3.Up),color);
+        }
+
         internal void Ellipsoid(Vector3 center,Vector3 radii,Color color,Basis rotation)
         {
             const int rings=3,sides=6;
-            (Vector3 P,Vector3 N) Vertex(int r,int s)
+            (Vector3 P,Vector3 N) Point(int r,int s)
             {
                 float theta=r*Mathf.Pi/rings,phi=s*Mathf.Tau/sides;
                 Vector3 unit=new(MathF.Sin(theta)*MathF.Cos(phi),MathF.Cos(theta),
                     MathF.Sin(theta)*MathF.Sin(phi));
                 Vector3 p=center+rotation*new Vector3(unit.X*radii.X,unit.Y*radii.Y,unit.Z*radii.Z);
-                Vector3 n=(rotation*new Vector3(unit.X/radii.X,unit.Y/radii.Y,
-                    unit.Z/radii.Z)).Normalized();
+                Vector3 n=(rotation*new Vector3(unit.X/radii.X,unit.Y/radii.Y,unit.Z/radii.Z)).Normalized();
                 return (p,n);
             }
             for(int r=0;r<rings;r++)
             for(int s=0;s<sides;s++)
             {
-                var a=Vertex(r,s);var b=Vertex(r+1,s);
-                var c=Vertex(r+1,s+1);var d=Vertex(r,s+1);
-                if(r>0)Face(a,d,c,color);
-                if(r<rings-1)Face(a,c,b,color);
+                var a=Point(r,s);var c=Point(r+1,s);var d=Point(r+1,s+1);var e=Point(r,s+1);
+                if(r>0)Face(a,e,d,color);
+                if(r<rings-1)Face(a,d,c,color);
             }
         }
 
         private void Face((Vector3 P,Vector3 N) a,(Vector3 P,Vector3 N) b,
             (Vector3 P,Vector3 N) c,Color color)
         {
-            // Outward normals are explicit. Godot uses clockwise front-face
-            // winding, so reverse a geometrically outward CCW triangle.
-            Vector3 cross=(b.P-a.P).Cross(c.P-a.P);
-            if(cross.Dot(a.N+b.N+c.N)>0f)(b,c)=(c,b);
+            if((b.P-a.P).Cross(c.P-a.P).Dot(a.N+b.N+c.N)>0f)(b,c)=(c,b);
             Emit(a.P,a.N,color);Emit(b.P,b.N,color);Emit(c.P,c.N,color);
         }
-
-        private void Emit(Vector3 position,Vector3 normal,Color color)
+        private void Emit(Vector3 point,Vector3 normal,Color color)
         {
-            float shade=.88f+Math.Clamp(normal.Y,0f,1f)*.12f;
+            float light=.91f+Math.Clamp(normal.Y,0f,1f)*.09f;
             _surface.SetNormal(normal);
-            _surface.SetColor(new Color(color.R*shade,color.G*shade,color.B*shade,1f));
-            _surface.AddVertex(position);
+            _surface.SetColor(new Color(color.R*light,color.G*light,color.B*light,1f));
+            _surface.AddVertex(point);
         }
         internal ArrayMesh Finish()=>_surface.Commit();
         public void Dispose()=>_surface.Dispose();

@@ -79,7 +79,7 @@ public sealed class NatureArtLibrary
         }
         LoadedModels=total;
         GD.Print(NaturalGroundCover.Enabled
-            ? $"V2 nature meshes ready: {LoadedModels}/{AssetNames.Length}; closed-volume meadow plants enabled"
+            ? $"V2 nature meshes ready: {LoadedModels}/{AssetNames.Length}; layered meadow tufts enabled"
             : $"V2 authored Kenney nature models loaded: {LoadedModels}/{AssetNames.Length}");
     }
 
@@ -101,9 +101,8 @@ public sealed class NatureArtLibrary
     }
 
     /// <summary>
-    /// Ground plants sit off existing tile-center movement lanes, at a real
-    /// sampled ground height. Trees, rocks and simulation resources retain
-    /// their canonical sites. Cluster selection is stable across save/load.
+    /// Chunk and held-paint instances use identical clustering, dimensions
+    /// and clear walking-lane anchors. No per-frame randomization or popping.
     /// </summary>
     private bool ResolvePlacement(Placement source,out Placement result)
     {
@@ -117,7 +116,11 @@ public sealed class NatureArtLibrary
         Vector2 anchor=NaturalGroundCover.Anchor(x,z,seed);
         uint hash=EnvironmentArtMath.Hash(x,z,unchecked(seed+551));
         float variation=((hash>>16)&255u)/255f;
-        float height=source.Species==Species.Grass?.10f+variation*.035f:.19f+variation*.06f;
+        // Previous 0.10m ground plants became isolated specks at ordinary
+        // zoom. Slender blades now supply readable volume above the textured
+        // low carpet, without increasing their radial collision footprint.
+        float height=source.Species==Species.Grass
+            ?.155f+variation*.060f:.235f+variation*.085f;
         float ground=_naturalTerrain is null?source.Position.Y:
             _naturalTerrain.SurfaceHeightAt(x,z,anchor.X-x,anchor.Y-z);
         result=new Placement(source.Species,new Vector3(anchor.X,ground,anchor.Y),
@@ -130,12 +133,8 @@ public sealed class NatureArtLibrary
         Model model=_models[(int)placement.Species]??
             throw new InvalidOperationException("Nature model was not imported.");
         if(!ResolvePlacement(placement,out Placement resolved))
-        {
-            // Live caches keep stable slots. Hide rejected decorative slots
-            // without allocating/removing nodes or touching authoritative data.
             return new Transform3D(Basis.Identity.Scaled(Vector3.One*.00001f),
                 placement.Position-Vector3.Up*4f);
-        }
         return MakePlacementTransform(model,resolved,model.Parts[partIndex].Local);
     }
 
