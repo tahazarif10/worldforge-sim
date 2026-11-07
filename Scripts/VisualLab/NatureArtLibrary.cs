@@ -235,9 +235,13 @@ public sealed class NatureArtLibrary
             if(Has(original.Species) && ResolvePlacement(original,out Placement p))Add(p);
         }
         if(canonical)
+        {
             for(int z=bounds.Position.Y;z<bounds.End.Y;z++)
             for(int x=bounds.Position.X;x<bounds.End.X;x++)
-                if(TryGroundCoverPlacement(x,z,out Placement p))Add(p);
+            {
+                if(TryGroundCoverPlacement(x,z,out Placement groundCover))Add(groundCover);
+            }
+        }
 
         int count=0;
         foreach(var group in groups)
