@@ -33,7 +33,10 @@ ADRs explain **why** technical choices were made, how they are verified and whic
 | [0018](0018-independent-live-terrain-paint-preview.md) | Implemented candidate; physical brush acceptance pending | Immediate terrain-only held-brush preview, bounded mouse-event coalescing and deferred atomic foliage handoff |
 | [0019](0019-live-native-nature-instancing.md) | Implemented candidate; physical GPU validation pending | Edit CC0 tree/rock/grass/flower MultiMesh instances live in the same frame as the ground; no per-mouse GLB recreation |
 | [0020](0020-modular-first-generation-rustic-house.md) | Implemented art candidate; user Windows test pending | Single old-world Gen1 cottage from staged, shared vertex-color ArrayMesh modules, preserving all logical houses and construction stages |
-| [0021](0021-local-house-ground-dressing.md) | Visual-only implementation candidate; Windows acceptance pending | Local sculpt-conforming soil/apron and entry path for existing houses; decorative plant suppression without changing saved biome or pathfinding |
+| [0021](0021-local-house-ground-dressing.md) | Yard mesh superseded by 0022 | Local house ground dressing; the rejected square overlay is replaced by continuous terrain shading |
+| [0022](0022-natural-meadow-and-volumetric-plants.md) | Implemented candidate; Windows shader/visual acceptance pending | Continuous meadow and yard shading, original volumetric plants, clustered distribution and clear cardinal walking lanes |
+
+Latest environment implementation evidence: [project-state supplement](../PROJECT_STATE_NATURAL_ENVIRONMENT.md).
 
 Add an ADR when changing: visual backend, camera interaction contract, Godot render mode, data authority, region boundaries, thread/queue/cancellation semantics, save format, world generator or accepted milestone order.
 
